@@ -67,6 +67,8 @@ class _CategoryButtonsWidgetState extends State<CategoryButtonsWidget> {
 
   @override
   Widget build(BuildContext context) {
+    print("------------------------------");
+    print(response);
     return Stack(
       children: [
         Column(
@@ -81,23 +83,23 @@ class _CategoryButtonsWidgetState extends State<CategoryButtonsWidget> {
                         ? buildCategoryRow(
                             'assets/icons/review_icon_boarding.svg',
                             'Boarding and\nArrival Experience',
-                            response['departureArrival']?.round()?.toString() ??
+                            response['departureArrival']?.toStringAsFixed(1) ??
                                 '0')
                         : buildCategoryRow(
                             'assets/icons/review_icon_access.svg',
                             'Accessibility',
-                            response['accessibility']?.round()?.toString() ??
+                            response['accessibility']?.toStringAsFixed(1) ??
                                 '0'),
                     const SizedBox(width: 16),
                     widget.isAirline
                         ? buildCategoryRow(
                             'assets/icons/review_icon_comfort.svg',
                             'Comfort',
-                            response['comfort']?.round()?.toString() ?? '0')
+                            response['comfort']?.toStringAsFixed(1) ?? '0')
                         : buildCategoryRow(
                             'assets/icons/review_icon_wait.svg',
                             'Wait Times',
-                            response['waitTimes']?.round()?.toString() ?? '0'),
+                            response['waitTimes']?.toStringAsFixed(1) ?? '0'),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -107,23 +109,22 @@ class _CategoryButtonsWidgetState extends State<CategoryButtonsWidget> {
                         ? buildCategoryRow(
                             'assets/icons/review_icon_cleanliness.svg',
                             'Cleanliness',
-                            response['cleanliness']?.round()?.toString() ?? '0')
+                            response['cleanliness']?.toStringAsFixed(1) ?? '0')
                         : buildCategoryRow(
                             'assets/icons/review_icon_help.svg',
                             'Helpfulness/Easy Travel',
-                            response['helpfulness']?.round()?.toString() ??
-                                '0'),
+                            response['helpfulness']?.toStringAsFixed(1) ?? '0'),
                     const SizedBox(width: 16),
                     widget.isAirline
                         ? buildCategoryRow(
                             'assets/icons/review_icon_onboard.svg',
                             'Onboard Service',
-                            response['onboardService']?.round()?.toString() ??
+                            response['onboardService']?.toStringAsFixed(1) ??
                                 '0')
                         : buildCategoryRow(
                             'assets/icons/review_icon_ambience.svg',
                             'Ambience/Comfort',
-                            response['ambienceComfort']?.round()?.toString() ??
+                            response['ambienceComfort']?.toStringAsFixed(1) ??
                                 '0'),
                   ],
                 ),
@@ -135,32 +136,26 @@ class _CategoryButtonsWidgetState extends State<CategoryButtonsWidget> {
                           ? buildCategoryRow(
                               'assets/icons/review_icon_food.svg',
                               'Airline Food',
-                              widget.airportData['foodBeverage']
-                                      ?.round()
-                                      ?.toString() ??
+                              response['foodBeverage'].toStringAsFixed(1) ??
                                   '0')
                           : buildCategoryRow(
                               'assets/icons/review_icon_food.svg',
                               'Airport Food and Shopping',
-                              widget.airportData['foodBeverage']
-                                      ?.round()
-                                      ?.toString() ??
+                              response['foodBeverage'].toStringAsFixed(1) ??
                                   '0'),
                       const SizedBox(width: 16),
                       widget.isAirline
                           ? buildCategoryRow(
                               'assets/icons/review_icon_entertainment.svg',
                               'In-Flight\nEntertainment',
-                              widget.airportData['entertainmentWifi']
-                                      ?.round()
-                                      ?.toString() ??
+                              response['entertainmentWifi']
+                                      .toStringAsFixed(1) ??
                                   '0')
                           : buildCategoryRow(
                               'assets/icons/review_icon_entertainment.svg',
                               'Amenities and Facilities',
-                              widget.airportData['amenities']
-                                      ?.round()
-                                      ?.toString() ??
+                              response['amenities']
+                                      .toStringAsFixed(1) ??
                                   '0'),
                     ],
                   ),
