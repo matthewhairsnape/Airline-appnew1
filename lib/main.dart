@@ -25,6 +25,7 @@ import 'package:airline_app/screen/reviewsubmission/review_airport/question_seco
 import 'package:airline_app/screen/reviewsubmission/reviewsubmission_screen.dart';
 import 'package:airline_app/screen/reviewsubmission/start_reviews.dart';
 import 'package:airline_app/screen/reviewsubmission/submit_screen.dart';
+import 'package:airline_app/screen/journey/my_journey_screen.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -138,6 +139,7 @@ class MyApp extends ConsumerWidget {
         AppRoutes.aboutapp: (context) => AboutApp(),
         AppRoutes.helpFaqs: (context) => HelpFaq(),
         AppRoutes.termsofservice: (context) => TermsOfService(),
+        AppRoutes.myJourney: (context) => const MyJourneyScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

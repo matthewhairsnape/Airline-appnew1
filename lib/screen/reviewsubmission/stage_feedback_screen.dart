@@ -1,403 +1,392 @@
-import 'package:airline_app/models/flight_tracking_model.dart';
-import 'package:airline_app/provider/flight_tracking_provider.dart';
-import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
-import 'package:airline_app/screen/app_widgets/main_button.dart';
-import 'package:airline_app/services/stage_question_service.dart';
-import 'package:airline_app/utils/app_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/stage_feedback_model.dart';
+import '../../services/stage_question_service.dart';
+import '../../utils/app_styles.dart';
+import '../../provider/stage_feedback_provider.dart';
+import '../app_widgets/main_button.dart';
 
-/// Screen for collecting stage-specific feedback during flight phases
 class StageFeedbackScreen extends ConsumerStatefulWidget {
+  final FeedbackStage stage;
+  final String flightId;
   final String pnr;
-  final FlightPhase phase;
 
   const StageFeedbackScreen({
-    super.key,
+    Key? key,
+    required this.stage,
+    required this.flightId,
     required this.pnr,
-    required this.phase,
-  });
+  }) : super(key: key);
 
   @override
   ConsumerState<StageFeedbackScreen> createState() => _StageFeedbackScreenState();
 }
 
 class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
-  final Map<String, String> _responses = {};
-  int _currentQuestionIndex = 0;
-  List<StageQuestion> _questions = [];
+  final Map<String, List<String>> _positiveSelections = {};
+  final Map<String, List<String>> _negativeSelections = {};
+  final Map<String, String> _customFeedback = {};
+  int? _overallRating;
+  final TextEditingController _commentsController = TextEditingController();
+  final TextEditingController _customTextController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _questions = StageQuestionService.getQuestionsForPhase(widget.phase);
-  }
-
-  void _handleOptionSelected(String questionId, String option) {
-    setState(() {
-      _responses[questionId] = option;
-    });
-  }
-
-  void _nextQuestion() {
-    if (_currentQuestionIndex < _questions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-      });
-    }
-  }
-
-  void _previousQuestion() {
-    if (_currentQuestionIndex > 0) {
-      setState(() {
-        _currentQuestionIndex--;
-      });
-    }
-  }
-
-  Future<void> _submitFeedback() async {
-    // Get flight info
-    final flight = ref.read(flightTrackingProvider.notifier).getFlight(widget.pnr);
-
-    if (flight == null) return;
-
-    // Create operational context from Cirium data
-    final operationalContext = {
-      'flightId': flight.flightId,
-      'carrier': flight.carrier,
-      'flightNumber': flight.flightNumber,
-      'departureAirport': flight.departureAirport,
-      'arrivalAirport': flight.arrivalAirport,
-      'departureTime': flight.departureTime.toIso8601String(),
-      'arrivalTime': flight.arrivalTime.toIso8601String(),
-      'currentPhase': widget.phase.toString(),
-      'phaseStartTime': flight.phaseStartTime?.toIso8601String(),
-      'events': flight.events.map((e) => e.toJson()).toList(),
-      'ciriumVerified': flight.isVerified,
-    };
-
-    // Create feedback object
-    final stageFeedback = StageFeedback(
-      id: '${widget.pnr}_${widget.phase}_${DateTime.now().millisecondsSinceEpoch}',
-      flightId: flight.flightId,
-      userId: '', // Get from user provider
-      phase: widget.phase,
-      responses: _responses,
-      timestamp: DateTime.now(),
-      operationalContext: operationalContext,
-    );
-
-    debugPrint('📝 Stage feedback submitted:');
-    debugPrint('   Phase: ${widget.phase}');
-    debugPrint('   Responses: $_responses');
-    debugPrint('   Operational context: $operationalContext');
-
-    // TODO: Send feedback to backend API
-    // await feedbackService.submitStageFeedback(stageFeedback);
-    debugPrint('Stage feedback ready to submit: ${stageFeedback.toJson()}');
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Thank you for your feedback!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context);
-    }
-  }
-
-  String _getPhaseTitle() {
-    switch (widget.phase) {
-      case FlightPhase.checkInOpen:
-        return 'Check-In Feedback';
-      case FlightPhase.boarding:
-        return 'Boarding Feedback';
-      case FlightPhase.inFlight:
-        return 'In-Flight Feedback';
-      case FlightPhase.landed:
-      case FlightPhase.baggageClaim:
-        return 'Arrival Feedback';
-      default:
-        return 'Flight Feedback';
-    }
-  }
-
-  String _getPhaseEmoji() {
-    switch (widget.phase) {
-      case FlightPhase.checkInOpen:
-        return '✅';
-      case FlightPhase.boarding:
-        return '🎫';
-      case FlightPhase.inFlight:
-        return '✈️';
-      case FlightPhase.landed:
-      case FlightPhase.baggageClaim:
-        return '🛬';
-      default:
-        return '✈️';
-    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final flight = ref.watch(flightTrackingProvider).trackedFlights[widget.pnr];
+  void dispose() {
+    _commentsController.dispose();
+    _customTextController.dispose();
+    super.dispose();
+  }
 
-    if (_questions.isEmpty) {
-      return Scaffold(
-        appBar: AppbarWidget(
-          title: _getPhaseTitle(),
-          onBackPressed: () => Navigator.pop(context),
-        ),
-        body: Center(
-          child: Text('No questions available for this phase'),
-        ),
-      );
-    }
+  void _toggleSelection(String questionId, String optionId, FeedbackType type) {
+    setState(() {
+      final selections = type == FeedbackType.positive 
+          ? _positiveSelections 
+          : _negativeSelections;
+      
+      if (!selections.containsKey(questionId)) {
+        selections[questionId] = [];
+      }
+      
+      if (selections[questionId]!.contains(optionId)) {
+        selections[questionId]!.remove(optionId);
+        if (selections[questionId]!.isEmpty) {
+          selections.remove(questionId);
+        }
+      } else {
+        selections[questionId]!.add(optionId);
+      }
+    });
+  }
 
-    final currentQuestion = _questions[_currentQuestionIndex];
-    final progress = (_currentQuestionIndex + 1) / _questions.length;
-
-    return Scaffold(
-      appBar: AppbarWidget(
-        title: _getPhaseTitle(),
-        onBackPressed: () => Navigator.pop(context),
-      ),
-      body: Column(
-        children: [
-          // Flight info banner
-          if (flight != null)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    _getPhaseEmoji(),
-                    style: TextStyle(fontSize: 32),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${flight.carrier}${flight.flightNumber}',
-                          style: AppStyles.textStyle_18_600.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          '${flight.departureAirport} → ${flight.arrivalAirport}',
-                          style: AppStyles.textStyle_15_400.copyWith(
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Progress indicator
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
-                      style: AppStyles.textStyle_15_400.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: AppStyles.textStyle_15_600.copyWith(
-                        color: Color(0xFF3B82F6),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 6,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
-                  ),
-                ),
-              ],
-            ),
+  void _showCustomFeedbackDialog(String questionId, String optionId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Tell us more'),
+        content: TextField(
+          controller: _customTextController,
+          decoration: InputDecoration(
+            hintText: 'Please describe...',
+            border: OutlineInputBorder(),
           ),
-
-          // Question and options
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 24),
-                  Text(
-                    currentQuestion.question,
-                    style: AppStyles.textStyle_24_600.copyWith(
-                      color: Color(0xFF1A1A1A),
-                      height: 1.3,
-                    ),
-                  ),
-                  SizedBox(height: 32),
-                  ...currentQuestion.options.map<Widget>((option) {
-                    final isSelected = _responses[currentQuestion.id] == option;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: InkWell(
-                        onTap: () => _handleOptionSelected(currentQuestion.id, option),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Color(0xFF3B82F6) : Colors.white,
-                            border: Border.all(
-                              color: isSelected ? Color(0xFF3B82F6) : Colors.grey[300]!,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: Color(0xFF3B82F6).withOpacity(0.3),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isSelected ? Colors.white : Colors.grey[400]!,
-                                    width: 2,
-                                  ),
-                                  color: isSelected ? Colors.white : Colors.transparent,
-                                ),
-                                child: isSelected
-                                    ? Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: Color(0xFF3B82F6),
-                                      )
-                                    : null,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: AppStyles.textStyle_16_600.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: isSelected ? Colors.white : Color(0xFF1A1A1A),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  SizedBox(height: 100), // Space for bottom buttons
-                ],
-              ),
-            ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
           ),
-
-          // Navigation buttons
-          Container(
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                if (_currentQuestionIndex > 0)
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _previousQuestion,
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: Color(0xFF3B82F6)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Previous',
-                        style: AppStyles.textStyle_16_600.copyWith(
-                          color: Color(0xFF3B82F6),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_currentQuestionIndex > 0) SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: Opacity(
-                    opacity: _responses.containsKey(currentQuestion.id) ? 1.0 : 0.5,
-                    child: MainButton(
-                      text: _currentQuestionIndex == _questions.length - 1
-                          ? 'Submit Feedback'
-                          : 'Next',
-                      onPressed: () {
-                        if (_responses.containsKey(currentQuestion.id)) {
-                          if (_currentQuestionIndex == _questions.length - 1) {
-                            _submitFeedback();
-                          } else {
-                            _nextQuestion();
-                          }
-                        }
-                      },
-                      color: _responses.containsKey(currentQuestion.id)
-                          ? Color(0xFF3B82F6)
-                          : Colors.grey[400]!,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          TextButton(
+            onPressed: () {
+              if (_customTextController.text.isNotEmpty) {
+                setState(() {
+                  _customFeedback['${questionId}_$optionId'] = _customTextController.text;
+                });
+                _customTextController.clear();
+                Navigator.pop(context);
+              }
+            },
+            child: Text('Save'),
           ),
         ],
       ),
     );
   }
-}
 
+  void _submitFeedback() {
+    final feedback = StageFeedback(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      stage: widget.stage,
+      flightId: widget.flightId,
+      pnr: widget.pnr,
+      timestamp: DateTime.now(),
+      positiveSelections: _positiveSelections,
+      negativeSelections: _negativeSelections,
+      customFeedback: _customFeedback,
+      overallRating: _overallRating,
+      additionalComments: _commentsController.text.isNotEmpty 
+          ? _commentsController.text 
+          : null,
+    );
+
+    // Store feedback locally - will be submitted with complete review
+    ref.read(stageFeedbackProvider.notifier).addFeedback(widget.flightId, feedback);
+    debugPrint('✅ Stage feedback saved locally: ${feedback.stage}');
+    
+    // Show success message and navigate back
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Thank you for your feedback! We\'ll include this in your final review.'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final questions = StageQuestionService.getQuestionsForStage(widget.stage);
+    final stageTitle = StageQuestionService.getStageTitle(widget.stage);
+    final stageSubtitle = StageQuestionService.getStageSubtitle(widget.stage);
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          stageTitle,
+          style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+        ),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with illustration placeholder
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _getStageIcon(widget.stage),
+                      size: 60,
+                      color: Colors.grey[400],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Flight Experience',
+                      style: AppStyles.textStyle_16_600.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 24),
+            
+            // Main question
+            Text(
+              'How was the ${_getStageContext(widget.stage)}?',
+              style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+            ),
+            
+            SizedBox(height: 8),
+            
+            Text(
+              stageSubtitle,
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+            ),
+            
+            SizedBox(height: 16),
+            
+            // Star rating
+            Row(
+              children: List.generate(5, (index) {
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _overallRating = index + 1;
+                    });
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: 8),
+                    child: Icon(
+                      index < (_overallRating ?? 0) ? Icons.star : Icons.star_border,
+                      color: index < (_overallRating ?? 0) ? Colors.amber : Colors.grey[400],
+                      size: 32,
+                    ),
+                  ),
+                );
+              }),
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Questions
+            ...questions.map((question) => _buildQuestionSection(question)),
+            
+            SizedBox(height: 24),
+            
+            // Additional comments
+            Text(
+              'Additional comments (optional)',
+              style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+            ),
+            
+            SizedBox(height: 8),
+            
+            TextField(
+              controller: _commentsController,
+              decoration: InputDecoration(
+                hintText: 'Tell us anything else about your experience...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Color(0xFF3B82F6)),
+                ),
+              ),
+              maxLines: 3,
+            ),
+            
+            SizedBox(height: 32),
+            
+            // Submit button
+            MainButton(
+              text: 'Submit Feedback',
+              onPressed: _canSubmit() ? _submitFeedback : null,
+              color: _canSubmit() ? Color(0xFF3B82F6) : Colors.grey[400]!,
+            ),
+            
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionSection(StageQuestion question) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            question.title,
+            style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+          ),
+          
+          SizedBox(height: 8),
+          
+          Text(
+            question.subtitle,
+            style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+          ),
+          
+          SizedBox(height: 16),
+          
+          // Bubble options
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: question.options.map((option) {
+              final isSelected = _isOptionSelected(question.id, option.id, question.type);
+              
+              return GestureDetector(
+                onTap: () {
+                  if (option.isCustom) {
+                    _showCustomFeedbackDialog(question.id, option.id);
+                  } else {
+                    _toggleSelection(question.id, option.id, question.type);
+                  }
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? (question.type == FeedbackType.positive ? Colors.green[50] : Colors.red[50])
+                        : Colors.grey[100],
+                    border: Border.all(
+                      color: isSelected 
+                          ? (question.type == FeedbackType.positive ? Colors.green : Colors.red)
+                          : Colors.grey[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    option.text,
+                    style: AppStyles.textStyle_14_500.copyWith(
+                      color: isSelected 
+                          ? (question.type == FeedbackType.positive ? Colors.green[800] : Colors.red[800])
+                          : Colors.grey[700],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          
+          // Show custom feedback if any
+          if (_customFeedback.containsKey('${question.id}_something_else'))
+            Container(
+              margin: EdgeInsets.only(top: 12),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Text(
+                _customFeedback['${question.id}_something_else']!,
+                style: AppStyles.textStyle_14_400.copyWith(color: Colors.blue[800]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _isOptionSelected(String questionId, String optionId, FeedbackType type) {
+    final selections = type == FeedbackType.positive 
+        ? _positiveSelections 
+        : _negativeSelections;
+    
+    return selections[questionId]?.contains(optionId) ?? false;
+  }
+
+  bool _canSubmit() {
+    return _overallRating != null && 
+           (_positiveSelections.isNotEmpty || _negativeSelections.isNotEmpty);
+  }
+
+  IconData _getStageIcon(FeedbackStage stage) {
+    switch (stage) {
+      case FeedbackStage.preFlight:
+        return Icons.flight_takeoff;
+      case FeedbackStage.inFlight:
+        return Icons.flight;
+      case FeedbackStage.postFlight:
+        return Icons.flight_land;
+      default:
+        return Icons.flight;
+    }
+  }
+
+  String _getStageContext(FeedbackStage stage) {
+    switch (stage) {
+      case FeedbackStage.preFlight:
+        return 'airport';
+      case FeedbackStage.inFlight:
+        return 'flight';
+      case FeedbackStage.postFlight:
+        return 'journey';
+      default:
+        return 'experience';
+    }
+  }
+}

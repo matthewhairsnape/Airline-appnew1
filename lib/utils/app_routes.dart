@@ -41,4 +41,5 @@ class AppRoutes {
   static const example = "/examplewora college";
   static const helpFaqs = "/helpFaqs";
   static const stagefeedback = "/stagefeedback";
+  static const myJourney = "/my-journey";
 }

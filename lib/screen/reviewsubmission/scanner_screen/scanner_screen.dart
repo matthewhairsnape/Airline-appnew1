@@ -98,27 +98,122 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     setState(() => isLoading = true);
     debugPrint("rawValue 🎎 =====================> $rawValue");
     try {
-      final regex = RegExp(
-          r'([A-Z0-9]{5,7})\s+([A-Z]{6}[A-Z0-9]{2})\s+(\d{4})\s+(\d{3}[A-Z])');
-      final match = regex.firstMatch(rawValue);
+      String pnr = '';
+      String departureAirport = '';
+      String arrivalAirport = '';
+      String carrier = '';
+      String flightNumber = '';
+      String seatNumber = '';
+      String classOfService = 'Economy';
+      DateTime date = DateTime.now();
 
-      if (match == null) {
-        throw Exception('Invalid barcode format');
+      // Check if it's BCBP format (starts with M1 or M2)
+      if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
+        debugPrint("✅ Detected BCBP format");
+        
+        // BCBP Format parsing
+        // M1HAIRSNAPE/MATTHEWM          CTABEGJU 439  244 12A 0209  00
+        // M1 = Format code
+        // HAIRSNAPE/MATTHEWM = Passenger name
+        // CTA = Origin airport
+        // BEG = Destination airport
+        // JU = Operating carrier
+        // 439 = Flight number
+        // 244 = Julian date
+        // 12A = Seat number
+        // 0209 = Sequence number
+        // etc.
+        
+        int pos = 2; // Skip M1
+        
+        // Extract passenger name (variable length, padded with spaces)
+        int nameEnd = pos + 20;
+        if (nameEnd > rawValue.length) nameEnd = rawValue.length;
+        // Skip name for now
+        pos = nameEnd;
+        
+        // Extract data after name
+        String remainingData = rawValue.substring(pos).trim();
+        
+        // Parse the key fields
+        // Format: XXXYYYZZ NNNN DDD SSS CCCC
+        // XXX = Departure airport (3 chars)
+        // YYY = Arrival airport (3 chars)
+        // ZZ = Carrier code (2 chars)
+        // NNNN = Flight number (variable, up to 5 chars with spaces)
+        // DDD = Julian date (3 digits)
+        // SSS = Seat number (3 chars)
+        
+        if (remainingData.length >= 8) {
+          departureAirport = remainingData.substring(0, 3);
+          arrivalAirport = remainingData.substring(3, 6);
+          carrier = remainingData.substring(6, 8);
+          
+          // Find flight number and date
+          String afterCarrier = remainingData.substring(8).trim();
+          List<String> parts = afterCarrier.split(RegExp(r'\s+'));
+          
+          if (parts.isNotEmpty) {
+            flightNumber = parts[0]; // Flight number
+          }
+          if (parts.length > 1) {
+            String julianDate = parts[1]; // Julian date
+            if (julianDate.length >= 3) {
+              final baseDate = DateTime(DateTime.now().year, 1, 0);
+              date = baseDate.add(Duration(days: int.parse(julianDate.substring(0, 3))));
+            }
+          }
+          if (parts.length > 2) {
+            seatNumber = parts[2]; // Seat number
+          }
+          
+          // Use PNR from the last part of passenger name or generate from flight info
+          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
+          
+          debugPrint("✅ Parsed BCBP boarding pass:");
+          debugPrint("  Departure: $departureAirport");
+          debugPrint("  Arrival: $arrivalAirport");
+          debugPrint("  Carrier: $carrier");
+          debugPrint("  Flight: $flightNumber");
+          debugPrint("  Date: $date");
+          debugPrint("  Seat: $seatNumber");
+        }
+      } else {
+        // Try old format parsing
+        final regex = RegExp(
+            r'([A-Z0-9]{5,7})\s+([A-Z]{6}[A-Z0-9]{2})\s+(\d{4})\s+(\d{3}[A-Z])');
+        final match = regex.firstMatch(rawValue);
+
+        if (match == null) {
+          debugPrint("❌ Invalid barcode format. Raw value: $rawValue");
+          if (mounted) {
+            CustomSnackBar.error(context,
+                'Unable to read boarding pass. Please ensure it\'s a valid IATA barcode.');
+            Navigator.pop(context);
+          }
+          return;
+        }
+
+        pnr = match.group(1)!;
+        final routeOfFlight = match.group(2)!;
+        departureAirport = routeOfFlight.substring(0, 3);
+        carrier = routeOfFlight.substring(6, 8);
+        flightNumber = match.group(3)!;
+        final julianDateAndClassOfService = match.group(4)!;
+        final julianDate = julianDateAndClassOfService.substring(0, 3);
+        final classOfServiceKey = julianDateAndClassOfService.substring(3, 4);
+        classOfService = _getClassOfService(classOfServiceKey);
+        final baseDate = DateTime(DateTime.now().year, 1, 0);
+        date = baseDate.add(Duration(days: int.parse(julianDate)));
+
+        debugPrint("✅ Scanned boarding pass details:");
+        debugPrint("  PNR: $pnr");
+        debugPrint("  Carrier: $carrier");
+        debugPrint("  Flight Number: $flightNumber");
+        debugPrint("  Departure Airport: $departureAirport");
+        debugPrint("  Date: $date");
+        debugPrint("  Class: $classOfService");
       }
-
-      final pnr = match.group(1)!;
-      final routeOfFlight = match.group(2)!;
-      final departureAirport = routeOfFlight.substring(0, 3);
-      final carrier = routeOfFlight.substring(6, 8);
-      final flightNumber = match.group(3)!;
-      final julianDateAndClassOfService = match.group(4)!;
-      final julianDate = julianDateAndClassOfService.substring(0, 3);
-      final classOfServiceKey = julianDateAndClassOfService.substring(3, 4);
-      final classOfService = _getClassOfService(classOfServiceKey);
-      final baseDate = DateTime(DateTime.now().year, 1, 0);
-      final date = baseDate.add(Duration(days: int.parse(julianDate)));
-
-      debugPrint("This is scanned date ✨ ============ > $date");
 
       final pnrExists = await _boardingPassController.checkPnrExists(pnr);
       if (pnrExists) {
@@ -129,6 +224,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         }
       }
 
+      debugPrint("🔍 Fetching flight info from Cirium for date: $date");
+      
+      // Try the scanned date first
       Map<String, dynamic> flightInfo = await _fetchFlightInfo.fetchFlightInfo(
         carrier: carrier,
         flightNumber: flightNumber,
@@ -136,30 +234,28 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         departureAirport: departureAirport,
       );
 
+      debugPrint("📦 Cirium response: ${flightInfo.toString().substring(0, 200)}...");
+
+      // Check if flight data was found
       if (flightInfo['flightStatuses']?.isEmpty ?? true) {
-        final DateTime lastYearDate =
-            DateTime(date.year - 1, date.month, date.day);
-        flightInfo = await _fetchFlightInfo.fetchFlightInfo(
-          carrier: carrier,
-          flightNumber: flightNumber,
-          flightDate: lastYearDate,
-          departureAirport: departureAirport,
-        );
-
-        if (flightInfo['flightStatuses']?.isEmpty ?? true) {
-          if (mounted) {
-            CustomSnackBar.error(context,
-                'Oops! We had trouble processing your boarding pass. Please try again.');
-            Navigator.pop(context);
-          }
+        debugPrint("❌ No flight found in Cirium");
+        if (mounted) {
+          CustomSnackBar.error(context,
+              'Unable to find flight information. Please ensure the boarding pass is valid.');
+          Navigator.pop(context);
         }
+        return;
       }
+      
+      debugPrint("✅ Found flight data with ${flightInfo['flightStatuses'].length} status(es)");
 
-      await _processFetchedFlightInfo(flightInfo, pnr, classOfService, carrier, flightNumber, date, departureAirport);
-    } catch (e) {
+      await _processFetchedFlightInfo(flightInfo, pnr, classOfService, carrier, flightNumber, date, departureAirport, seatNumber);
+    } catch (e, stackTrace) {
+      debugPrint("❌ Error processing boarding pass: $e");
+      debugPrint("Stack trace: $stackTrace");
       if (mounted) {
         CustomSnackBar.error(context,
-            'Unable to process boarding pass. Please try scanning again.');
+            'Unable to process boarding pass: ${e.toString()}');
         Navigator.pop(context);
       }
     } finally {
@@ -194,7 +290,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       String carrier,
       String flightNumber,
       DateTime date,
-      String departureAirportCode) async {
+      String departureAirportCode,
+      String seatNumber) async {
     if (flightInfo['flightStatuses']?.isEmpty ?? true) {
       CustomSnackBar.error(
           context, 'No flight data found for the boarding pass');
@@ -203,62 +300,77 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     }
 
     final flightStatus = flightInfo['flightStatuses'][0];
-    final airlines = flightInfo['appendix']['airlines'];
-    final airports = flightInfo['appendix']['airports'];
-    final airlineName = airlines.firstWhere((airline) =>
-        airline['fs'] == flightStatus['primaryCarrierFsCode'])['name'];
+    final airlines = flightInfo['appendix']['airlines'] ?? [];
+    final airports = flightInfo['appendix']['airports'] ?? [];
+    
+    final airlineName = airlines.firstWhere(
+      (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
+      orElse: () => {'name': 'Unknown Airline'},
+    )['name'] ?? 'Unknown Airline';
 
     final departureAirport = airports.firstWhere(
-        (airport) => airport['fs'] == flightStatus['departureAirportFsCode']);
+      (airport) => airport['fs'] == flightStatus['departureAirportFsCode'],
+      orElse: () => {'fs': '', 'city': '', 'countryCode': ''},
+    );
     final arrivalAirport = airports.firstWhere(
-        (airport) => airport['fs'] == flightStatus['arrivalAirportFsCode']);
+      (airport) => airport['fs'] == flightStatus['arrivalAirportFsCode'],
+      orElse: () => {'fs': '', 'city': '', 'countryCode': ''},
+    );
 
     final departureEntireTime =
         DateTime.parse(flightStatus['departureDate']['dateLocal']);
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
+    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+
     final newPass = BoardingPass(
-      name: ref.read(userDataProvider)?['userData']['_id'],
+      name: userId.toString(),
       pnr: pnr,
-      airlineName: airlineName,
-      departureAirportCode: departureAirport['fs'],
-      departureCity: departureAirport['city'],
-      departureCountryCode: departureAirport['countryCode'],
+      airlineName: airlineName.toString(),
+      departureAirportCode: (departureAirport['fs'] ?? '').toString(),
+      departureCity: (departureAirport['city'] ?? '').toString(),
+      departureCountryCode: (departureAirport['countryCode'] ?? '').toString(),
       departureTime: _formatTime(departureEntireTime),
-      arrivalAirportCode: arrivalAirport['fs'],
-      arrivalCity: arrivalAirport['city'],
-      arrivalCountryCode: arrivalAirport['countryCode'],
+      arrivalAirportCode: (arrivalAirport['fs'] ?? '').toString(),
+      arrivalCity: (arrivalAirport['city'] ?? '').toString(),
+      arrivalCountryCode: (arrivalAirport['countryCode'] ?? '').toString(),
       arrivalTime: _formatTime(arrivalEntireTime),
       classOfTravel: classOfService,
-      airlineCode: flightStatus['carrierFsCode'],
+      airlineCode: (flightStatus['carrierFsCode'] ?? '').toString(),
       flightNumber:
-          "${flightStatus['carrierFsCode']} ${flightStatus['flightNumber']}",
+          "${flightStatus['carrierFsCode'] ?? ''} ${flightStatus['flightNumber'] ?? ''}",
       visitStatus: getVisitStatus(departureEntireTime),
     );
 
     final result = await _boardingPassController.saveBoardingPass(newPass);
-    if (result) {
-      // Start real-time flight tracking with Cirium
-      final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
-        carrier: carrier,
-        flightNumber: flightNumber,
-        flightDate: date,
-        departureAirport: departureAirportCode,
-        pnr: pnr,
-      );
+    
+    // Start real-time flight tracking with Cirium regardless of save result
+    debugPrint('🪑 Seat number from boarding pass: $seatNumber');
+    final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
+      carrier: carrier,
+      flightNumber: flightNumber,
+      flightDate: date,
+      departureAirport: departureAirportCode,
+      pnr: pnr,
+    );
 
-      if (trackingStarted) {
-        debugPrint('✈️ Flight tracking started successfully for $pnr');
-        debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
+    if (trackingStarted) {
+      debugPrint('✈️ Flight tracking started successfully for $pnr');
+      debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
+    } else {
+      debugPrint('⚠️ Flight tracking failed');
+    }
+
+    if (mounted) {
+      if (result) {
+        CustomSnackBar.success(context, '✅ Boarding pass scanned! Your flight is now being tracked.');
       } else {
-        debugPrint('⚠️ Flight tracking failed but boarding pass saved');
+        debugPrint('⚠️ Boarding pass save failed, but continuing with tracking');
+        CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
       }
-
-      if (mounted) {
-        Navigator.pushNamed(context, AppRoutes.reviewsubmissionscreen);
-        CustomSnackBar.success(context, 'Flight verified and tracking started!');
-      }
+      // Navigate directly to My Journey page
+      Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
     }
   }
 

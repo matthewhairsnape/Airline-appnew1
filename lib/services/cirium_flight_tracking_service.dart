@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:airline_app/models/flight_tracking_model.dart';
+import 'package:airline_app/models/stage_feedback_model.dart';
 import 'package:airline_app/utils/global_variable.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -48,15 +49,24 @@ class CiriumFlightTrackingService {
 
       final flightStatus = flightInfo['flightStatuses'][0];
 
+      // Extract additional flight details
+      final airportResources = flightStatus['airportResources'];
+      final flightEquipment = flightStatus['flightEquipment'];
+      
+      // Calculate flight duration
+      final departureTime = DateTime.parse(flightStatus['departureDate']['dateLocal']);
+      final arrivalTime = DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
+      final duration = arrivalTime.difference(departureTime);
+      final flightDuration = '${duration.inHours}h ${duration.inMinutes % 60}m';
+
       // Create flight tracking model
       final flightTracking = FlightTrackingModel(
         flightId: flightStatus['flightId']?.toString() ?? pnr,
         pnr: pnr,
         carrier: carrier,
         flightNumber: flightNumber,
-        departureTime:
-            DateTime.parse(flightStatus['departureDate']['dateLocal']),
-        arrivalTime: DateTime.parse(flightStatus['arrivalDate']['dateLocal']),
+        departureTime: departureTime,
+        arrivalTime: arrivalTime,
         departureAirport: flightStatus['departureAirportFsCode'],
         arrivalAirport: flightStatus['arrivalAirportFsCode'],
         currentPhase: _determineFlightPhase(flightStatus),
@@ -64,6 +74,11 @@ class CiriumFlightTrackingService {
         ciriumData: flightStatus,
         events: _extractEvents(flightStatus),
         isVerified: true,
+        // Additional details
+        terminal: airportResources?['departureTerminal'],
+        gate: airportResources?['departureGate'],
+        aircraftType: flightEquipment?['iata'],
+        flightDuration: flightDuration,
       );
 
       // Store and start tracking
@@ -162,7 +177,7 @@ class CiriumFlightTrackingService {
     final List<FlightEvent> events = [];
     final operationalTimes = flightStatus['operationalTimes'] ?? {};
 
-    // Check for gate changes
+    // Check for gate changes and terminal information
     if (flightStatus['airportResources'] != null) {
       final resources = flightStatus['airportResources'];
       if (resources['departureGate'] != null) {
@@ -170,7 +185,20 @@ class CiriumFlightTrackingService {
           eventType: 'GATE_ASSIGNED',
           timestamp: DateTime.now(),
           description: 'Gate ${resources['departureGate']} assigned',
-          metadata: {'gate': resources['departureGate']},
+          metadata: {
+            'gate': resources['departureGate'],
+            'terminal': resources['departureTerminal'],
+          },
+        ));
+      }
+      
+      // Add terminal information
+      if (resources['departureTerminal'] != null) {
+        events.add(FlightEvent(
+          eventType: 'TERMINAL_ASSIGNED',
+          timestamp: DateTime.now(),
+          description: 'Terminal ${resources['departureTerminal']} assigned',
+          metadata: {'terminal': resources['departureTerminal']},
         ));
       }
     }

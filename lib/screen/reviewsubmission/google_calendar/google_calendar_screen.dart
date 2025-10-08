@@ -232,8 +232,8 @@ class _EventCardState extends ConsumerState<EventCard> {
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
     if (result) {
       if (mounted) {
-        Navigator.pushNamed(context, AppRoutes.reviewsubmissionscreen);
-        CustomSnackBar.success(context, 'Boarding pass saved successfully.');
+        CustomSnackBar.success(context, 'Flight from calendar synced successfully!');
+        Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
       }
     }
   }

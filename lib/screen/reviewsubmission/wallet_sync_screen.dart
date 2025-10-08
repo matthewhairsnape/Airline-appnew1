@@ -197,8 +197,8 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
     if (result) {
       if (mounted) {
-        Navigator.pushNamed(context, AppRoutes.reviewsubmissionscreen);
-        CustomSnackBar.success(context, 'Boarding pass saved successfully.');
+        CustomSnackBar.success(context, 'Boarding pass from wallet loaded successfully!');
+        Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
       }
     }
   }

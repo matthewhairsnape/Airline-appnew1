@@ -32,11 +32,16 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
       _selectedIndex = index;
     });
 
-    // Only Review tab available now
+    // Navigation for Review and My Journey tabs
     switch (index) {
       case 0:
         if (ModalRoute.of(context)?.settings.name != AppRoutes.startreviews) {
           Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+        }
+        break;
+      case 1:
+        if (ModalRoute.of(context)?.settings.name != AppRoutes.myJourney) {
+          Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
         }
         break;
     }
@@ -87,6 +92,14 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
               ),
             ),
             title: 'Review',
+          ),
+          TabItem(
+            icon: Icon(
+              Icons.timeline,
+              size: 24,
+              color: _selectedIndex == 1 ? Colors.black : Colors.grey.shade500,
+            ),
+            title: 'My Journey',
           ),
         ],
         initialActiveIndex: _selectedIndex,

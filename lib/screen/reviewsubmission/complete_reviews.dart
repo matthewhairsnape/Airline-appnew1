@@ -5,6 +5,7 @@ import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CompleteReviews extends ConsumerWidget {
   const CompleteReviews({super.key});
@@ -108,13 +109,55 @@ class CompleteReviews extends ConsumerWidget {
             ),
           ),
           bottomNavigationBar: BottomButtonBar(
-              child: MainButton(
-            text: "Home",
-            onPressed: () => Navigator.pushNamed(
-              context,
-              AppRoutes.leaderboardscreen,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _shareReview(context, airlineScore, airportScore),
+                      icon: Icon(Icons.share, color: Color(0xFF3B82F6)),
+                      label: Text('Share', style: TextStyle(color: Color(0xFF3B82F6))),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: Color(0xFF3B82F6)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: MainButton(
+                      text: "Home",
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.leaderboardscreen,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ))),
+          ),
+    );
+  }
+
+  void _shareReview(BuildContext context, String airlineScore, String airportScore) {
+    final shareText = '''
+🎉 Just shared my flight experience on Exp.Aero!
+
+✈️ Airline Score: $airlineScore
+🏢 Airport Score: $airportScore
+
+Help make air travel better by sharing your experiences too!
+
+Download Exp.Aero: [App Link]
+''';
+
+    Share.share(
+      shareText,
+      subject: 'My Flight Review on Exp.Aero',
     );
   }
 

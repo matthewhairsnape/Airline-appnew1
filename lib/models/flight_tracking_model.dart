@@ -13,6 +13,13 @@ class FlightTrackingModel {
   final Map<String, dynamic> ciriumData;
   final List<FlightEvent> events;
   final bool isVerified;
+  
+  // Additional flight details
+  final String? seatNumber;
+  final String? terminal;
+  final String? gate;
+  final String? aircraftType;
+  final String? flightDuration;
 
   FlightTrackingModel({
     required this.flightId,
@@ -28,6 +35,11 @@ class FlightTrackingModel {
     required this.ciriumData,
     this.events = const [],
     this.isVerified = false,
+    this.seatNumber,
+    this.terminal,
+    this.gate,
+    this.aircraftType,
+    this.flightDuration,
   });
 
   FlightTrackingModel copyWith({
@@ -44,6 +56,11 @@ class FlightTrackingModel {
     Map<String, dynamic>? ciriumData,
     List<FlightEvent>? events,
     bool? isVerified,
+    String? seatNumber,
+    String? terminal,
+    String? gate,
+    String? aircraftType,
+    String? flightDuration,
   }) {
     return FlightTrackingModel(
       flightId: flightId ?? this.flightId,
@@ -59,6 +76,11 @@ class FlightTrackingModel {
       ciriumData: ciriumData ?? this.ciriumData,
       events: events ?? this.events,
       isVerified: isVerified ?? this.isVerified,
+      seatNumber: seatNumber ?? this.seatNumber,
+      terminal: terminal ?? this.terminal,
+      gate: gate ?? this.gate,
+      aircraftType: aircraftType ?? this.aircraftType,
+      flightDuration: flightDuration ?? this.flightDuration,
     );
   }
 
@@ -85,6 +107,11 @@ class FlightTrackingModel {
               .toList() ??
           [],
       isVerified: json['isVerified'] ?? false,
+      seatNumber: json['seatNumber'],
+      terminal: json['terminal'],
+      gate: json['gate'],
+      aircraftType: json['aircraftType'],
+      flightDuration: json['flightDuration'],
     );
   }
 
@@ -103,6 +130,11 @@ class FlightTrackingModel {
       'ciriumData': ciriumData,
       'events': events.map((e) => e.toJson()).toList(),
       'isVerified': isVerified,
+      'seatNumber': seatNumber,
+      'terminal': terminal,
+      'gate': gate,
+      'aircraftType': aircraftType,
+      'flightDuration': flightDuration,
     };
   }
 }
@@ -111,6 +143,7 @@ class FlightTrackingModel {
 enum FlightPhase {
   preCheckIn, // Before check-in window opens
   checkInOpen, // Check-in is open
+  security, // Security screening
   boarding, // Boarding has started
   departed, // Flight has departed
   inFlight, // Flight is in the air
@@ -152,49 +185,6 @@ class FlightEvent {
   }
 }
 
-/// Model for stage-specific questions
-class StageQuestion {
-  final String id;
-  final FlightPhase phase;
-  final String question;
-  final List<String> options;
-  final String category;
-  final int priority;
-
-  StageQuestion({
-    required this.id,
-    required this.phase,
-    required this.question,
-    required this.options,
-    required this.category,
-    this.priority = 0,
-  });
-
-  factory StageQuestion.fromJson(Map<String, dynamic> json) {
-    return StageQuestion(
-      id: json['id'] ?? '',
-      phase: FlightPhase.values.firstWhere(
-        (e) => e.toString() == 'FlightPhase.${json['phase']}',
-        orElse: () => FlightPhase.preCheckIn,
-      ),
-      question: json['question'] ?? '',
-      options: List<String>.from(json['options'] ?? []),
-      category: json['category'] ?? '',
-      priority: json['priority'] ?? 0,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'phase': phase.toString().split('.').last,
-      'question': question,
-      'options': options,
-      'category': category,
-      'priority': priority,
-    };
-  }
-}
 
 /// Model for stage-specific feedback responses
 class StageFeedback {

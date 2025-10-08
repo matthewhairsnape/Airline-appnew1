@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:airline_app/models/flight_tracking_model.dart';
+import 'package:airline_app/models/stage_feedback_model.dart';
 import 'package:airline_app/services/stage_question_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -90,23 +91,24 @@ class FlightNotificationService {
     }
 
     final FlightPhase phase = flight.currentPhase;
+    final FeedbackStage stage = StageQuestionService.getStageFromFlightPhase(phase);
 
-    // Only notify for specific phases
-    if (!StageQuestionService.shouldNotifyForPhase(phase)) {
+    // Only notify for specific stages
+    if (!StageQuestionService.shouldNotifyForStage(stage)) {
       return;
     }
 
-    final String title = StageQuestionService.getNotificationTitle(phase);
-    final String message = StageQuestionService.getNotificationMessage(phase);
+    final String title = StageQuestionService.getNotificationTitle(stage);
+    final String message = StageQuestionService.getNotificationMessage(stage);
 
     await _showNotification(
       id: flight.pnr.hashCode,
       title: title,
       body: message,
-      payload: '${flight.pnr}|${phase.toString()}',
+      payload: '${flight.pnr}|${stage.toString()}',
     );
 
-    debugPrint('📬 Sent notification for phase: $phase');
+    debugPrint('📬 Sent notification for stage: $stage');
   }
 
   /// Show a notification
