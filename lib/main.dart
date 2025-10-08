@@ -4,6 +4,7 @@ import 'package:airline_app/screen/leaderboard/leaderboard_filter_screen.dart';
 import 'package:airline_app/screen/leaderboard/media_full_screen.dart';
 import 'package:airline_app/screen/login/log_in.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -40,6 +41,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final String languageCode = prefs.getString('selectedLanguageSym') ?? 'en';
+
+  // Initialize Supabase
+  await SupabaseService.initialize();
 
   // Initialize flight notification service
   final notificationService = FlightNotificationService();
