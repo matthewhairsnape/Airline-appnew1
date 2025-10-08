@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/stage_feedback_model.dart';
 import '../../services/stage_question_service.dart';
+import '../../services/supabase_service.dart';
 import '../../utils/app_styles.dart';
 import '../../provider/stage_feedback_provider.dart';
+import '../../provider/user_data_provider.dart';
 import '../app_widgets/main_button.dart';
 
 class StageFeedbackScreen extends ConsumerStatefulWidget {
@@ -117,6 +119,22 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
     // Store feedback locally - will be submitted with complete review
     ref.read(stageFeedbackProvider.notifier).addFeedback(widget.flightId, feedback);
     debugPrint('✅ Stage feedback saved locally: ${feedback.stage}');
+    
+    // Also save to Supabase if initialized
+    if (SupabaseService.isInitialized) {
+      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+      await SupabaseService.submitStageFeedback(
+        journeyId: widget.flightId,
+        userId: userId.toString(),
+        stage: feedback.stage.toString().split('.').last,
+        positiveSelections: feedback.positiveSelections,
+        negativeSelections: feedback.negativeSelections,
+        customFeedback: feedback.customFeedback,
+        overallRating: feedback.overallRating,
+        additionalComments: feedback.additionalComments,
+      );
+      debugPrint('✅ Stage feedback saved to Supabase');
+    }
     
     // Show success message and navigate back
     ScaffoldMessenger.of(context).showSnackBar(
