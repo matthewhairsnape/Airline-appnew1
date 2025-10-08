@@ -4,6 +4,7 @@ import 'package:airline_app/controller/fetch_flight_info_by_cirium.dart';
 import 'package:airline_app/models/boarding_pass.dart';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
 import 'package:airline_app/screen/app_widgets/loading.dart';
@@ -344,6 +345,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     );
 
     final result = await _boardingPassController.saveBoardingPass(newPass);
+    
+    // Save to Supabase if initialized
+    if (SupabaseService.isInitialized) {
+      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+      await SupabaseService.createJourney(
+        userId: userId.toString(),
+        pnr: pnr,
+        carrier: carrier,
+        flightNumber: flightNumber,
+        departureAirport: departureAirportCode,
+        arrivalAirport: arrivalAirport['fs'].toString(),
+        scheduledDeparture: departureEntireTime,
+        scheduledArrival: arrivalEntireTime,
+        seatNumber: seatNumber.isNotEmpty ? seatNumber : null,
+        classOfTravel: classOfService,
+        terminal: flightStatus['airportResources']?['departureTerminal'],
+        gate: flightStatus['airportResources']?['departureGate'],
+        aircraftType: flightStatus['flightEquipment']?['iata'],
+      );
+      debugPrint('✅ Journey saved to Supabase');
+    }
     
     // Start real-time flight tracking with Cirium regardless of save result
     debugPrint('🪑 Seat number from boarding pass: $seatNumber');
