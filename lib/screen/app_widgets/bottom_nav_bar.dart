@@ -91,7 +91,7 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
                 color: Colors.white,
               ),
             ),
-            title: 'Review',
+            title: 'Connect',
           ),
           TabItem(
             icon: Icon(

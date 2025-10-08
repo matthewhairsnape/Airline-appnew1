@@ -76,11 +76,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             ),
             SizedBox(height: 32),
             MainButton(
-              text: 'Scan Boarding Pass',
+              text: 'Connect Your Flight',
               onPressed: () {
-                Navigator.pushNamed(context, '/scanner');
+                Navigator.pushNamed(context, AppRoutes.startreviews);
               },
-              color: Color(0xFF3B82F6),
+              color: const Color(0xFF000000),
+              icon: Icon(
+                Icons.flight_takeoff,
+                color: Colors.white,
+              ),
             ),
           ],
         ),
