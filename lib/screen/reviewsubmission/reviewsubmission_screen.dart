@@ -100,7 +100,7 @@ class _ReviewsubmissionScreenState
       },
       child: Scaffold(
         appBar: AppbarWidget(
-          title: "Reviews",
+          title: "Connect",
           onBackPressed: () {
             Navigator.pushNamed(context, AppRoutes.startreviews);
           },

@@ -1,26 +1,37 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        
-        {
-            "name": "airline_app",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "airline_app (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "airline_app (release mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Development)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://otidfywfqxyxteixpqre.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI"
+      ]
+    },
+    {
+      "name": "Flutter (Release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://otidfywfqxyxteixpqre.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI"
+      ]
+    },
+    {
+      "name": "Flutter (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://otidfywfqxyxteixpqre.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI"
+      ]
+    }
+  ]
 }

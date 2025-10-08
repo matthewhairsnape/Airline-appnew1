@@ -13,7 +13,7 @@ class StartReviews extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Reviews"),
+        title: Text("Powered by Exp Live Feedback"),
         backgroundColor: Colors.white,
         automaticallyImplyLeading: false,
       ),
@@ -36,7 +36,7 @@ class StartReviews extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Share Your Travel Experience",
+                        "Get Live Updates. Share Real.",
                         style: AppStyles.textStyle_24_600.copyWith(
                           letterSpacing: -0.3,
                           color: const Color(0xFF1A1A1A),
@@ -44,7 +44,7 @@ class StartReviews extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        "Your feedback helps improve travel for everyone",
+                        "Where premium travel meets real-time intelligence.",
                         style: AppStyles.textStyle_15_400.copyWith(
                           color: const Color(0xFF666666),
                         ),
@@ -69,7 +69,7 @@ class StartReviews extends StatelessWidget {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               child: Image.asset(
-                                "assets/images/start_review.jpg",
+                                "assets/images/pixar2.png",
                                 height: 200,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
@@ -111,14 +111,14 @@ class StartReviews extends StatelessWidget {
                             ),
                             const SizedBox(height: 32),
                             MainButton(
-                              text: "Begin Your Review",
+                              text: "Connect Your Flight",
                               color: const Color(0xFF000000),
                               onPressed: () {
                                 Navigator.pushNamed(
                                     context, AppRoutes.reviewsubmissionscreen);
                               },
                               icon: Icon(
-                                Icons.rate_review_rounded,
+                                Icons.flight_takeoff,
                                 color: Colors.white,
                               ),
                             )

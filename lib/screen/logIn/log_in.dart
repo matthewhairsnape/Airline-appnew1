@@ -207,7 +207,7 @@ class _LoginState extends ConsumerState<Login> {
             },
             blendMode: BlendMode.srcATop,
             child: Image.asset(
-              'assets/images/flying_plane.png',
+              'assets/images/pixar-background.png',
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,
