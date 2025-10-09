@@ -6,7 +6,11 @@ import '../../provider/flight_tracking_provider.dart';
 import '../../provider/stage_feedback_provider.dart';
 import '../../utils/app_styles.dart';
 import '../../utils/app_routes.dart';
+import '../../utils/app_localizations.dart';
 import '../app_widgets/main_button.dart';
+import '../reviewsubmission/wallet_sync_screen.dart';
+import '../reviewsubmission/google_calendar/google_calendar_screen.dart';
+import '../reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'widgets/flight_status_card.dart';
 import 'widgets/timeline_section.dart';
 import 'widgets/timeline_event_card.dart';
@@ -90,7 +94,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.reviewsubmissionscreen);
+                _showSyncOptionsModal(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -243,5 +247,79 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     }
 
     return events;
+  }
+
+  void _showSyncOptionsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppLocalizations.of(context).translate('Choose Sync Option'),
+              style: AppStyles.textStyle_24_600,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Sync from Your Wallet'),
+              color: Colors.black,
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const WalletSyncScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Sync from Google Calendar'),
+              color: Colors.black,
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GoogleCalendarScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.calendar_today, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Scan Boarding Pass'),
+              color: Colors.black,
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ScannerScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

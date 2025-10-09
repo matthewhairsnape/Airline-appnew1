@@ -169,6 +169,7 @@ class StartReviews extends StatelessWidget {
             MainButton(
               text: AppLocalizations.of(context)
                   .translate('Sync from Your Wallet'),
+              color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
@@ -183,6 +184,7 @@ class StartReviews extends StatelessWidget {
             MainButton(
               text: AppLocalizations.of(context)
                   .translate('Sync from Google Calendar'),
+              color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
@@ -197,6 +199,7 @@ class StartReviews extends StatelessWidget {
             MainButton(
               text: AppLocalizations.of(context)
                   .translate('Scan Boarding Pass'),
+              color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
