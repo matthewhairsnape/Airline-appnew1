@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/flight_tracking_model.dart';
 import '../../../utils/app_styles.dart';
 import 'timeline_event_card.dart';
+import 'section_feedback_modal.dart';
 
 class TimelineSection extends StatefulWidget {
   final String title;
@@ -88,12 +89,18 @@ class _TimelineSectionState extends State<TimelineSection> {
             Padding(
               padding: EdgeInsets.all(20),
               child: Column(
-                children: widget.events.map((event) => 
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 16),
-                    child: TimelineEventCard(event: event),
-                  ),
-                ).toList(),
+                children: [
+                  ...widget.events.map((event) => 
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 16),
+                      child: TimelineEventCard(event: event),
+                    ),
+                  ).toList(),
+                  
+                  // Feedback Button
+                  SizedBox(height: 16),
+                  _buildFeedbackButton(),
+                ],
               ),
             ),
           ],
@@ -105,6 +112,127 @@ class _TimelineSectionState extends State<TimelineSection> {
   Color _getIconColor() {
     // Use black for uniformed branding
     return Colors.black;
+  }
+
+  Widget _buildFeedbackButton() {
+    return GestureDetector(
+      onTap: _showFeedbackModal,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withAlpha(10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withAlpha(30)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.feedback_outlined,
+              color: Colors.black,
+              size: 16,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Share ${widget.title} Feedback',
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.black),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFeedbackModal() {
+    final feedbackData = _getFeedbackData();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SectionFeedbackModal(
+        sectionName: widget.title,
+        likes: feedbackData['likes'] ?? [],
+        dislikes: feedbackData['dislikes'] ?? [],
+        onSubmitted: () {
+          // TODO: Submit feedback to backend
+          debugPrint('${widget.title} feedback submitted');
+        },
+      ),
+    );
+  }
+
+  Map<String, List<String>> _getFeedbackData() {
+    switch (widget.title) {
+      case 'Pre Flight':
+        return {
+          'likes': [
+            'Check-in process',
+            'Security line wait time',
+            'Boarding process',
+            'Airport Facilities and Shops',
+            'Smooth Airport experience',
+            'Airline Lounge',
+            'Something else',
+          ],
+          'dislikes': [
+            'Check-in process',
+            'Security line wait time',
+            'Boarding process',
+            'Airport Facilities and Shops',
+            'Smooth Airport experience',
+            'Airline Lounge',
+            'Something else',
+          ],
+        };
+      case 'In Flight':
+        return {
+          'likes': [
+            'Seat comfort',
+            'Cabin cleanliness',
+            'Cabin crew',
+            'In-flight entertainment',
+            'Wi-Fi',
+            'Food and beverage',
+            'Something else',
+          ],
+          'dislikes': [
+            'Seat comfort',
+            'Cabin cleanliness',
+            'Cabin crew',
+            'In-flight entertainment',
+            'Wi-Fi',
+            'Food and beverage',
+            'Something else',
+          ],
+        };
+      case 'Post Flight':
+        return {
+          'likes': [
+            'Friendly and helpful service',
+            'Smooth and troublefree flight',
+            'Onboard Comfort',
+            'Food and Beverage',
+            'Wi-Fi and IFE',
+            'Communication from airline',
+            'Baggage delivery or ease of connection',
+            'Something else',
+          ],
+          'dislikes': [
+            'Wi-Fi',
+            'Friendly and helpful service',
+            'Stressful and uneasy flight',
+            'Onboard Comfort',
+            'Food and Beverage',
+            'Wi-Fi and IFE',
+            'Communication from airline',
+            'Baggage delivery or ease of connection',
+            'Something else',
+          ],
+        };
+      default:
+        return {'likes': [], 'dislikes': []};
+    }
   }
 }
 

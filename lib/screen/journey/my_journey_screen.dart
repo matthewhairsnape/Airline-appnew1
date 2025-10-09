@@ -60,9 +60,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       body: allFlights.isEmpty
           ? _buildEmptyState()
           : _buildJourneyTimeline(allFlights.first),
-      bottomNavigationBar: allFlights.isNotEmpty 
-          ? _buildFeedbackButton(allFlights.first)
-          : null,
+      // Remove the bottom feedback button - feedback is now in each section
     );
   }
 
@@ -150,40 +148,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     );
   }
 
-  Widget _buildFeedbackButton(FlightTrackingModel flight) {
-    return Container(
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withAlpha(25),
-            blurRadius: 10,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: ElevatedButton(
-          onPressed: () => _showFeedbackModal(flight),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            padding: EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-          child: Text(
-            'Share Feedback',
-            style: AppStyles.textStyle_16_600.copyWith(
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // Feedback button removed - now handled by individual timeline sections
 
   void _toggleSection(String section) {
     setState(() {
@@ -191,20 +156,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     });
   }
 
-  void _showFeedbackModal(FlightTrackingModel flight) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ComprehensiveFeedbackModal(
-        flight: flight,
-        onSubmitted: () {
-          // TODO: Submit feedback to backend
-          debugPrint('Comprehensive feedback submitted');
-        },
-      ),
-    );
-  }
+  // Feedback modal removed - now handled by individual timeline sections
 
   List<TimelineEvent> _getPreFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
