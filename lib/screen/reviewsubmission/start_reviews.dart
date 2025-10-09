@@ -87,7 +87,7 @@ class StartReviews extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    "Rate your experience and help others make informed decisions",
+                                    "Let your voice reach the airline — in real time, from your seat.",
                                     style: AppStyles.textStyle_15_400.copyWith(
                                       color: const Color(0xFF4A4A4A),
                                       fontWeight: FontWeight.w500,
@@ -104,7 +104,7 @@ class StartReviews extends StatelessWidget {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    "Your review will be verified for authenticity",
+                                    "Travel smarter with live updates and effortless feedback.",
                                     style: AppStyles.textStyle_15_400.copyWith(
                                       color: const Color(0xFF4A4A4A),
                                       fontWeight: FontWeight.w500,
