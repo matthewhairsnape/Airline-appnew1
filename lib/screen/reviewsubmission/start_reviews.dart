@@ -5,7 +5,6 @@ import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/screen/reviewsubmission/wallet_sync_screen.dart';
-import 'package:airline_app/screen/reviewsubmission/google_calendar/google_calendar_screen.dart';
 import 'package:airline_app/screen/reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -40,7 +39,7 @@ class StartReviews extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Get Live Updates. Share Real.",
+                        "Get Live Updates. Share Real Time.",
                         style: AppStyles.textStyle_24_600.copyWith(
                           letterSpacing: -0.3,
                           color: const Color(0xFF1A1A1A),
@@ -48,7 +47,7 @@ class StartReviews extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        "Where premium travel meets real-time intelligence.",
+                        "Where premium travel meets feedback intelligence",
                         style: AppStyles.textStyle_15_400.copyWith(
                           color: const Color(0xFF666666),
                         ),
@@ -172,28 +171,9 @@ class StartReviews extends StatelessWidget {
               color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const WalletSyncScreen(),
-                  ),
-                );
+                showWalletSyncDialog(context);
               },
               icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            MainButton(
-              text: AppLocalizations.of(context)
-                  .translate('Sync from Google Calendar'),
-              color: Colors.black,
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => GoogleCalendarScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.calendar_today, color: Colors.white),
             ),
             const SizedBox(height: 12),
             MainButton(
