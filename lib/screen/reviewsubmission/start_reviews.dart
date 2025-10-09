@@ -3,6 +3,10 @@ import 'package:airline_app/screen/app_widgets/bottom_nav_bar.dart';
 import 'package:airline_app/screen/app_widgets/main_button.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
+import 'package:airline_app/utils/app_localizations.dart';
+import 'package:airline_app/screen/reviewsubmission/wallet_sync_screen.dart';
+import 'package:airline_app/screen/reviewsubmission/google_calendar/google_calendar_screen.dart';
+import 'package:airline_app/screen/reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'package:flutter/material.dart';
 
 class StartReviews extends StatelessWidget {
@@ -114,8 +118,7 @@ class StartReviews extends StatelessWidget {
                               text: "Connect Your Flight",
                               color: const Color(0xFF000000),
                               onPressed: () {
-                                Navigator.pushNamed(
-                                    context, AppRoutes.reviewsubmissionscreen);
+                                _showSyncOptionsModal(context);
                               },
                               icon: Icon(
                                 Icons.flight_takeoff,
@@ -135,6 +138,77 @@ class StartReviews extends StatelessWidget {
       ),
       bottomNavigationBar: const BottomNavBar(
         currentIndex: 0,
+      ),
+    );
+  }
+
+  void _showSyncOptionsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppLocalizations.of(context).translate('Choose Sync Option'),
+              style: AppStyles.textStyle_24_600,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Sync from Your Wallet'),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const WalletSyncScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Sync from Google Calendar'),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GoogleCalendarScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.calendar_today, color: Colors.white),
+            ),
+            const SizedBox(height: 12),
+            MainButton(
+              text: AppLocalizations.of(context)
+                  .translate('Scan Boarding Pass'),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ScannerScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+            ),
+          ],
+        ),
       ),
     );
   }
