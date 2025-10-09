@@ -11,6 +11,7 @@ import 'widgets/flight_status_card.dart';
 import 'widgets/timeline_section.dart';
 import 'widgets/timeline_event_card.dart';
 import 'widgets/micro_review_modal.dart';
+import 'widgets/comprehensive_feedback_modal.dart';
 
 class MyJourneyScreen extends ConsumerStatefulWidget {
   const MyJourneyScreen({Key? key}) : super(key: key);
@@ -195,20 +196,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => MicroReviewModal(
-        event: JourneyEvent(
-          id: 'overall_feedback',
-          title: 'Overall Feedback',
-          description: 'Overall flight experience',
-          timestamp: DateTime.now(),
-          icon: Icons.star,
-          hasFeedback: true,
-          isCompleted: true,
-        ),
-        onSubmitted: (rating, comment) {
+      builder: (context) => ComprehensiveFeedbackModal(
+        flight: flight,
+        onSubmitted: () {
           // TODO: Submit feedback to backend
-          debugPrint('Feedback submitted: $rating, $comment');
-          Navigator.pop(context);
+          debugPrint('Comprehensive feedback submitted');
         },
       ),
     );
