@@ -9,7 +9,6 @@ import '../../utils/app_routes.dart';
 import '../../utils/app_localizations.dart';
 import '../app_widgets/main_button.dart';
 import '../reviewsubmission/wallet_sync_screen.dart';
-import '../reviewsubmission/google_calendar/google_calendar_screen.dart';
 import '../reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'widgets/flight_status_card.dart';
 import 'widgets/timeline_section.dart';
@@ -45,7 +44,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.startreviews),
         ),
         title: Text(
           'Journey Timeline',
@@ -279,28 +278,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
               color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const WalletSyncScreen(),
-                  ),
-                );
+                showWalletSyncDialog(context);
               },
               icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            MainButton(
-              text: AppLocalizations.of(context)
-                  .translate('Sync from Google Calendar'),
-              color: Colors.black,
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => GoogleCalendarScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.calendar_today, color: Colors.white),
             ),
             const SizedBox(height: 12),
             MainButton(

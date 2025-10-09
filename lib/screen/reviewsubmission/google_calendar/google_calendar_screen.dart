@@ -269,15 +269,12 @@ class _EventCardState extends ConsumerState<EventCard> {
       }
       
       // Show confirmation dialog with flight details
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => FlightConfirmationDialog(
-          boardingPass: newPass,
-          onCancel: () {
-            // User cancelled, stay on current screen
-          },
-        ),
+      FlightConfirmationDialog.show(
+        context,
+        newPass,
+        onCancel: () {
+          // User cancelled, stay on current screen
+        },
       );
     }
   }

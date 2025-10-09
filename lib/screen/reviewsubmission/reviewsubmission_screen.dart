@@ -5,7 +5,6 @@ import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/bottom_button_bar.dart';
 import 'package:airline_app/screen/app_widgets/loading.dart';
-import 'package:airline_app/screen/reviewsubmission/google_calendar/google_calendar_screen.dart';
 import 'package:airline_app/screen/reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'package:airline_app/screen/reviewsubmission/wallet_sync_screen.dart';
 import 'package:airline_app/screen/app_widgets/main_button.dart';
@@ -158,29 +157,9 @@ class _ReviewsubmissionScreenState
                                 .translate('Sync from Your Wallet'),
                             onPressed: () {
                               Navigator.pop(context);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const WalletSyncScreen(),
-                                ),
-                              );
+                              showWalletSyncDialog(context);
                             },
                             icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
-                          ),
-                          const SizedBox(height: 12),
-                          MainButton(
-                            text: AppLocalizations.of(context)
-                                .translate('Sync from Google Calendar'),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      GoogleCalendarScreen(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.calendar_today, color: Colors.white),
                           ),
                           const SizedBox(height: 12),
                           MainButton(

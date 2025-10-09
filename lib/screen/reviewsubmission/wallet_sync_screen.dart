@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
-import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,56 +14,39 @@ import 'package:airline_app/models/boarding_pass.dart';
 import 'package:airline_app/screen/app_widgets/loading.dart';
 import 'package:airline_app/screen/app_widgets/main_button.dart';
 import 'package:airline_app/screen/reviewsubmission/widgets/flight_confirmation_dialog.dart';
-import 'package:airline_app/utils/app_localizations.dart';
-import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 
-class WalletSyncScreen extends ConsumerStatefulWidget {
-  const WalletSyncScreen({super.key});
-
-  @override
-  ConsumerState<WalletSyncScreen> createState() => _WalletSyncScreenState();
+// Show the wallet sync dialog
+void showWalletSyncDialog(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    isDismissible: true,
+    builder: (context) => const WalletSyncDialog(),
+  );
 }
 
-class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
+enum WalletSyncStep { openWallet, chooseScreenshot }
+
+class WalletSyncDialog extends ConsumerStatefulWidget {
+  const WalletSyncDialog({super.key});
+
+  @override
+  ConsumerState<WalletSyncDialog> createState() => _WalletSyncDialogState();
+}
+
+class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
   final MobileScannerController _controller = MobileScannerController();
-  final FetchFlightInforByCirium _flightInfoFetcher =
-      FetchFlightInforByCirium();
-  final BoardingPassController _boardingPassController =
-      BoardingPassController();
+  final FetchFlightInforByCirium _flightInfoFetcher = FetchFlightInforByCirium();
+  final BoardingPassController _boardingPassController = BoardingPassController();
   final ImagePicker _imagePicker = ImagePicker();
 
   Map<String, dynamic>? detailedBoardingPass;
   bool isLoading = false;
-
-  Future<void> _analyzeImageFromFile() async {
-    setState(() => isLoading = true);
-    try {
-      final XFile? file =
-          await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (file == null) return;
-
-      final BarcodeCapture? barcodeCapture =
-          await _controller.analyzeImage(file.path);
-      final String? rawValue = barcodeCapture?.barcodes.firstOrNull?.rawValue;
-      debugPrint("This is scanned barcode ========================> $rawValue");
-      if (rawValue != null) {
-        await parseIataBarcode(rawValue);
-      } else {
-        if (mounted) {
-          CustomSnackBar.error(context,
-              "This boarding pass cannot be scanned due to poor quality.");
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.info(context,
-            'Unable to scan the boarding pass. Please try again with a clearer image.');
-      }
-    } finally {
-      setState(() => isLoading = false);
-    }
-  }
+  WalletSyncStep currentStep = WalletSyncStep.openWallet;
+  bool walletOpened = false;
+  File? selectedImage;
 
   Future<void> parseIataBarcode(String rawValue) async {
     setState(() => isLoading = true);
@@ -96,7 +78,7 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
       if (pnrExists) {
         if (mounted) {
           CustomSnackBar.info(
-              context, "Boading pass has already been reviewed.");
+              context, "Boarding pass has already been reviewed.");
         }
         return;
       }
@@ -159,7 +141,6 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
     if (flightInfo['flightStatuses']?.isEmpty ?? true) {
       CustomSnackBar.error(
           context, "No flight data found for the boarding pass.");
-
       return;
     }
     
@@ -177,7 +158,7 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    // Get user ID, use empty string if not logged in (same as scanner)
+    // Get user ID, use empty string if not logged in
     final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
 
     final newPass = BoardingPass(
@@ -201,7 +182,7 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
 
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
     
-    // Start real-time flight tracking with Cirium regardless of save result
+    // Start real-time flight tracking with Cirium
     final carrier = flightStatus['carrierFsCode'] ?? '';
     final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
     final flightDate = departureEntireTime;
@@ -219,29 +200,23 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
 
     if (trackingStarted) {
       debugPrint('✈️ Flight tracking started successfully for $pnr');
-      debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
-    } else {
-      debugPrint('⚠️ Flight tracking failed');
     }
     
     if (mounted) {
       if (result) {
         CustomSnackBar.success(context, '✅ Boarding pass from wallet loaded successfully!');
       } else {
-        debugPrint('⚠️ Boarding pass save failed, but continuing');
         CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
       }
       
-      // Show confirmation dialog with flight details
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => FlightConfirmationDialog(
-          boardingPass: newPass,
-          onCancel: () {
-            // User cancelled, stay on current screen
-          },
-        ),
+      // Close the wallet sync dialog
+      Navigator.pop(context);
+      
+      // Show confirmation dialog
+      FlightConfirmationDialog.show(
+        context,
+        newPass,
+        onCancel: () {},
       );
     }
   }
@@ -294,119 +269,343 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Scaffold(
-          appBar: AppbarWidget(
-            title: "Sync from Your Wallet",
-            onBackPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withAlpha(51),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.flight_takeoff,
-                        size: 48,
-                        color: AppStyles.mainColor,
-                      ),
-                      const SizedBox(height: 16),
-                      RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: AppStyles.textStyle_16_600.copyWith(
-                            height: 1.5,
-                            color: Colors.black,
-                          ),
-                          children: [
-                            const TextSpan(text: "Please click on "),
-                            TextSpan(
-                              text: "Upload Boarding Pass Screenshot",
-                              style: TextStyle(color: Colors.green),
-                            ),
-                            const TextSpan(
-                              text:
-                                  " button to upload the screenshot of your boarding pass used during your travel.\n\n",
-                            ),
-                            const TextSpan(
-                              text:
-                                  "If you don't have a screenshot, simply click on ",
-                            ),
-                            TextSpan(
-                              text: "Move To Wallet",
-                              style: TextStyle(color: Colors.green),
-                            ),
-                            const TextSpan(
-                              text: " button to retrieve it.\n\n",
-                            ),
-                            const TextSpan(
-                              text: "Caution: ",
-                              style: TextStyle(color: Colors.orange),
-                            ),
-                            const TextSpan(
-                              text:
-                                  "Ensure that the screenshot clearly displays the barcode of your boarding pass.",
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+        Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
             ),
           ),
-          bottomNavigationBar: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
+          padding: const EdgeInsets.all(24),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                height: 1,
-                color: Colors.grey.shade300,
-              ),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                child: Column(
-                  children: [
-                    MainButton(
-                      text: AppLocalizations.of(context)
-                          .translate('Upload Boarding Pass Screenshot'),
-                      onPressed: _analyzeImageFromFile,
-                      // color: Colors.white,
+              // Header with close button
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Sync from Your Wallet",
+                      style: AppStyles.textStyle_24_600,
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
-                    MainButton(
-                      text: AppLocalizations.of(context)
-                          .translate('Move To Wallet'),
-                      onPressed: _launchWallet,
-                      // color: Colors.white,
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
+              
+              // Progress Stepper
+              _buildProgressStepper(),
+              const SizedBox(height: 24),
+              
+              // Content based on current step
+              _buildStepContent(),
+              
+              const SizedBox(height: 24),
+              
+              // Action buttons
+              _buildActionButtons(),
             ],
           ),
         ),
-        if (isLoading) const LoadingWidget()
+        if (isLoading) const LoadingWidget(),
       ],
     );
+  }
+
+  Widget _buildProgressStepper() {
+    return Row(
+      children: [
+        _buildStepDot(1, currentStep.index >= 0),
+        _buildStepLine(currentStep.index >= 1),
+        _buildStepDot(2, currentStep.index >= 1),
+      ],
+    );
+  }
+
+  Widget _buildStepDot(int stepNumber, bool isActive) {
+    return Expanded(
+      child: Container(
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isActive ? Colors.black : Colors.grey[300],
+        ),
+        child: Center(
+          child: Text(
+            stepNumber.toString(),
+            style: AppStyles.textStyle_16_600.copyWith(
+              color: isActive ? Colors.white : Colors.grey[600],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepLine(bool isActive) {
+    return Expanded(
+      flex: 2,
+      child: Container(
+        height: 2,
+        color: isActive ? Colors.black : Colors.grey[300],
+      ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (currentStep) {
+      case WalletSyncStep.openWallet:
+        return _buildOpenWalletContent();
+      case WalletSyncStep.chooseScreenshot:
+        return _buildChooseScreenshotContent();
+    }
+  }
+
+  Widget _buildOpenWalletContent() {
+    return Column(
+      children: [
+        Icon(
+          Icons.account_balance_wallet,
+          size: 60,
+          color: Colors.black,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          "Step 1: Open Your Wallet",
+          style: AppStyles.textStyle_20_600,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Open your wallet app and take a screenshot of your boarding pass",
+          style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+          textAlign: TextAlign.center,
+        ),
+        if (walletOpened) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green[300]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Wallet opened! Take your screenshot",
+                    style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[900]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildChooseScreenshotContent() {
+    return Column(
+      children: [
+        Icon(
+          Icons.photo_library,
+          size: 60,
+          color: Colors.black,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          "Step 2: Choose Screenshot",
+          style: AppStyles.textStyle_20_600,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          selectedImage == null 
+              ? "Select the boarding pass screenshot from your photos"
+              : "Ready to verify! We'll scan the barcode and confirm your flight details",
+          style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+          textAlign: TextAlign.center,
+        ),
+        if (selectedImage != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green[300]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Screenshot selected - Click Verify to continue",
+                    style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[900]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+
+  Widget _buildActionButtons() {
+    if (currentStep == WalletSyncStep.openWallet) {
+      return Column(
+        children: [
+          MainButton(
+            text: "Open Wallet App",
+            onPressed: _handleOpenWallet,
+            color: Colors.black,
+            icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+          ),
+          if (walletOpened) ...[
+            const SizedBox(height: 12),
+            MainButton(
+              text: "Continue to Next Step",
+              onPressed: _moveToScreenshotStep,
+              color: Colors.black,
+            ),
+          ],
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _moveToScreenshotStep,
+            child: Text(
+              "Already have a screenshot? Skip",
+              style: AppStyles.textStyle_14_500.copyWith(
+                color: Colors.grey[700],
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (currentStep == WalletSyncStep.chooseScreenshot) {
+      return Column(
+        children: [
+          if (selectedImage == null) ...[
+            MainButton(
+              text: "Choose Screenshot",
+              onPressed: _pickScreenshot,
+              color: Colors.black,
+              icon: const Icon(Icons.photo_library, color: Colors.white),
+            ),
+          ] else ...[
+            MainButton(
+              text: "Verify Boarding Pass",
+              onPressed: _scanSelectedImage,
+              color: Colors.black,
+              icon: const Icon(Icons.check_circle, color: Colors.white),
+            ),
+          ],
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                currentStep = WalletSyncStep.openWallet;
+                selectedImage = null;
+              });
+            },
+            child: Text(
+              "← Back",
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
+  }
+
+  Future<void> _handleOpenWallet() async {
+    try {
+      await _launchWallet();
+      setState(() {
+        walletOpened = true;
+      });
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.error(context, "Could not open wallet. Please try manually.");
+      }
+    }
+  }
+
+  void _moveToScreenshotStep() {
+    setState(() {
+      currentStep = WalletSyncStep.chooseScreenshot;
+    });
+  }
+
+  Future<void> _pickScreenshot() async {
+    try {
+      final XFile? file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 100,
+      );
+      
+      if (file != null) {
+        setState(() {
+          selectedImage = File(file.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.error(context, "Failed to pick image. Please try again.");
+      }
+    }
+  }
+
+  Future<void> _scanSelectedImage() async {
+    if (selectedImage == null) return;
+    
+    setState(() => isLoading = true);
+
+    try {
+      final BarcodeCapture? barcodeCapture =
+          await _controller.analyzeImage(selectedImage!.path);
+      final String? rawValue = barcodeCapture?.barcodes.firstOrNull?.rawValue;
+      
+      if (rawValue != null) {
+        await parseIataBarcode(rawValue);
+      } else {
+        if (mounted) {
+          CustomSnackBar.error(context,
+              "This boarding pass cannot be scanned due to poor quality.");
+          setState(() {
+            selectedImage = null;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.info(context,
+            'Unable to scan the boarding pass. Please try again with a clearer image.');
+        setState(() {
+          selectedImage = null;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   @override
