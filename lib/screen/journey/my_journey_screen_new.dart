@@ -85,7 +85,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             SizedBox(height: 12),
             Text(
               'Connect your flight to start tracking your journey',
-              style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
+              style: AppStyles.textStyle_16_500.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 32),
@@ -94,7 +94,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                 Navigator.pushNamed(context, AppRoutes.reviewsubmissionscreen);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+                backgroundColor: Color(0xFF3B82F6),
                 padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -166,7 +166,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         child: ElevatedButton(
           onPressed: () => _showFeedbackModal(flight),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
+            backgroundColor: Color(0xFFEF4444), // Red
             padding: EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -174,7 +174,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             elevation: 0,
           ),
           child: Text(
-            'Share Feedback',
+            'Give Live Feedback',
             style: AppStyles.textStyle_16_600.copyWith(
               color: Colors.white,
             ),
@@ -198,12 +198,10 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       builder: (context) => MicroReviewModal(
         event: JourneyEvent(
           id: 'overall_feedback',
-          title: 'Overall Feedback',
-          description: 'Overall flight experience',
+          eventType: 'OVERALL_FEEDBACK',
           timestamp: DateTime.now(),
-          icon: Icons.star,
-          hasFeedback: true,
-          isCompleted: true,
+          description: 'Overall flight experience',
+          metadata: {},
         ),
         onSubmitted: (rating, comment) {
           // TODO: Submit feedback to backend

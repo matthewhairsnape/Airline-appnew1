@@ -111,6 +111,7 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
     required DateTime flightDate,
     required String departureAirport,
     required String pnr,
+    Map<String, dynamic>? existingFlightData,
   }) async {
     try {
       state = state.copyWith(isTracking: true, error: null);
@@ -121,6 +122,7 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
         flightDate: flightDate,
         departureAirport: departureAirport,
         pnr: pnr,
+        existingFlightData: existingFlightData,
       );
 
       if (flight == null) {

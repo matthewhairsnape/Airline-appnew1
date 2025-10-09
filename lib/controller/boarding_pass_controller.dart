@@ -15,15 +15,24 @@ class BoardingPassController {
         body: jsonEncode(boardingPass.toJson()),
       );
 
+      debugPrint('Save boarding pass response status: ${response.statusCode}');
+      debugPrint('Save boarding pass response body: ${response.body}');
+
       if (response.statusCode == 201) {
         return true;
       } else {
-        final errorMessage =
-            jsonDecode(response.body)['message'] ?? 'Unknown error';
-        throw Exception('Error: $errorMessage');
+        // Try to parse JSON error, but handle HTML responses gracefully
+        try {
+          final errorData = jsonDecode(response.body);
+          final errorMessage = errorData['message'] ?? 'Unknown error';
+          debugPrint('API Error: $errorMessage');
+        } catch (parseError) {
+          debugPrint('Response is not JSON (likely HTML error page): ${response.body.substring(0, 100)}...');
+        }
+        return false; // Don't throw, just return false
       }
     } catch (e) {
-      debugPrint('Error saving boading pass: $e');
+      debugPrint('Error saving boarding pass: $e');
       return false;
     }
   }
@@ -81,8 +90,11 @@ class BoardingPassController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['exists'];
+      } else if (response.statusCode == 404) {
+        // 404 is expected when PNR doesn't exist - not an error
+        return false;
       } else {
-        debugPrint('Error: ${response.statusCode}');
+        debugPrint('Error checking PNR: ${response.statusCode}');
         return false;
       }
     } catch (e) {

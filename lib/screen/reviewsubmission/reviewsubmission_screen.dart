@@ -33,20 +33,28 @@ class _ReviewsubmissionScreenState
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Delay provider modification until after widget tree is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
     try {
-      await Future.wait([
-        _boardingPassController
-            .getBoardingPasses(ref.read(userDataProvider)?['userData']['_id'])
-            .then((boardingPasses) {
-          if (mounted) {
-            ref.read(boardingPassesProvider.notifier).setData(boardingPasses);
-          }
-        })
-      ]);
+      final userId = ref.read(userDataProvider)?['userData']['_id'];
+      // Only fetch boarding passes if user is logged in
+      if (userId != null && userId.toString().isNotEmpty) {
+        final boardingPasses = await _boardingPassController
+            .getBoardingPasses(userId.toString());
+        if (mounted) {
+          ref.read(boardingPassesProvider.notifier).setData(boardingPasses);
+        }
+      } else {
+        // User not logged in, set empty list
+        if (mounted) {
+          ref.read(boardingPassesProvider.notifier).setData([]);
+        }
+      }
     } catch (e) {
       debugPrint('Error loading data: $e');
     } finally {

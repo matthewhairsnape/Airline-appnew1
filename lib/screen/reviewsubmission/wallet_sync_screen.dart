@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:airline_app/provider/user_data_provider.dart';
+import 'package:airline_app/provider/flight_tracking_provider.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:airline_app/controller/fetch_flight_info_by_cirium.dart';
 import 'package:airline_app/models/boarding_pass.dart';
 import 'package:airline_app/screen/app_widgets/loading.dart';
 import 'package:airline_app/screen/app_widgets/main_button.dart';
+import 'package:airline_app/screen/reviewsubmission/widgets/flight_confirmation_dialog.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
@@ -160,6 +162,7 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
 
       return;
     }
+    
     final flightStatus = flightInfo['flightStatuses'][0];
     final airlines = flightInfo['appendix']['airlines'];
     final airports = flightInfo['appendix']['airports'];
@@ -174,32 +177,72 @@ class _WalletSyncScreenState extends ConsumerState<WalletSyncScreen> {
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    /// ref.read(userDataProvider)?['userData']['_id']
+    // Get user ID, use empty string if not logged in (same as scanner)
+    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+
     final newPass = BoardingPass(
-      name: ref.read(userDataProvider)?['userData']['_id'],
+      name: userId.toString(),
       pnr: pnr,
-      airlineName: airlineName,
-      departureAirportCode: departureAirport['fs'],
-      departureCity: departureAirport['city'],
-      departureCountryCode: departureAirport['countryCode'],
+      airlineName: airlineName ?? '',
+      departureAirportCode: departureAirport['fs'] ?? '',
+      departureCity: departureAirport['city'] ?? '',
+      departureCountryCode: departureAirport['countryCode'] ?? '',
       departureTime: _formatTime(departureEntireTime),
-      arrivalAirportCode: arrivalAirport['fs'],
-      arrivalCity: arrivalAirport['city'],
-      arrivalCountryCode: arrivalAirport['countryCode'],
+      arrivalAirportCode: arrivalAirport['fs'] ?? '',
+      arrivalCity: arrivalAirport['city'] ?? '',
+      arrivalCountryCode: arrivalAirport['countryCode'] ?? '',
       arrivalTime: _formatTime(arrivalEntireTime),
       classOfTravel: classOfService,
-      airlineCode: flightStatus['carrierFsCode'],
+      airlineCode: flightStatus['carrierFsCode'] ?? '',
       flightNumber:
           "${flightStatus['carrierFsCode']} ${flightStatus['flightNumber']}",
       visitStatus: _getVisitStatus(departureEntireTime),
     );
 
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
-    if (result) {
-      if (mounted) {
-        CustomSnackBar.success(context, 'Boarding pass from wallet loaded successfully!');
-        Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
+    
+    // Start real-time flight tracking with Cirium regardless of save result
+    final carrier = flightStatus['carrierFsCode'] ?? '';
+    final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
+    final flightDate = departureEntireTime;
+    final departureAirportCode = departureAirport['fs'] ?? '';
+    
+    debugPrint('🪑 Starting flight tracking for wallet sync: $carrier $flightNumber');
+    final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
+      carrier: carrier,
+      flightNumber: flightNumber,
+      flightDate: flightDate,
+      departureAirport: departureAirportCode,
+      pnr: pnr,
+      existingFlightData: flightInfo,
+    );
+
+    if (trackingStarted) {
+      debugPrint('✈️ Flight tracking started successfully for $pnr');
+      debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
+    } else {
+      debugPrint('⚠️ Flight tracking failed');
+    }
+    
+    if (mounted) {
+      if (result) {
+        CustomSnackBar.success(context, '✅ Boarding pass from wallet loaded successfully!');
+      } else {
+        debugPrint('⚠️ Boarding pass save failed, but continuing');
+        CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
       }
+      
+      // Show confirmation dialog with flight details
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => FlightConfirmationDialog(
+          boardingPass: newPass,
+          onCancel: () {
+            // User cancelled, stay on current screen
+          },
+        ),
+      );
     }
   }
 

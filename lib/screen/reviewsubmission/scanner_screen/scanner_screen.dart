@@ -14,6 +14,7 @@ import 'package:airline_app/utils/app_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../widgets/flight_confirmation_dialog.dart';
 import 'scanner_button_widgets.dart';
 import 'scanner_error_widget.dart';
 
@@ -375,6 +376,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       flightDate: date,
       departureAirport: departureAirportCode,
       pnr: pnr,
+      existingFlightData: flightInfo,
     );
 
     if (trackingStarted) {
@@ -391,8 +393,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         debugPrint('⚠️ Boarding pass save failed, but continuing with tracking');
         CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
       }
-      // Navigate directly to My Journey page
-      Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
+      
+      // Show confirmation dialog with flight details
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => FlightConfirmationDialog(
+          boardingPass: newPass,
+          onCancel: () {
+            // User cancelled, stay on current screen
+          },
+        ),
+      );
     }
   }
 

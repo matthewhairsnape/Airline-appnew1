@@ -23,22 +23,31 @@ class CiriumFlightTrackingService {
     required DateTime flightDate,
     required String departureAirport,
     required String pnr,
+    Map<String, dynamic>? existingFlightData,
   }) async {
     try {
       debugPrint(
           '🛫 Starting flight verification for $carrier$flightNumber on ${flightDate.toString()}');
 
-      // Fetch initial flight data from Cirium
-      final Map<String, dynamic> flightInfo = await _fetchFlightStatus(
-        carrier: carrier,
-        flightNumber: flightNumber,
-        flightDate: flightDate,
-        departureAirport: departureAirport,
-      );
-
-      if (flightInfo['error'] != null) {
-        debugPrint('❌ Error fetching flight data: ${flightInfo['error']}');
-        return null;
+      Map<String, dynamic> flightInfo;
+      
+      // Use existing flight data if provided (from initial scan)
+      if (existingFlightData != null) {
+        debugPrint('📦 Using existing flight data from scan');
+        flightInfo = existingFlightData;
+      } else {
+        // Fetch flight data from Cirium
+        flightInfo = await _fetchFlightStatus(
+          carrier: carrier,
+          flightNumber: flightNumber,
+          flightDate: flightDate,
+          departureAirport: departureAirport,
+        );
+        
+        if (flightInfo['error'] != null) {
+          debugPrint('❌ Error fetching flight data: ${flightInfo['error']}');
+          return null;
+        }
       }
 
       if (flightInfo['flightStatuses'] == null ||
@@ -83,9 +92,16 @@ class CiriumFlightTrackingService {
 
       // Store and start tracking
       _activeFlights[pnr] = flightTracking;
-      _startPolling(pnr);
-
-      debugPrint('✅ Flight verified and tracking started');
+      
+      // Only start polling for current/upcoming flights (not past flights)
+      final daysDifference = DateTime.now().difference(flightDate).inDays;
+      if (daysDifference <= 3) {
+        _startPolling(pnr);
+        debugPrint('✅ Flight verified and real-time tracking started');
+      } else {
+        debugPrint('✅ Flight verified (past flight - no real-time polling)');
+      }
+      
       return flightTracking;
     } catch (e) {
       debugPrint('❌ Error in verifyAndTrackFlight: $e');
@@ -101,9 +117,24 @@ class CiriumFlightTrackingService {
     required String departureAirport,
   }) async {
     try {
-      final url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
-          '${flightDate.year}/${flightDate.month}/${flightDate.day}'
-          '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
+      // Check if this is a past flight (more than 3 days ago)
+      final daysDifference = DateTime.now().difference(flightDate).inDays;
+      final isPastFlight = daysDifference > 3;
+      
+      String url;
+      if (isPastFlight) {
+        // Use historical API for past flights
+        url = 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
+            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
+            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport';
+        debugPrint('📡 Using HISTORICAL API for past flight');
+      } else {
+        // Use real-time API for current/upcoming flights
+        url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
+            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
+            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
+        debugPrint('📡 Using REAL-TIME API for current flight');
+      }
 
       debugPrint('📡 Fetching flight status from: $url');
 
