@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:airline_app/models/flight_tracking_model.dart';
 import 'package:airline_app/models/stage_feedback_model.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/utils/global_variable.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -109,47 +110,105 @@ class CiriumFlightTrackingService {
     }
   }
 
-  /// Fetch current flight status from Cirium API
+  /// Fetch current flight status from Cirium API with retry logic
   Future<Map<String, dynamic>> _fetchFlightStatus({
     required String carrier,
     required String flightNumber,
     required DateTime flightDate,
     required String departureAirport,
+    int maxRetries = 3,
   }) async {
-    try {
-      // Check if this is a past flight (more than 3 days ago)
-      final daysDifference = DateTime.now().difference(flightDate).inDays;
-      final isPastFlight = daysDifference > 3;
-      
-      String url;
-      if (isPastFlight) {
-        // Use historical API for past flights
-        url = 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
-            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
-            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport';
-        debugPrint('📡 Using HISTORICAL API for past flight');
-      } else {
-        // Use real-time API for current/upcoming flights
-        url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
-            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
-            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
-        debugPrint('📡 Using REAL-TIME API for current flight');
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Check if this is a past flight (more than 3 days ago)
+        final daysDifference = DateTime.now().difference(flightDate).inDays;
+        final isPastFlight = daysDifference > 3;
+        
+        String url;
+        if (isPastFlight) {
+          // Use historical API for past flights
+          url = 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
+              '${flightDate.year}/${flightDate.month}/${flightDate.day}'
+              '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport';
+          debugPrint('📡 Using HISTORICAL API for past flight (attempt $attempt/$maxRetries)');
+        } else {
+          // Use real-time API for current/upcoming flights
+          url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
+              '${flightDate.year}/${flightDate.month}/${flightDate.day}'
+              '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
+          debugPrint('📡 Using REAL-TIME API for current flight (attempt $attempt/$maxRetries)');
+        }
+
+        debugPrint('📡 Fetching flight status from: $url');
+
+        final response = await http.get(
+          Uri.parse(url),
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'AirlineApp/1.0',
+          },
+        ).timeout(Duration(seconds: 30));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          
+          // Validate response structure
+          if (data is Map<String, dynamic> && data.containsKey('flightStatuses')) {
+            debugPrint('✅ Cirium API response received successfully');
+            return data;
+          } else {
+            debugPrint('⚠️ Invalid response structure from Cirium API');
+            if (attempt < maxRetries) {
+              await Future.delayed(Duration(seconds: attempt * 2));
+              continue;
+            }
+            return {'error': 'Invalid response structure from Cirium API'};
+          }
+        } else if (response.statusCode == 429) {
+          // Rate limit exceeded
+          debugPrint('⚠️ Rate limit exceeded, waiting before retry...');
+          if (attempt < maxRetries) {
+            await Future.delayed(Duration(seconds: 30 * attempt));
+            continue;
+          }
+          return {'error': 'Rate limit exceeded. Please try again later.'};
+        } else if (response.statusCode >= 500) {
+          // Server error, retry
+          debugPrint('⚠️ Server error ${response.statusCode}, retrying...');
+          if (attempt < maxRetries) {
+            await Future.delayed(Duration(seconds: attempt * 5));
+            continue;
+          }
+          return {'error': 'Server error: ${response.statusCode}'};
+        } else {
+          // Client error, don't retry
+          debugPrint('❌ Client error: ${response.statusCode}');
+          final errorData = json.decode(response.body);
+          return {
+            'error': 'Failed to fetch flight data: ${response.statusCode}',
+            'message': errorData['error']?['errorMessage'] ?? 'Unknown error',
+            'statusCode': response.statusCode,
+          };
+        }
+      } catch (e) {
+        debugPrint('❌ Exception in _fetchFlightStatus (attempt $attempt/$maxRetries): $e');
+        
+        if (attempt < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          final delay = Duration(seconds: attempt * 2);
+          debugPrint('⏳ Waiting ${delay.inSeconds}s before retry...');
+          await Future.delayed(delay);
+          continue;
+        }
+        
+        return {
+          'error': 'Network error after $maxRetries attempts',
+          'details': e.toString(),
+        };
       }
-
-      debugPrint('📡 Fetching flight status from: $url');
-
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        debugPrint('❌ API returned status code: ${response.statusCode}');
-        return {'error': 'Failed to fetch flight data: ${response.statusCode}'};
-      }
-    } catch (e) {
-      debugPrint('❌ Exception in _fetchFlightStatus: $e');
-      return {'error': e.toString()};
     }
+    
+    return {'error': 'Failed to fetch flight data after $maxRetries attempts'};
   }
 
   /// Determine current flight phase from Cirium data
@@ -337,6 +396,22 @@ class CiriumFlightTrackingService {
 
             _activeFlights[pnr] = updatedFlight;
             _flightUpdateController.add(updatedFlight);
+
+            // Send Supabase push notification for phase change
+            if (SupabaseService.isInitialized) {
+              await SupabaseService.notifyFlightPhaseChange(
+                journeyId: flight.flightId, // Assuming flightId is the journey ID
+                newPhase: newPhase.toString(),
+                previousPhase: flight.currentPhase.toString(),
+                flightData: {
+                  'pnr': pnr,
+                  'carrier': flight.carrier,
+                  'flightNumber': flight.flightNumber,
+                  'departureAirport': flight.departureAirport,
+                  'arrivalAirport': flight.arrivalAirport,
+                },
+              );
+            }
           }
         }
       } catch (e) {
