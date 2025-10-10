@@ -8,6 +8,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 
 -- Create missing tables that your Flutter app needs
 
