@@ -4,6 +4,7 @@ import 'package:airline_app/screen/leaderboard/leaderboard_filter_screen.dart';
 import 'package:airline_app/screen/leaderboard/media_full_screen.dart';
 import 'package:airline_app/screen/login/log_in.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
+import 'package:airline_app/services/push_notification_service.dart';
 import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
@@ -48,6 +49,10 @@ void main() async {
   // Initialize flight notification service
   final notificationService = FlightNotificationService();
   await notificationService.initialize();
+
+  // Initialize push notification service
+  final pushNotificationService = PushNotificationService();
+  await pushNotificationService.initialize();
 
   runApp(
     ProviderScope(

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test QR Code Generator for Airline App</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        // Fallback QR code generation using canvas
+        function generateQRCodeCanvas(text, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Simple QR-like pattern (for testing purposes)
+            const size = 300;
+            const moduleSize = 10;
+            const modules = Math.floor(size / moduleSize);
+            
+            // Create a simple pattern that looks like a QR code
+            ctx.fillStyle = '#000000';
+            for (let i = 0; i < modules; i++) {
+                for (let j = 0; j < modules; j++) {
+                    // Create a pattern based on the text
+                    const charCode = text.charCodeAt((i * modules + j) % text.length);
+                    if (charCode % 2 === 0) {
+                        ctx.fillRect(i * moduleSize, j * moduleSize, moduleSize, moduleSize);
+                    }
+                }
+            }
+            
+            // Add corner squares (like real QR codes)
+            ctx.fillRect(0, 0, moduleSize * 7, moduleSize * 7);
+            ctx.fillRect((modules - 7) * moduleSize, 0, moduleSize * 7, moduleSize * 7);
+            ctx.fillRect(0, (modules - 7) * moduleSize, moduleSize * 7, moduleSize * 7);
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .barcode-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .test-data {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛫 Test QR Code Generator for Airline App</h1>
+        
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li>Fill in the flight details below</li>
+                <li>Click "Generate QR Code"</li>
+                <li>Take a screenshot of the QR code</li>
+                <li>Use the image in your app's scanner</li>
+            </ol>
+        </div>
+
+        <form id="barcodeForm">
+            <div class="form-group">
+                <label for="pnr">PNR (Booking Reference):</label>
+                <input type="text" id="pnr" value="TEST123456" required>
+            </div>
+
+            <div class="form-group">
+                <label for="carrier">Carrier Code:</label>
+                <select id="carrier">
+                    <option value="AA">AA (American Airlines)</option>
+                    <option value="DL">DL (Delta Air Lines)</option>
+                    <option value="UA">UA (United Airlines)</option>
+                    <option value="BA">BA (British Airways)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="flightNumber">Flight Number:</label>
+                <input type="text" id="flightNumber" value="100" required>
+            </div>
+
+            <div class="form-group">
+                <label for="airport">Departure Airport:</label>
+                <select id="airport">
+                    <option value="JFK">JFK (New York)</option>
+                    <option value="LAX">LAX (Los Angeles)</option>
+                    <option value="ORD">ORD (Chicago)</option>
+                    <option value="LHR">LHR (London)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="class">Class of Service:</label>
+                <select id="class">
+                    <option value="Y">Y (Economy)</option>
+                    <option value="R">R (Premium Economy)</option>
+                    <option value="J">J (Business)</option>
+                    <option value="F">F (First)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="date">Flight Date (Julian Day):</label>
+                <input type="number" id="date" value="001" min="1" max="366" required>
+                <small>001 = January 1st, 002 = January 2nd, etc.</small>
+            </div>
+
+            <button type="button" onclick="generateBarcode()">Generate QR Code</button>
+            <button type="button" onclick="useTestData()">Use Test Data</button>
+        </form>
+
+        <div class="test-data">
+            <h3>🧪 Quick Test Data:</h3>
+            <p><strong>American Airlines AA 100:</strong> PNR: TEST123456, JFK, Economy, Today</p>
+            <p><strong>Delta DL 1234:</strong> PNR: TEST789012, LAX, Business, Tomorrow</p>
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <h4>📋 IATA Format Requirements:</h4>
+                <p><strong>Regex Pattern:</strong> <code>([A-Z0-9]{5,7})\s+([A-Z]{6}[A-Z0-9]{2})\s+(\d{4})\s+(\d{3}[A-Z])</code></p>
+                <p><strong>Format:</strong> PNR(5-7) + " " + ROUTE(8) + " " + FLIGHT(4) + " " + DATE+CLASS(4)</p>
+                <p><strong>Example:</strong> <code>TEST123456 JFKAA100 100 001Y</code></p>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>PNR: 5-7 alphanumeric characters</li>
+                    <li>ROUTE: 8 characters (3 airport + 2 carrier + 3 flight padded)</li>
+                    <li>FLIGHT: 4 digits</li>
+                    <li>DATE+CLASS: 3 digits (Julian day) + 1 letter (class)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="barcode-container">
+            <h3>Generated QR Code:</h3>
+            <canvas id="qrcode" width="300" height="300"></canvas>
+            <p id="barcodeText"></p>
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <h4>📋 Alternative: Copy This Text</h4>
+                <p style="font-family: monospace; font-size: 16px; background: white; padding: 10px; border: 1px solid #ddd; border-radius: 4px; word-break: break-all;" id="textBarcode"></p>
+                <button onclick="copyToClipboard()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Copy Text</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateBarcode() {
+            const pnr = document.getElementById('pnr').value;
+            const carrier = document.getElementById('carrier').value;
+            const flightNumber = document.getElementById('flightNumber').value;
+            const airport = document.getElementById('airport').value;
+            const classCode = document.getElementById('class').value;
+            const julianDate = document.getElementById('date').value.padStart(3, '0');
+
+            // Create the barcode string in IATA format
+            // Format: PNR + " " + ROUTE + " " + FLIGHT_NUMBER + " " + JULIAN_DATE + CLASS
+            // ROUTE format: [A-Z]{6}[A-Z0-9]{2} = 8 characters total
+            // Example: TEST123456 JFKAA100 100 001Y
+            const route = airport + carrier + flightNumber.padStart(3, '0');
+            const barcodeString = `${pnr} ${route} ${flightNumber} ${julianDate}${classCode}`;
+            
+            // Debug: Show what we're generating
+            console.log('Generated barcode string:', barcodeString);
+            console.log('PNR:', pnr, 'Length:', pnr.length);
+            console.log('Route:', route, 'Length:', route.length);
+            console.log('Flight Number:', flightNumber, 'Length:', flightNumber.length);
+            console.log('Julian Date + Class:', julianDate + classCode, 'Length:', (julianDate + classCode).length);
+            
+            try {
+                // Try to use QRCode library first
+                if (typeof QRCode !== 'undefined') {
+                    QRCode.toCanvas(document.getElementById('qrcode'), barcodeString, {
+                        width: 300,
+                        height: 300,
+                        margin: 2,
+                        color: {
+                            dark: '#000000',
+                            light: '#FFFFFF'
+                        }
+                    }, function (error) {
+                        if (error) {
+                            console.error('QR Code generation error:', error);
+                            // Fallback to simple pattern
+                            generateQRCodeCanvas(barcodeString, 'qrcode');
+                        } else {
+                            console.log('QR Code generated successfully');
+                        }
+                    });
+                } else {
+                    // Fallback to simple pattern
+                    generateQRCodeCanvas(barcodeString, 'qrcode');
+                }
+                
+                document.getElementById('barcodeText').textContent = `QR Code Data: ${barcodeString}`;
+                document.getElementById('textBarcode').textContent = barcodeString;
+            } catch (e) {
+                console.error('Error generating QR code:', e);
+                // Fallback to simple pattern
+                generateQRCodeCanvas(barcodeString, 'qrcode');
+                document.getElementById('barcodeText').textContent = `QR Code Data: ${barcodeString}`;
+                document.getElementById('textBarcode').textContent = barcodeString;
+            }
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('textBarcode').textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                alert('Text copied to clipboard!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Text copied to clipboard!');
+            });
+        }
+
+        function useTestData() {
+            document.getElementById('pnr').value = 'TEST123456';
+            document.getElementById('carrier').value = 'AA';
+            document.getElementById('flightNumber').value = '100';
+            document.getElementById('airport').value = 'JFK';
+            document.getElementById('class').value = 'Y';
+            
+            // Calculate today's julian day
+            const today = new Date();
+            const start = new Date(today.getFullYear(), 0, 0);
+            const diff = today - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const julianDay = Math.floor(diff / oneDay);
+            document.getElementById('date').value = julianDay.toString().padStart(3, '0');
+            
+            generateBarcode();
+        }
+
+        // Generate initial barcode
+        window.onload = function() {
+            useTestData();
+        };
+    </script>
+</body>
+</html>
