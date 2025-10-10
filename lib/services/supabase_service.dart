@@ -12,11 +12,12 @@ class SupabaseService {
   }
 
   static Future<void> initialize() async {
-    const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+    const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://otidfywfqxyxteixpqre.supabase.co');
     const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
 
-    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-      debugPrint('⚠️ Supabase credentials not found. Running without Supabase integration.');
+    if (supabaseAnonKey.isEmpty) {
+      debugPrint('⚠️ Supabase anon key not found. Please set SUPABASE_ANON_KEY environment variable.');
+      debugPrint('   Supabase URL: $supabaseUrl');
       return;
     }
 
@@ -268,6 +269,120 @@ class SupabaseService {
           callback: (payload) => callback(payload.newRecord),
         )
         .subscribe();
+  }
+
+  // Push notification methods
+  static Future<void> updateUserPushToken({
+    required String userId,
+    required String pushToken,
+  }) async {
+    if (!isInitialized) return;
+
+    try {
+      await client.from('users').update({
+        'push_token': pushToken,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+
+      debugPrint('✅ Push token updated for user: $userId');
+    } catch (e) {
+      debugPrint('❌ Error updating push token: $e');
+    }
+  }
+
+  static Future<void> sendPushNotification({
+    required String userId,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+    String? journeyId,
+    String? stage,
+  }) async {
+    if (!isInitialized) return;
+
+    try {
+      final response = await client.functions.invoke(
+        'send-push-notification',
+        body: {
+          'userId': userId,
+          'title': title,
+          'body': body,
+          'data': data,
+          'journeyId': journeyId,
+          'stage': stage,
+        },
+      );
+
+      if (response.status == 200) {
+        debugPrint('✅ Push notification sent successfully');
+      } else {
+        debugPrint('❌ Failed to send push notification: ${response.data}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending push notification: $e');
+    }
+  }
+
+  static Future<void> sendBatchNotifications({
+    required List<String> userIds,
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+    String? journeyId,
+    String? stage,
+  }) async {
+    if (!isInitialized) return;
+
+    try {
+      final response = await client.functions.invoke(
+        'send-batch-notifications',
+        body: {
+          'userIds': userIds,
+          'title': title,
+          'body': body,
+          'data': data,
+          'journeyId': journeyId,
+          'stage': stage,
+        },
+      );
+
+      if (response.status == 200) {
+        debugPrint('✅ Batch notifications sent successfully');
+      } else {
+        debugPrint('❌ Failed to send batch notifications: ${response.data}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending batch notifications: $e');
+    }
+  }
+
+  static Future<void> notifyFlightPhaseChange({
+    required String journeyId,
+    required String newPhase,
+    String? previousPhase,
+    Map<String, dynamic>? flightData,
+  }) async {
+    if (!isInitialized) return;
+
+    try {
+      final response = await client.functions.invoke(
+        'flight-phase-notification',
+        body: {
+          'journeyId': journeyId,
+          'newPhase': newPhase,
+          'previousPhase': previousPhase,
+          'flightData': flightData,
+        },
+      );
+
+      if (response.status == 200) {
+        debugPrint('✅ Flight phase notification sent successfully');
+      } else {
+        debugPrint('❌ Failed to send flight phase notification: ${response.data}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending flight phase notification: $e');
+    }
   }
 }
 
