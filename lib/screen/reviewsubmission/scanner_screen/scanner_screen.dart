@@ -76,7 +76,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         _barcode = barcodes.barcodes.firstOrNull;
       });
       if (_barcode?.rawValue != null) {
-        debugPrint("📱 Scanner: Detected barcode format: ${_barcode!.format}");
         isProcessing = true;
         controller.stop();
         parseIataBarcode(_barcode!.rawValue!);
@@ -114,49 +113,63 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
         debugPrint("✅ Detected BCBP format");
         
-        // BCBP Format: M1HAIRSNAPE/MATTHEW MREHTLSCF BEGISTJU 0426 245Y022F0060
+        // BCBP Format parsing
+        // M1HAIRSNAPE/MATTHEWM          CTABEGJU 439  244 12A 0209  00
         // M1 = Format code
-        // HAIRSNAPE/MATTHEW M = Passenger name (variable length)
-        // REHTLSCF = Route info (departure + arrival + carrier)
-        // BEGISTJU = Flight number
-        // 0426 = Julian date
+        // HAIRSNAPE/MATTHEWM = Passenger name
+        // CTA = Origin airport
+        // BEG = Destination airport
+        // JU = Operating carrier
+        // 439 = Flight number
+        // 244 = Julian date
+        // 12A = Seat number
+        // 0209 = Sequence number
         // etc.
         
-        // Find the route information after the passenger name
-        // Look for pattern: 3-letter airport + 3-letter airport + 2-letter carrier
-        RegExp routePattern = RegExp(r'([A-Z]{3})([A-Z]{3})([A-Z]{2})');
-        Match? routeMatch = routePattern.firstMatch(rawValue);
+        int pos = 2; // Skip M1
         
-        if (routeMatch != null) {
-          departureAirport = routeMatch.group(1)!; // First 3 letters
-          arrivalAirport = routeMatch.group(2)!; // Next 3 letters  
-          carrier = routeMatch.group(3)!; // Last 2 letters
+        // Extract passenger name (variable length, padded with spaces)
+        int nameEnd = pos + 20;
+        if (nameEnd > rawValue.length) nameEnd = rawValue.length;
+        // Skip name for now
+        pos = nameEnd;
+        
+        // Extract data after name
+        String remainingData = rawValue.substring(pos).trim();
+        
+        // Parse the key fields
+        // Format: XXXYYYZZ NNNN DDD SSS CCCC
+        // XXX = Departure airport (3 chars)
+        // YYY = Arrival airport (3 chars)
+        // ZZ = Carrier code (2 chars)
+        // NNNN = Flight number (variable, up to 5 chars with spaces)
+        // DDD = Julian date (3 digits)
+        // SSS = Seat number (3 chars)
+        
+        if (remainingData.length >= 8) {
+          departureAirport = remainingData.substring(0, 3);
+          arrivalAirport = remainingData.substring(3, 6);
+          carrier = remainingData.substring(6, 8).trim();
           
-          // Find flight number after the route info
-          int routeEnd = routeMatch.end;
-          String afterRoute = rawValue.substring(routeEnd).trim();
+          // Find flight number and date
+          String afterCarrier = remainingData.substring(8).trim();
+          List<String> parts = afterCarrier.split(RegExp(r'\s+'));
           
-          // Extract flight number (next word)
-          List<String> parts = afterRoute.split(RegExp(r'\s+'));
           if (parts.isNotEmpty) {
-            flightNumber = parts[0];
+            flightNumber = parts[0]; // Flight number
           }
-          
-          // Extract Julian date (next part)
           if (parts.length > 1) {
-            String julianDate = parts[1];
+            String julianDate = parts[1]; // Julian date
             if (julianDate.length >= 3) {
               final baseDate = DateTime(DateTime.now().year, 1, 0);
               date = baseDate.add(Duration(days: int.parse(julianDate.substring(0, 3))));
             }
           }
-          
-          // Extract seat number if available
           if (parts.length > 2) {
-            seatNumber = parts[2];
+            seatNumber = parts[2]; // Seat number
           }
           
-          // Generate PNR from flight info
+          // Use PNR from the last part of passenger name or generate from flight info
           pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
           
           debugPrint("✅ Parsed BCBP boarding pass:");
