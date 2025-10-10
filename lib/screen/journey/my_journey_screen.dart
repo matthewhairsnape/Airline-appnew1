@@ -36,6 +36,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     final allFlights = flightTrackingState.getAllFlights();
     final activeFlights = flightTrackingState.trackedFlights.values.toList();
     final completedFlights = flightTrackingState.completedFlights.values.toList();
+    
+    debugPrint('🎯 Journey Screen: allFlights count: ${allFlights.length}');
+    debugPrint('🎯 Journey Screen: activeFlights count: ${activeFlights.length}');
+    debugPrint('🎯 Journey Screen: completedFlights count: ${completedFlights.length}');
+    if (allFlights.isNotEmpty) {
+      debugPrint('🎯 Journey Screen: First flight PNR: ${allFlights.first.pnr}');
+      debugPrint('🎯 Journey Screen: First flight carrier: ${allFlights.first.carrier}');
+      debugPrint('🎯 Journey Screen: First flight number: ${allFlights.first.flightNumber}');
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

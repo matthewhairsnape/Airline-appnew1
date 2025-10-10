@@ -1,6 +1,7 @@
 import 'package:airline_app/controller/boarding_pass_controller.dart';
 import 'package:airline_app/controller/fetch_flight_info_by_cirium.dart';
 import 'package:airline_app/models/boarding_pass.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
@@ -155,7 +156,7 @@ class _EventCardState extends ConsumerState<EventCard> {
       }
 
       final String pnr = event.iCalUID!;
-      final String carrier = match.group(0)!.substring(1, 3);
+      final String carrier = match.group(0)!.substring(1, 3).trim();
       final String flightNumber =
           match.group(0)!.substring(4, match.group(0)!.length - 1);
       final DateTime date = event.start!.dateTime!;
@@ -237,11 +238,32 @@ class _EventCardState extends ConsumerState<EventCard> {
 
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
     
-    // Start real-time flight tracking with Cirium regardless of save result
+    // Extract variables for flight tracking and Supabase
     final carrier = flightStatus['carrierFsCode'] ?? '';
     final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
     final flightDate = departureEntireTime;
     final departureAirportCode = departureAirport['fs'] ?? '';
+    
+    // Save to Supabase if initialized
+    if (SupabaseService.isInitialized) {
+      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+      await SupabaseService.createJourney(
+        userId: userId.toString(),
+        pnr: pnr,
+        carrier: carrier,
+        flightNumber: flightNumber,
+        departureAirport: departureAirportCode,
+        arrivalAirport: arrivalAirport['fs'].toString(),
+        scheduledDeparture: departureEntireTime,
+        scheduledArrival: arrivalEntireTime,
+        seatNumber: null, // Calendar sync doesn't have seat info
+        classOfTravel: classOfService,
+        terminal: flightStatus['airportResources']?['departureTerminal'],
+        gate: flightStatus['airportResources']?['departureGate'],
+        aircraftType: flightStatus['flightEquipment']?['iata'],
+      );
+      debugPrint('✅ Journey saved to Supabase from calendar sync');
+    }
     
     debugPrint('🪑 Starting flight tracking for calendar sync: $carrier $flightNumber');
     final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(

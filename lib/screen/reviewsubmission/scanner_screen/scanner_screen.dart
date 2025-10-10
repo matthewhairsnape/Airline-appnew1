@@ -149,7 +149,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         if (remainingData.length >= 8) {
           departureAirport = remainingData.substring(0, 3);
           arrivalAirport = remainingData.substring(3, 6);
-          carrier = remainingData.substring(6, 8);
+          carrier = remainingData.substring(6, 8).trim();
           
           // Find flight number and date
           String afterCarrier = remainingData.substring(8).trim();
@@ -199,7 +199,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         pnr = match.group(1)!;
         final routeOfFlight = match.group(2)!;
         departureAirport = routeOfFlight.substring(0, 3);
-        carrier = routeOfFlight.substring(6, 8);
+        carrier = routeOfFlight.substring(6, 8).trim();
         flightNumber = match.group(3)!;
         final julianDateAndClassOfService = match.group(4)!;
         final julianDate = julianDateAndClassOfService.substring(0, 3);

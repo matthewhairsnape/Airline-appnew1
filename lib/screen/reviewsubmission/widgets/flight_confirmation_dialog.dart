@@ -158,6 +158,8 @@ class FlightConfirmationDialog extends StatelessWidget {
                   child: MainButton(
                     text: 'Confirm',
                     onPressed: () {
+                      debugPrint('🎯 Flight confirmation: User clicked Confirm button');
+                      debugPrint('🎯 Flight confirmation: Navigating to journey screen');
                       Navigator.pop(context);
                       Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
                     },

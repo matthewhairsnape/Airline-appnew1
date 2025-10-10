@@ -11,7 +11,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:airline_app/controller/boarding_pass_controller.dart';
 import 'package:airline_app/controller/fetch_flight_info_by_cirium.dart';
 import 'package:airline_app/models/boarding_pass.dart';
-import 'package:airline_app/screen/app_widgets/loading.dart';
 import 'package:airline_app/screen/app_widgets/main_button.dart';
 import 'package:airline_app/screen/reviewsubmission/widgets/flight_confirmation_dialog.dart';
 import 'package:airline_app/utils/app_styles.dart';
@@ -51,28 +50,97 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
   Future<void> parseIataBarcode(String rawValue) async {
     setState(() => isLoading = true);
     try {
-      debugPrint("This is scanned barcode ========================> $rawValue");
+      debugPrint("rawValue 🎎 =====================> $rawValue");
+      
+      String pnr = '';
+      String departureAirport = '';
+      String carrier = '';
+      String flightNumber = '';
+      String classOfService = 'Economy';
+      DateTime date = DateTime.now();
 
-      final RegExp regex = RegExp(
-          r'([A-Z0-9]{5,7})\s+([A-Z]{6}[A-Z0-9]{2})\s+(\d{4})\s+(\d{3}[A-Z])');
-      final Match? match = regex.firstMatch(rawValue);
+      // Check if it's BCBP format (starts with M1 or M2)
+      if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
+        debugPrint("✅ Detected BCBP format");
+        
+        // BCBP Format: M1HAIRSNAPE/MATTHEW MREHTLSCF BEGISTJU 0426 245Y022F0060
+        // M1 = Format code
+        // HAIRSNAPE/MATTHEW M = Passenger name (variable length)
+        // REHTLSCF = Route info (departure + arrival + carrier)
+        // BEGISTJU = Flight number
+        // 0426 = Julian date
+        // etc.
+        
+        // Find the route information after the passenger name
+        // Look for pattern: 3-letter airport + 3-letter airport + 2-letter carrier
+        RegExp routePattern = RegExp(r'([A-Z]{3})([A-Z]{3})([A-Z]{2})');
+        Match? routeMatch = routePattern.firstMatch(rawValue);
+        
+        if (routeMatch != null) {
+          departureAirport = routeMatch.group(1)!; // First 3 letters
+          String arrivalAirportCode = routeMatch.group(2)!; // Next 3 letters  
+          carrier = routeMatch.group(3)!; // Last 2 letters
+          
+          // Find flight number after the route info
+          int routeEnd = routeMatch.end;
+          String afterRoute = rawValue.substring(routeEnd).trim();
+          
+          // Extract flight number (next word)
+          List<String> parts = afterRoute.split(RegExp(r'\s+'));
+          if (parts.isNotEmpty) {
+            flightNumber = parts[0];
+          }
+          
+          // Extract Julian date (next part)
+          if (parts.length > 1) {
+            String julianDate = parts[1];
+            if (julianDate.length >= 3) {
+              final baseDate = DateTime(DateTime.now().year, 1, 0);
+              date = baseDate.add(Duration(days: int.parse(julianDate.substring(0, 3))));
+            }
+          }
+          
+          // Generate PNR from flight info
+          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
+          
+          debugPrint("✅ Parsed BCBP boarding pass:");
+          debugPrint("  Departure: $departureAirport");
+          debugPrint("  Arrival: $arrivalAirportCode");
+          debugPrint("  Carrier: $carrier");
+          debugPrint("  Flight: $flightNumber");
+          debugPrint("  Date: $date");
+        }
+      } else {
+        // Try old format parsing
+        final RegExp regex = RegExp(
+            r'([A-Z0-9]{5,7})\s+([A-Z]{6}[A-Z0-9]{2})\s+(\d{4})\s+(\d{3}[A-Z])');
+        final Match? match = regex.firstMatch(rawValue);
 
-      if (match == null) {
-        throw Exception('Invalid barcode format');
+        if (match == null) {
+          throw Exception('Invalid barcode format');
+        }
+
+        pnr = match.group(1)!;
+        final String routeOfFlight = match.group(2)!;
+        flightNumber = match.group(3)!;
+        final String julianDateAndClassOfService = match.group(4)!;
+        departureAirport = routeOfFlight.substring(0, 3);
+        carrier = routeOfFlight.substring(6, 8).trim();
+        final String julianDate = julianDateAndClassOfService.substring(0, 3);
+        final String classOfServiceKey =
+            julianDateAndClassOfService.substring(3, 4);
+        classOfService = _getClassOfService(classOfServiceKey);
+        final DateTime baseDate = DateTime(DateTime.now().year, 1, 0);
+        date = baseDate.add(Duration(days: int.parse(julianDate)));
+
+        debugPrint("✅ Scanned boarding pass details:");
+        debugPrint("  PNR: $pnr");
+        debugPrint("  Carrier: $carrier");
+        debugPrint("  Flight Number: $flightNumber");
+        debugPrint("  Departure Airport: $departureAirport");
+        debugPrint("  Date: $date");
+        debugPrint("  Class: $classOfService");
       }
-
-      final String pnr = match.group(1)!;
-      final String routeOfFlight = match.group(2)!;
-      final String flightNumber = match.group(3)!;
-      final String julianDateAndClassOfService = match.group(4)!;
-      final String departureAirport = routeOfFlight.substring(0, 3);
-      final String carrier = routeOfFlight.substring(6, 8);
-      final String julianDate = julianDateAndClassOfService.substring(0, 3);
-      final String classOfServiceKey =
-          julianDateAndClassOfService.substring(3, 4);
-      final String classOfService = _getClassOfService(classOfServiceKey);
-      final DateTime baseDate = DateTime(DateTime.now().year, 1, 0);
-      final DateTime date = baseDate.add(Duration(days: int.parse(julianDate)));
 
       final bool pnrExists = await _boardingPassController.checkPnrExists(pnr);
       if (pnrExists) {
@@ -203,6 +271,9 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
     }
     
     if (mounted) {
+      // Get the navigator context before popping
+      final navigatorContext = Navigator.of(context, rootNavigator: true).context;
+      
       if (result) {
         CustomSnackBar.success(context, '✅ Boarding pass from wallet loaded successfully!');
       } else {
@@ -212,9 +283,12 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       // Close the wallet sync dialog
       Navigator.pop(context);
       
-      // Show confirmation dialog
+      // Add a small delay to ensure the wallet dialog is fully closed
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Show confirmation dialog using the root navigator context
       FlightConfirmationDialog.show(
-        context,
+        navigatorContext,
         newPass,
         onCancel: () {},
       );
@@ -267,16 +341,16 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -314,8 +388,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
             ],
           ),
         ),
-        if (isLoading) const LoadingWidget(),
-      ],
+      ),
     );
   }
 
@@ -508,10 +581,19 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
             ),
           ] else ...[
             MainButton(
-              text: "Verify Boarding Pass",
-              onPressed: _scanSelectedImage,
+              text: isLoading ? "Processing..." : "Verify Boarding Pass",
+              onPressed: isLoading ? () {} : () => _scanSelectedImage(),
               color: Colors.black,
-              icon: const Icon(Icons.check_circle, color: Colors.white),
+              icon: isLoading 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.check_circle, color: Colors.white),
             ),
           ],
           const SizedBox(height: 12),
@@ -573,18 +655,27 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
   }
 
   Future<void> _scanSelectedImage() async {
-    if (selectedImage == null) return;
+    if (selectedImage == null) {
+      debugPrint("❌ No image selected for scanning");
+      return;
+    }
     
+    debugPrint("🔍 Starting to scan selected image: ${selectedImage!.path}");
     setState(() => isLoading = true);
 
     try {
       final BarcodeCapture? barcodeCapture =
           await _controller.analyzeImage(selectedImage!.path);
+      
+      debugPrint("📸 Barcode capture result: ${barcodeCapture?.barcodes.length ?? 0} barcodes found");
+      
       final String? rawValue = barcodeCapture?.barcodes.firstOrNull?.rawValue;
       
       if (rawValue != null) {
+        debugPrint("✅ Barcode found, parsing: $rawValue");
         await parseIataBarcode(rawValue);
       } else {
+        debugPrint("❌ No barcode found in image");
         if (mounted) {
           CustomSnackBar.error(context,
               "This boarding pass cannot be scanned due to poor quality.");
@@ -594,6 +685,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         }
       }
     } catch (e) {
+      debugPrint("❌ Error scanning image: $e");
       if (mounted) {
         CustomSnackBar.info(context,
             'Unable to scan the boarding pass. Please try again with a clearer image.');

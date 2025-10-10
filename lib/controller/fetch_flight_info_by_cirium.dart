@@ -11,6 +11,10 @@ class FetchFlightInforByCirium {
     required String departureAirport,
   }) async {
     try {
+      // Ensure carrier code is trimmed and clean
+      final cleanCarrier = carrier.trim();
+      final cleanFlightNumber = flightNumber.trim();
+      
       // Format date components with leading zeros
       final year = flightDate.year;
       final month = flightDate.month.toString().padLeft(2, '0');
@@ -26,7 +30,7 @@ class FetchFlightInforByCirium {
           ? 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3'
           : ciriumUrl;
       
-      final url = '$baseUrl/json/flight/status/$carrier/$flightNumber/dep/'
+      final url = '$baseUrl/json/flight/status/$cleanCarrier/$cleanFlightNumber/dep/'
           '$year/$month/$day'
           '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport';
       
