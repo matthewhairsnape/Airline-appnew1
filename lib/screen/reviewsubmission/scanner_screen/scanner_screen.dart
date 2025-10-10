@@ -30,6 +30,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   final MobileScannerController controller = MobileScannerController(
     autoStart: false,
     torchEnabled: false,
+    formats: [BarcodeFormat.pdf417, BarcodeFormat.qrCode, BarcodeFormat.aztec],
+    detectionSpeed: DetectionSpeed.noDuplicates,
   );
   final FetchFlightInforByCirium _fetchFlightInfo = FetchFlightInforByCirium();
   final BoardingPassController _boardingPassController =
@@ -71,14 +73,19 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 
   void _handleBarcode(BarcodeCapture barcodes) {
+    debugPrint("📱 Scanner: Barcodes detected: ${barcodes.barcodes.length}");
     if (mounted && !isProcessing) {
       setState(() {
         _barcode = barcodes.barcodes.firstOrNull;
       });
       if (_barcode?.rawValue != null) {
+        debugPrint("📱 Scanner: Barcode format: ${_barcode!.format}");
+        debugPrint("📱 Scanner: Barcode raw value length: ${_barcode!.rawValue!.length}");
         isProcessing = true;
         controller.stop();
         parseIataBarcode(_barcode!.rawValue!);
+      } else {
+        debugPrint("📱 Scanner: No barcode raw value found");
       }
     }
   }
