@@ -1,19 +1,14 @@
-import 'dart:io';
-import 'dart:ui';
 import 'dart:convert';
 import 'package:airline_app/provider/user_data_provider.dart';
+import 'package:airline_app/provider/auth_provider.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
-import 'package:airline_app/utils/global_variable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-// import 'package:otpless_flutter/otpless_flutter.dart'; // Temporarily disabled
-import 'package:http/http.dart' as http;
 import 'package:airline_app/screen/app_widgets/loading.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shimmer/shimmer.dart';
 
 class Login extends ConsumerStatefulWidget {
   const Login({super.key});
@@ -23,17 +18,59 @@ class Login extends ConsumerStatefulWidget {
 }
 
 class _LoginState extends ConsumerState<Login> {
-  // final _otplessFlutterPlugin = Otpless(); // Temporarily disabled
-  List<Map<String, dynamic>> leaderBoardList = [];
-  List<Map<String, dynamic>> reviewList = [];
-  bool isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
+  bool _isSignUp = false;
+  bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
-    // _otplessFlutterPlugin.enableDebugLogging(true); // Temporarily disabled
-    _checkToken();
-    // _initializeOtpless(); // Temporarily disabled
+    _checkExistingAuth();
+    
+    // Listen to auth state changes
+    ref.listenManual(authProvider, (previous, next) {
+      next.when(
+        data: (user) {
+          if (user != null && mounted) {
+            debugPrint('✅ Auth state changed: User logged in');
+            setState(() {
+              _isLoading = false;
+            });
+            Navigator.pushNamed(context, AppRoutes.startreviews);
+          } else if (user == null && mounted) {
+            debugPrint('❌ Auth state: No user data');
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        },
+        loading: () {
+          debugPrint('⏳ Auth state: Loading...');
+          // Keep loading state
+        },
+        error: (error, stackTrace) {
+          debugPrint('❌ Auth state error: $error');
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            CustomSnackBar.error(context, 'Authentication error: ${error.toString()}');
+          }
+        },
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
+    super.dispose();
   }
 
   // Future<void> _initializeOtpless() async {
@@ -45,9 +82,9 @@ class _LoginState extends ConsumerState<Login> {
   //   _otplessFlutterPlugin.setWebviewInspectable(true);
   // } // Temporarily disabled
 
-  Future<void> _checkToken() async {
+  Future<void> _checkExistingAuth() async {
     setState(() {
-      isLoading = true;
+      _isLoading = true;
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -73,127 +110,80 @@ class _LoginState extends ConsumerState<Login> {
       await prefs.clear();
     }
     setState(() {
-      isLoading = false;
+      _isLoading = false;
     });
   }
 
-  // void onHeadlessResult(dynamic result) async {
-  //   String jsonString = jsonEncode(result);
-  //   final http.Response response;
+  Future<void> _handleAuth() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  //   if (result != null && result['data'] != null) {
-  //     showDialog(
-  //       context: context,
-  //       barrierDismissible: false,
-  //       builder: (BuildContext context) {
-  //         return Container(
-  //           color: Colors.white.withAlpha(229),
-  //           child: BackdropFilter(
-  //             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-  //             child: const Center(
-  //               child: LoadingWidget(),
-  //             ),
-  //           ),
-  //         );
-  //       },
-  //     );
+    setState(() {
+      _isLoading = true;
+    });
 
-  //     UserData userData = UserData.fromJson(jsonString);
+    try {
+      if (_isSignUp) {
+        debugPrint('📝 Starting sign up process...');
+        await ref.read(authProvider.notifier).signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          fullName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : null,
+        );
+      } else {
+        debugPrint('🔐 Starting sign in process...');
+        await ref.read(authProvider.notifier).signIn(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
+      
+      debugPrint('✅ Auth method completed successfully');
+    } catch (e) {
+      debugPrint('❌ Authentication exception: $e');
+      if (mounted) {
+        CustomSnackBar.error(context, 'Authentication failed: ${e.toString()}');
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
-  //     if (userData.channel == 'WHATSAPP') {
-  //       response = await http.post(
-  //         Uri.parse('$apiUrl/api/v1/user'),
-  //         headers: <String, String>{
-  //           'Content-Type': 'application/json; charset=UTF-8',
-  //         },
-  //         body: json.encode({
-  //           'name': userData.name,
-  //           'whatsappNumber': userData.identityValue,
-  //           'email': "",
-  //           'apple': "",
-  //         }),
-  //       );
-  //     } else if (userData.channel == 'APPLE') {
-  //       response = await http.post(
-  //         Uri.parse('$apiUrl/api/v1/user'),
-  //         headers: <String, String>{
-  //           'Content-Type': 'application/json; charset=UTF-8',
-  //         },
-  //         body: json.encode({
-  //           'name': userData.name,
-  //           'whatsappNumber': "",
-  //           'email': "",
-  //           'apple': userData.identityValue,
-  //         }),
-  //       );
-  //     } else {
-  //       response = await http.post(
-  //         Uri.parse('$apiUrl/api/v1/user'),
-  //         headers: <String, String>{
-  //           'Content-Type': 'application/json; charset=UTF-8',
-  //         },
-  //         body: json.encode({
-  //           'name': userData.name,
-  //           'whatsappNumber': '',
-  //           'email': userData.identityValue,
-  //           'apple': "",
-  //         }),
-  //       );
-  //     }
+  Future<void> _handleForgotPassword() async {
+    if (_emailController.text.trim().isEmpty) {
+      CustomSnackBar.error(context, 'Please enter your email address first.');
+      return;
+    }
 
-  //     if (response.statusCode == 200) {
-  //       final responseData = jsonDecode(response.body);
-  //       ref.read(userDataProvider.notifier).setUserData(responseData);
+    try {
+      await ref.read(authProvider.notifier).resetPassword(_emailController.text.trim());
+      if (mounted) {
+        CustomSnackBar.success(context, 'Password reset email sent! Check your inbox.');
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.error(context, 'Failed to send reset email. Please try again.');
+      }
+    }
+  }
 
-  //       // When storing the data
-  //       final prefs = await SharedPreferences.getInstance();
-  //       final lastAccessTime = DateTime.now().millisecondsSinceEpoch;
-
-  //       await prefs.setString('token', userData.idToken);
-  //       await prefs.setString('userData', json.encode(responseData));
-  //       await prefs.setInt('lastAccessTime', lastAccessTime);
-  //       if (mounted) {
-  //         Navigator.pop(context);
-  //       }
-  //       // Remove loading dialog
-
-  //       if (responseData['userState'] == 0) {
-  //         if (mounted) {
-  //           Navigator.pushReplacementNamed(context, AppRoutes.skipscreen);
-  //         }
-  //       } else {
-  //         if (mounted) {
-  //           Navigator.pushReplacementNamed(
-  //               context, AppRoutes.leaderboardscreen);
-  //         }
-  //       }
-  //     } else {
-  //       if (mounted) {
-  //         Navigator.pop(context);
-  //       }
-  //     }
-  //   } else {
-  //     CustomSnackBar.error(context, 'Login failed. Please try again.');
-  //   }
-  // } // Temporarily disabled
-
-  // Future<void> _openLoginPage() async {
-  //   try {
-  //     Map<String, dynamic> arg = {'appId': appId};
-  //     await _otplessFlutterPlugin.openLoginPage(onHeadlessResult, arg);
-  //   } catch (e) {
-  //     if (!mounted) return;
-  //     CustomSnackBar.error(context, 'WhatsApp login failed. Please try again.');
-  //   }
-  // } // Temporarily disabled
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: LoadingWidget()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
+          // Background image
           ShaderMask(
             shaderCallback: (bounds) {
               return LinearGradient(
@@ -213,44 +203,47 @@ class _LoginState extends ConsumerState<Login> {
               height: double.infinity,
             ),
           ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 120),
+          // Login form
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 children: [
+                  SizedBox(height: screenSize.height * 0.1),
+                  // Logo
                   Container(
-                      width: 160,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withAlpha(76),
-                            spreadRadius: 2,
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withAlpha(76),
+                          spreadRadius: 2,
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withAlpha(25),
+                          Colors.white.withAlpha(13),
                         ],
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withAlpha(25),
-                            Colors.white.withAlpha(13),
-                          ],
-                        ),
                       ),
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-                      child: SvgPicture.asset(
-                        'assets/icons/logo.svg',
-                        width: 100,
-                        height: 100,
-                        colorFilter: ColorFilter.mode(
-                          Colors.white.withAlpha(229),
-                          BlendMode.srcIn,
-                        ),
-                      )),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: SvgPicture.asset(
+                      'assets/icons/logo.svg',
+                      colorFilter: ColorFilter.mode(
+                        Colors.white.withAlpha(229),
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     "Exp.aero",
                     style: AppStyles.textStyle_24_600.copyWith(
@@ -259,114 +252,208 @@ class _LoginState extends ConsumerState<Login> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: screenSize.height * 0.4),
+                  const SizedBox(height: 8),
                   Text(
                     "Let's get flying",
-                    style: AppStyles.textStyle_40_700.copyWith(
+                    style: AppStyles.textStyle_20_600.copyWith(
                       letterSpacing: 1.2,
                       color: Colors.white,
                       shadows: [
                         Shadow(
                           color: Colors.black.withAlpha(153),
-                          offset: const Offset(2, 3),
-                          blurRadius: 5,
+                          offset: const Offset(1, 2),
+                          blurRadius: 3,
                         ),
                       ],
                     ),
                   ),
+                  SizedBox(height: screenSize.height * 0.08),
+                  // Login form
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(240),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(51),
+                          spreadRadius: 1,
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            _isSignUp ? "Create Account" : "Welcome Back",
+                            style: AppStyles.textStyle_24_600.copyWith(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Name field (only for signup)
+                          if (_isSignUp) ...[
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: InputDecoration(
+                                labelText: "Full Name",
+                                prefixIcon: const Icon(Icons.person_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                              validator: (value) {
+                                if (_isSignUp && (value == null || value.trim().isEmpty)) {
+                                  return 'Please enter your full name';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          
+                          // Email field
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: "Email",
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your email';
+                              }
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Password field
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your password';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Login/Signup button
+                          ElevatedButton(
+                            onPressed: _isLoading ? null : _handleAuth,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : Text(
+                                    _isSignUp ? "Create Account" : "Sign In",
+                                    style: AppStyles.textStyle_18_600.copyWith(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Toggle between login and signup
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _isSignUp = !_isSignUp;
+                                _formKey.currentState?.reset();
+                              });
+                            },
+                            child: Text(
+                              _isSignUp
+                                  ? "Already have an account? Sign In"
+                                  : "Don't have an account? Sign Up",
+                              style: AppStyles.textStyle_14_500.copyWith(
+                                color: Colors.blue[600],
+                              ),
+                            ),
+                          ),
+                          
+                          // Forgot password (only for login)
+                          if (!_isSignUp) ...[
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _handleForgotPassword,
+                              child: Text(
+                                "Forgot Password?",
+                                style: AppStyles.textStyle_14_500.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: screenSize.height * 0.05),
                 ],
               ),
             ),
           ),
-          isLoading
-              ? const LoadingWidget()
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: screenSize.width * 0.1,
-                            vertical: screenSize.height * 0.08),
-                        child: Container(
-                          width: double.infinity,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withAlpha(229),
-                                Colors.white.withAlpha(178),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(51),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(28),
-                              onTap: () {
-                                Navigator.pushNamed(context, AppRoutes.startreviews);
-                              },
-                              child: Center(
-                                child: Text(
-                                  "Continue to App",
-                                  style: AppStyles.textStyle_24_600.copyWith(
-                                    color: Colors.black87,
-                                    letterSpacing: 0.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
         ],
       ),
     );
   }
 }
 
-class UserData {
-  final String name;
-  final String identityValue;
-  final String channel;
-  final String idToken;
-
-  UserData(
-      {required this.name,
-      required this.identityValue,
-      required this.channel,
-      required this.idToken});
-
-  factory UserData.fromJson(String jsonString) {
-    final Map<String, dynamic> json = jsonDecode(jsonString);
-    final List<dynamic> identities = json['data']['identities'];
-
-    if (identities.isEmpty) {
-      throw Exception('No identities found in the JSON data');
-    }
-
-    final Map<String, dynamic> firstIdentity = identities.first;
-
-    return UserData(
-        name: firstIdentity['name'] ?? 'Unknown',
-        identityValue: firstIdentity['identityValue'] ?? 'Unknown',
-        channel: firstIdentity['channel'] ?? 'Unknown',
-        idToken: json['data']['idToken'] ?? 'Unknown');
-  }
-}

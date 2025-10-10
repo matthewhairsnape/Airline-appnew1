@@ -12,8 +12,15 @@ class SupabaseService {
   }
 
   static Future<void> initialize() async {
-    const supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-    const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+    // Try to get from environment variables first, then fallback to hardcoded values
+    const supabaseUrl = String.fromEnvironment(
+      'SUPABASE_URL', 
+      defaultValue: 'https://otidfywfqxyxteixpqre.supabase.co'
+    );
+    const supabaseAnonKey = String.fromEnvironment(
+      'SUPABASE_ANON_KEY', 
+      defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI'
+    );
 
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
       debugPrint('⚠️ Supabase credentials not found. Running without Supabase integration.');
@@ -268,6 +275,58 @@ class SupabaseService {
           callback: (payload) => callback(payload.newRecord),
         )
         .subscribe();
+  }
+
+  // User profile methods
+  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    if (!isInitialized) return null;
+
+    try {
+      final data = await client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      return data;
+    } catch (e) {
+      debugPrint('❌ Error getting user profile from Supabase: $e');
+      return null;
+    }
+  }
+
+  static Future<bool> saveUserDataToSupabase(Map<String, dynamic> userData) async {
+    if (!isInitialized) return false;
+
+    try {
+      await client
+          .from('users')
+          .upsert(userData);
+
+      debugPrint('✅ User data saved to Supabase');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error saving user data to Supabase: $e');
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> syncUserDataFromSupabase(String userId) async {
+    if (!isInitialized) return null;
+
+    try {
+      final data = await client
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      debugPrint('✅ User data synced from Supabase');
+      return data;
+    } catch (e) {
+      debugPrint('❌ Error syncing user data from Supabase: $e');
+      return null;
+    }
   }
 }
 
