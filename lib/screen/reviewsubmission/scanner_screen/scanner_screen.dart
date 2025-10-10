@@ -30,6 +30,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   final MobileScannerController controller = MobileScannerController(
     autoStart: false,
     torchEnabled: false,
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+    formats: [
+      BarcodeFormat.qrCode,
+      BarcodeFormat.pdf417,
+      BarcodeFormat.aztec,
+      BarcodeFormat.dataMatrix,
+    ],
   );
   final FetchFlightInforByCirium _fetchFlightInfo = FetchFlightInforByCirium();
   final BoardingPassController _boardingPassController =
@@ -78,9 +86,77 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (_barcode?.rawValue != null) {
         isProcessing = true;
         controller.stop();
-        parseIataBarcode(_barcode!.rawValue!);
+        
+        // Show what was scanned first
+        debugPrint("📱 Scanned barcode:");
+        debugPrint("  Type: ${_barcode!.format}");
+        debugPrint("  Raw Value: ${_barcode!.rawValue}");
+        debugPrint("  Display Value: ${_barcode!.displayValue ?? 'N/A'}");
+        
+        // Try to parse as boarding pass, but don't fail if it's not
+        _tryParseBoardingPass(_barcode!.rawValue!);
       }
     }
+  }
+
+  void _tryParseBoardingPass(String rawValue) async {
+    try {
+      // Check if it looks like a boarding pass barcode
+      bool isLikelyBoardingPass = rawValue.startsWith('M1') || 
+                                 rawValue.startsWith('M2') ||
+                                 rawValue.contains(RegExp(r'[A-Z]{3}[A-Z]{3}[A-Z]{2}')) ||
+                                 rawValue.contains(RegExp(r'\d{3,4}[A-Z]\d{3}'));
+      
+      if (isLikelyBoardingPass) {
+        debugPrint("✅ Attempting to parse as boarding pass");
+        await parseIataBarcode(rawValue);
+      } else {
+        debugPrint("❌ Not a recognized boarding pass format");
+        if (mounted) {
+          // Show generic barcode info
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Barcode Scanned'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Type: ${_barcode?.format ?? 'Unknown'}'),
+                  SizedBox(height: 8),
+                  Text('Value: ${_barcode?.rawValue ?? 'N/A'}'),
+                  SizedBox(height: 8),
+                  Text('This doesn\'t appear to be a boarding pass barcode.'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _restartScanner();
+                  },
+                  child: Text('Scan Again'),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ Error in barcode parsing: $e");
+      if (mounted) {
+        CustomSnackBar.error(context, 'Error processing barcode: ${e.toString()}');
+        _restartScanner();
+      }
+    }
+  }
+
+  void _restartScanner() {
+    setState(() {
+      isProcessing = false;
+      _barcode = null;
+    });
+    controller.start();
   }
 
   String getVisitStatus(DateTime departureEntireTime) {
@@ -113,73 +189,47 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
         debugPrint("✅ Detected BCBP format");
         
-        // BCBP Format parsing
-        // M1HAIRSNAPE/MATTHEWM          CTABEGJU 439  244 12A 0209  00
-        // M1 = Format code
-        // HAIRSNAPE/MATTHEWM = Passenger name
-        // CTA = Origin airport
-        // BEG = Destination airport
-        // JU = Operating carrier
-        // 439 = Flight number
-        // 244 = Julian date
-        // 12A = Seat number
-        // 0209 = Sequence number
-        // etc.
+        // Parse BCBP using universal algorithm that works for ALL airlines
+        Map<String, String> parsedData = _parseBCBPUniversal(rawValue);
         
-        int pos = 2; // Skip M1
+        departureAirport = parsedData['departureAirport'] ?? '';
+        arrivalAirport = parsedData['arrivalAirport'] ?? '';
+        carrier = parsedData['carrier'] ?? '';
+        flightNumber = parsedData['flightNumber'] ?? '';
+        seatNumber = parsedData['seatNumber'] ?? '';
+        classOfService = parsedData['classOfService'] ?? 'Economy';
+        pnr = parsedData['pnr'] ?? '';
         
-        // Extract passenger name (variable length, padded with spaces)
-        int nameEnd = pos + 20;
-        if (nameEnd > rawValue.length) nameEnd = rawValue.length;
-        // Skip name for now
-        pos = nameEnd;
-        
-        // Extract data after name
-        String remainingData = rawValue.substring(pos).trim();
-        
-        // Parse the key fields
-        // Format: XXXYYYZZ NNNN DDD SSS CCCC
-        // XXX = Departure airport (3 chars)
-        // YYY = Arrival airport (3 chars)
-        // ZZ = Carrier code (2 chars)
-        // NNNN = Flight number (variable, up to 5 chars with spaces)
-        // DDD = Julian date (3 digits)
-        // SSS = Seat number (3 chars)
-        
-        if (remainingData.length >= 8) {
-          departureAirport = remainingData.substring(0, 3);
-          arrivalAirport = remainingData.substring(3, 6);
-          carrier = remainingData.substring(6, 8).trim();
-          
-          // Find flight number and date
-          String afterCarrier = remainingData.substring(8).trim();
-          List<String> parts = afterCarrier.split(RegExp(r'\s+'));
-          
-          if (parts.isNotEmpty) {
-            flightNumber = parts[0]; // Flight number
-          }
-          if (parts.length > 1) {
-            String julianDate = parts[1]; // Julian date
-            if (julianDate.length >= 3) {
-              final baseDate = DateTime(DateTime.now().year, 1, 0);
-              date = baseDate.add(Duration(days: int.parse(julianDate.substring(0, 3))));
+        // Parse Julian date if available with year rollover handling
+        if (parsedData['julianDate'] != null && parsedData['julianDate']!.isNotEmpty) {
+          try {
+            int julian = int.parse(parsedData['julianDate']!);
+            int currentJulian = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays + 1;
+            int year = DateTime.now().year;
+            
+            // Handle year rollover for flights in next year
+            if (julian < currentJulian - 300) {
+              year += 1;
+              debugPrint("🔄 Year rollover detected: Julian day $julian < current $currentJulian, using year $year");
             }
+            
+            final baseDate = DateTime(year, 1, 1);
+            date = baseDate.add(Duration(days: julian - 1));
+            
+            debugPrint("📅 Julian date conversion: $julian → ${date.toIso8601String().split('T')[0]}");
+          } catch (e) {
+            debugPrint("Error parsing Julian date: $e");
+            date = DateTime.now();
           }
-          if (parts.length > 2) {
-            seatNumber = parts[2]; // Seat number
-          }
-          
-          // Use PNR from the last part of passenger name or generate from flight info
-          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
-          
-          debugPrint("✅ Parsed BCBP boarding pass:");
-          debugPrint("  Departure: $departureAirport");
-          debugPrint("  Arrival: $arrivalAirport");
-          debugPrint("  Carrier: $carrier");
-          debugPrint("  Flight: $flightNumber");
-          debugPrint("  Date: $date");
-          debugPrint("  Seat: $seatNumber");
         }
+        
+        debugPrint("✅ Parsed BCBP boarding pass:");
+        debugPrint("  Departure: $departureAirport");
+        debugPrint("  Arrival: $arrivalAirport");
+        debugPrint("  Carrier: $carrier");
+        debugPrint("  Flight: $flightNumber");
+        debugPrint("  Date: $date");
+        debugPrint("  Seat: $seatNumber");
       } else {
         // Try old format parsing
         final regex = RegExp(
@@ -199,7 +249,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         pnr = match.group(1)!;
         final routeOfFlight = match.group(2)!;
         departureAirport = routeOfFlight.substring(0, 3);
-        carrier = routeOfFlight.substring(6, 8).trim();
+        carrier = routeOfFlight.substring(6, 8);
         flightNumber = match.group(3)!;
         final julianDateAndClassOfService = match.group(4)!;
         final julianDate = julianDateAndClassOfService.substring(0, 3);
@@ -226,7 +276,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         }
       }
 
-      debugPrint("🔍 Fetching flight info from Cirium for date: $date");
+      // Validate flight identifiers before Cirium lookup
+      if (!_isValidFlightIdentifier(carrier, flightNumber)) {
+        debugPrint("❌ Invalid flight identifier: carrier='$carrier', flight='$flightNumber'");
+        if (mounted) {
+          CustomSnackBar.error(context, 'Invalid flight data extracted from boarding pass');
+          _restartScanner();
+          return;
+        }
+      }
+      
+      debugPrint("➡️ Cirium lookup: ${carrier}${flightNumber} on ${date.toIso8601String().split('T')[0]} from $departureAirport");
       
       // Try the scanned date first
       Map<String, dynamic> flightInfo = await _fetchFlightInfo.fetchFlightInfo(
@@ -236,7 +296,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         departureAirport: departureAirport,
       );
 
-      debugPrint("📦 Cirium response: ${flightInfo.toString().substring(0, 200)}...");
+      String responseStr = flightInfo.toString();
+      debugPrint("📦 Cirium response: ${responseStr.length > 200 ? responseStr.substring(0, 200) + '...' : responseStr}");
 
       // Check if flight data was found
       if (flightInfo['flightStatuses']?.isEmpty ?? true) {
@@ -258,7 +319,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (mounted) {
         CustomSnackBar.error(context,
             'Unable to process boarding pass: ${e.toString()}');
-        Navigator.pop(context);
+        _restartScanner();
       }
     } finally {
       if (mounted) {
@@ -283,6 +344,138 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       default:
         return "Premium Economy";
     }
+  }
+
+  /// Universal BCBP parser following IATA Resolution 792 standard
+  Map<String, String> _parseBCBPUniversal(String rawValue) {
+    Map<String, String> result = {};
+    
+    try {
+      debugPrint("🔍 Parsing BCBP (${rawValue.length} chars): ${rawValue.substring(0, rawValue.length > 50 ? 50 : rawValue.length)}...");
+      
+      // IATA Resolution 792 - Fixed field positions
+      if (rawValue.length < 52) {
+        debugPrint("❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
+        return result;
+      }
+      
+      // Extract fields using exact IATA Resolution 792 offsets
+      result['pnr'] = rawValue.substring(22, 29).trim();
+      result['departureAirport'] = rawValue.substring(30, 33);
+      result['arrivalAirport'] = rawValue.substring(33, 36);
+      result['carrier'] = rawValue.substring(36, 38); // Use first 2 chars for IATA code
+      result['flightNumber'] = rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
+      result['julianDate'] = rawValue.substring(44, 47).trim();
+      result['classOfService'] = rawValue.substring(47, 48);
+      result['seatNumber'] = rawValue.length >= 52 ? rawValue.substring(48, 52).trim() : '';
+      
+      // Clean up seat number (remove zero padding)
+      if (result['seatNumber'] != null && result['seatNumber']!.isNotEmpty) {
+        String seat = result['seatNumber']!;
+        // Remove leading zeros from seat number part
+        RegExp seatRegex = RegExp(r'(\d+)([A-F])');
+        Match? match = seatRegex.firstMatch(seat);
+        if (match != null) {
+          String seatNum = match.group(1)!.replaceAll(RegExp(r'^0+'), '');
+          if (seatNum.isEmpty) seatNum = '1';
+          result['seatNumber'] = '$seatNum${match.group(2)}';
+        }
+      }
+      
+      // Map class codes to readable names
+      switch (result['classOfService']) {
+        case 'F':
+          result['classOfService'] = 'First';
+          break;
+        case 'J':
+        case 'C':
+          result['classOfService'] = 'Business';
+          break;
+        case 'Y':
+        case 'W':
+          result['classOfService'] = 'Economy';
+          break;
+        case 'R':
+          result['classOfService'] = 'Premium Economy';
+          break;
+        default:
+          result['classOfService'] = 'Economy';
+      }
+      
+      debugPrint("✅ IATA Resolution 792 parsed:");
+      debugPrint("  PNR: ${result['pnr']}");
+      debugPrint("  Route: ${result['departureAirport']} → ${result['arrivalAirport']}");
+      debugPrint("  Carrier: ${result['carrier']}");
+      debugPrint("  Flight: ${result['flightNumber']}");
+      debugPrint("  Julian Date: ${result['julianDate']}");
+      debugPrint("  Class: ${result['classOfService']}");
+      debugPrint("  Seat: ${result['seatNumber']}");
+      
+      return result;
+      
+    } catch (e) {
+      debugPrint("❌ Error in BCBP parsing: $e");
+      return result;
+    }
+  }
+
+
+  /// Validate flight identifier before Cirium lookup
+  bool _isValidFlightIdentifier(String carrier, String flightNumber) {
+    final validCarrier = RegExp(r'^[A-Z0-9]{2}$');
+    final validFlight = RegExp(r'^\d{1,4}$');
+    return validCarrier.hasMatch(carrier) && validFlight.hasMatch(flightNumber);
+  }
+
+  /// Extract seat number and class from a part like "Y007A0039" -> seat: "7A", class: "Economy"
+  bool _extractSeatFromPart(String part, Map<String, String> result) {
+    try {
+      // Pattern like F002A0026 or Y007A0039
+      RegExp seatRegex = RegExp(r'([A-Z])(\d+)([A-F])(\d+)');
+      Match? match = seatRegex.firstMatch(part);
+      
+      if (match != null) {
+        String classCode = match.group(1)!; // F or Y
+        String seatNum = match.group(2)!;   // 002 or 007
+        String seatLetter = match.group(3)!; // A, B, C, etc.
+        
+        // Clean up seat number (remove leading zeros)
+        String cleanSeatNum = seatNum.replaceAll(RegExp(r'^0+'), '');
+        if (cleanSeatNum.isEmpty) cleanSeatNum = '1';
+        
+        result['seatNumber'] = '$cleanSeatNum$seatLetter';
+        
+        // Determine class
+        switch (classCode) {
+          case 'F':
+            result['classOfService'] = 'First';
+            break;
+          case 'J':
+          case 'C':
+            result['classOfService'] = 'Business';
+            break;
+          case 'Y':
+          default:
+            result['classOfService'] = 'Economy';
+            break;
+        }
+        
+        return true;
+      }
+      
+      // Try simpler pattern like "12A" or "7A"
+      RegExp simpleSeatRegex = RegExp(r'(\d+)([A-F])');
+      Match? simpleMatch = simpleSeatRegex.firstMatch(part);
+      
+      if (simpleMatch != null) {
+        result['seatNumber'] = '${simpleMatch.group(1)}${simpleMatch.group(2)}';
+        return true;
+      }
+      
+    } catch (e) {
+      debugPrint("Error extracting seat: $e");
+    }
+    return false;
   }
 
   Future<void> _processFetchedFlightInfo(
@@ -440,7 +633,106 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                 controller: controller,
                 errorBuilder: (context, error) =>
                     ScannerErrorWidget(error: error),
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
+                scanWindow: Rect.fromCenter(
+                  center: MediaQuery.of(context).size.center(Offset.zero),
+                  width: 250,
+                  height: 250,
+                ),
+              ),
+              // Scanning guide overlay
+              Center(
+                child: Container(
+                  width: 250,
+                  height: 250,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Corner indicators
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.green, width: 4),
+                              left: BorderSide(color: Colors.green, width: 4),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.green, width: 4),
+                              right: BorderSide(color: Colors.green, width: 4),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.green, width: 4),
+                              left: BorderSide(color: Colors.green, width: 4),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.green, width: 4),
+                              right: BorderSide(color: Colors.green, width: 4),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Instructions text
+              Positioned(
+                top: 100,
+                left: 20,
+                right: 20,
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Position QR code within the frame\nHold steady for best results',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
               Align(
                 alignment: Alignment.bottomCenter,

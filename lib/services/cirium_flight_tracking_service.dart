@@ -95,11 +95,11 @@ class CiriumFlightTrackingService {
       
       // Only start polling for current/upcoming flights (not past flights)
       final daysDifference = DateTime.now().difference(flightDate).inDays;
-      if (daysDifference <= 3) {
+      if (daysDifference <= 1) {
         _startPolling(pnr);
         debugPrint('✅ Flight verified and real-time tracking started');
       } else {
-        debugPrint('✅ Flight verified (past flight - no real-time polling)');
+        debugPrint('✅ Flight verified (historical flight - no real-time polling needed)');
       }
       
       return flightTracking;
@@ -117,23 +117,23 @@ class CiriumFlightTrackingService {
     required String departureAirport,
   }) async {
     try {
-      // Check if this is a past flight (more than 3 days ago)
+      // Check if this is a past flight (more than 1 day ago)
       final daysDifference = DateTime.now().difference(flightDate).inDays;
-      final isPastFlight = daysDifference > 3;
+      final isPastFlight = daysDifference > 1;
       
       String url;
       if (isPastFlight) {
-        // Use historical API for past flights
+        // Use premium historical API for past flights (v3 has better coverage)
         url = 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
-            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
-            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport';
-        debugPrint('📡 Using HISTORICAL API for past flight');
+            '${flightDate.year}/${flightDate.month.toString().padLeft(2, '0')}/${flightDate.day.toString().padLeft(2, '0')}'
+            '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
+        debugPrint('📡 Using PREMIUM HISTORICAL API for past flight (${daysDifference} days old)');
       } else {
         // Use real-time API for current/upcoming flights
         url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
-            '${flightDate.year}/${flightDate.month}/${flightDate.day}'
+            '${flightDate.year}/${flightDate.month.toString().padLeft(2, '0')}/${flightDate.day.toString().padLeft(2, '0')}'
             '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
-        debugPrint('📡 Using REAL-TIME API for current flight');
+        debugPrint('📡 Using REAL-TIME API for current/future flight');
       }
 
       debugPrint('📡 Fetching flight status from: $url');
