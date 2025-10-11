@@ -320,7 +320,7 @@ class _LoginState extends ConsumerState<Login> {
                               },
                               child: Center(
                                 child: Text(
-                                  "Continue to App",
+                                  "Continue",
                                   style: AppStyles.textStyle_24_600.copyWith(
                                     color: Colors.black87,
                                     letterSpacing: 0.5,

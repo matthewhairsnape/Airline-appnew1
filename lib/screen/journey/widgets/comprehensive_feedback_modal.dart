@@ -368,8 +368,86 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     debugPrint('Post-Flight Likes: $_postFlightLikes');
     debugPrint('Post-Flight Dislikes: $_postFlightDislikes');
     
+    // Close the feedback modal
     Navigator.pop(context);
-    widget.onSubmitted?.call();
+    
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Success Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 50,
+                  ),
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Title
+                Text(
+                  'Feedback Submitted!',
+                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 12),
+                
+                // Description
+                Text(
+                  'Thank you! Your feedback has been recorded and sent to the airline.',
+                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 32),
+                
+                // Done Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onSubmitted?.call();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Done',
+                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String _getRatingText(int rating) {

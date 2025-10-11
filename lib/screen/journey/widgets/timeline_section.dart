@@ -164,7 +164,7 @@ class _TimelineSectionState extends State<TimelineSection> {
 
   Map<String, List<String>> _getFeedbackData() {
     switch (widget.title) {
-      case 'Pre Flight':
+      case 'At The Airport':
         return {
           'likes': [
             'Check-in process',
@@ -185,7 +185,7 @@ class _TimelineSectionState extends State<TimelineSection> {
             'Something else',
           ],
         };
-      case 'In Flight':
+      case 'In The Air':
         return {
           'likes': [
             'Seat comfort',
@@ -206,7 +206,7 @@ class _TimelineSectionState extends State<TimelineSection> {
             'Something else',
           ],
         };
-      case 'Post Flight':
+      case 'Touched Down':
         return {
           'likes': [
             'Friendly and helpful service',
