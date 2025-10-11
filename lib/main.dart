@@ -6,6 +6,7 @@ import 'package:airline_app/screen/login/log_in.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
 import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/services/push_notification_service.dart';
+import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -30,6 +31,9 @@ import 'package:airline_app/screen/reviewsubmission/submit_screen.dart';
 import 'package:airline_app/screen/journey/my_journey_screen.dart';
 import 'package:airline_app/screen/test/push_notification_test.dart';
 import 'package:airline_app/screen/debug/auth_debug_screen.dart';
+import 'package:airline_app/screen/dashboard/simple_dashboard_screen.dart';
+import 'package:airline_app/screen/test/supabase_test_screen.dart';
+import 'package:airline_app/screen/test/direct_data_test_screen.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -54,6 +58,9 @@ void main() async {
 
   // Initialize Supabase
   await SupabaseService.initialize();
+
+  // Initialize Simple Data Flow Service (includes basic real-time sync)
+  await SimpleDataFlowService.instance.initialize();
 
   // Initialize push notification service
   await PushNotificationService.initialize();
@@ -159,6 +166,9 @@ class MyApp extends ConsumerWidget {
         AppRoutes.myJourney: (context) => const MyJourneyScreen(),
         AppRoutes.pushNotificationTest: (context) => const PushNotificationTestScreen(),
         AppRoutes.authDebug: (context) => const AuthDebugScreen(),
+        AppRoutes.liveDashboard: (context) => const SimpleDashboardScreen(),
+        AppRoutes.supabaseTest: (context) => const SupabaseTestScreen(),
+        AppRoutes.directDataTest: (context) => const DirectDataTestScreen(),
       },
       debugShowCheckedModeBanner: false,
     );
