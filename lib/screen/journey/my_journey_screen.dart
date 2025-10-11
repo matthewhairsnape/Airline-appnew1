@@ -25,9 +25,9 @@ class MyJourneyScreen extends ConsumerStatefulWidget {
 
 class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   Map<String, bool> _expandedSections = {
-    'Pre Flight': true,
-    'In Flight': false,
-    'Post Flight': false,
+    'At The Airport': true,
+    'In The Air': false,
+    'Touched Down': false,
   };
 
   @override
@@ -60,14 +60,6 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           style: AppStyles.textStyle_20_600.copyWith(color: Colors.black),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: Colors.black),
-            onPressed: () {
-              ref.refresh(flightTrackingProvider);
-            },
-          ),
-        ],
       ),
       body: allFlights.isEmpty
           ? _buildEmptyState()
@@ -131,30 +123,61 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           
           // Timeline Sections
           TimelineSection(
-            title: 'Pre Flight',
+            title: 'At The Airport',
             icon: Icons.assignment,
             events: _getPreFlightEvents(flight),
-            isExpanded: _expandedSections['Pre Flight']!,
-            onToggle: () => _toggleSection('Pre Flight'),
+            isExpanded: _expandedSections['At The Airport']!,
+            onToggle: () => _toggleSection('At The Airport'),
           ),
           
           TimelineSection(
-            title: 'In Flight',
+            title: 'In The Air',
             icon: Icons.flight,
             events: _getInFlightEvents(flight),
-            isExpanded: _expandedSections['In Flight']!,
-            onToggle: () => _toggleSection('In Flight'),
+            isExpanded: _expandedSections['In The Air']!,
+            onToggle: () => _toggleSection('In The Air'),
           ),
           
           TimelineSection(
-            title: 'Post Flight',
+            title: 'Touched Down',
             icon: Icons.star,
             events: _getPostFlightEvents(flight),
-            isExpanded: _expandedSections['Post Flight']!,
-            onToggle: () => _toggleSection('Post Flight'),
+            isExpanded: _expandedSections['Touched Down']!,
+            onToggle: () => _toggleSection('Touched Down'),
           ),
           
-          SizedBox(height: 100), // Space for bottom button
+          SizedBox(height: 32),
+          
+          // Complete Journey Button
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: ElevatedButton(
+              onPressed: () {
+                ref.refresh(flightTrackingProvider);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white, size: 24),
+                  SizedBox(width: 12),
+                  Text(
+                    'Complete Journey',
+                    style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 100), // Space for bottom padding
         ],
       ),
     );
