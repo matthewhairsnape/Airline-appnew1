@@ -24,21 +24,65 @@ class StageFeedbackScreen extends ConsumerStatefulWidget {
   ConsumerState<StageFeedbackScreen> createState() => _StageFeedbackScreenState();
 }
 
-class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
+class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> 
+    with TickerProviderStateMixin {
   final Map<String, List<String>> _positiveSelections = {};
   final Map<String, List<String>> _negativeSelections = {};
   final Map<String, String> _customFeedback = {};
   int? _overallRating;
   final TextEditingController _commentsController = TextEditingController();
   final TextEditingController _customTextController = TextEditingController();
+  late AnimationController _animationController;
+  late AnimationController _floatingController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _floatingAnimation;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _floatingController = AnimationController(
+      duration: Duration(seconds: 3),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _slideAnimation = Tween<Offset>(
+      begin: Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _floatingAnimation = Tween<double>(
+      begin: -0.02,
+      end: 0.02,
+    ).animate(CurvedAnimation(
+      parent: _floatingController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _animationController.forward();
+    _floatingController.repeat(reverse: true);
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
+    _floatingController.dispose();
     _commentsController.dispose();
     _customTextController.dispose();
     super.dispose();
@@ -100,7 +144,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
     );
   }
 
-  void _submitFeedback() {
+  void _submitFeedback() async {
     final feedback = StageFeedback(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       stage: widget.stage,
@@ -174,31 +218,100 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header with illustration placeholder
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getStageIcon(widget.stage),
-                      size: 60,
-                      color: Colors.grey[400],
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Flight Experience',
-                      style: AppStyles.textStyle_16_600.copyWith(
-                        color: Colors.grey[600],
+            // Animated header with stage-specific image
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: AnimatedBuilder(
+                  animation: _floatingAnimation,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _floatingAnimation.value * 10),
+                      child: Container(
+                  height: 280,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: Offset(0, 8),
                       ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      children: [
+                        // Background image
+                        Positioned.fill(
+                          child: Image.asset(
+                            _getStageImage(widget.stage),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        // Gradient overlay for better text readability
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.3),
+                                  Colors.black.withOpacity(0.6),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Content overlay
+                        Positioned.fill(
+                          child: Container(
+                            padding: EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getStageTitle(widget.stage),
+                                  style: AppStyles.textStyle_24_600.copyWith(
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  _getStageDescription(widget.stage),
+                                  style: AppStyles.textStyle_16_400.copyWith(
+                                    color: Colors.white.withOpacity(0.9),
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -276,7 +389,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
             // Submit button
             MainButton(
               text: 'Submit Feedback',
-              onPressed: _canSubmit() ? _submitFeedback : null,
+              onPressed: _canSubmit() ? () => _submitFeedback() : null,
               color: _canSubmit() ? Color(0xFF3B82F6) : Colors.grey[400]!,
             ),
             
@@ -405,6 +518,45 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> {
         return 'journey';
       default:
         return 'experience';
+    }
+  }
+
+  String _getStageImage(FeedbackStage stage) {
+    switch (stage) {
+      case FeedbackStage.preFlight:
+        return 'assets/images/Airport 2.png';
+      case FeedbackStage.inFlight:
+        return 'assets/images/Flight 2.png';
+      case FeedbackStage.postFlight:
+        return 'assets/images/End of Flight.png';
+      default:
+        return 'assets/images/Airport 2.png';
+    }
+  }
+
+  String _getStageTitle(FeedbackStage stage) {
+    switch (stage) {
+      case FeedbackStage.preFlight:
+        return 'Pre-Flight Experience';
+      case FeedbackStage.inFlight:
+        return 'In-Flight Experience';
+      case FeedbackStage.postFlight:
+        return 'Post-Flight Experience';
+      default:
+        return 'Flight Experience';
+    }
+  }
+
+  String _getStageDescription(FeedbackStage stage) {
+    switch (stage) {
+      case FeedbackStage.preFlight:
+        return 'Share your airport experience before boarding';
+      case FeedbackStage.inFlight:
+        return 'Tell us about your flight experience';
+      case FeedbackStage.postFlight:
+        return 'How was your journey after landing?';
+      default:
+        return 'Share your travel experience';
     }
   }
 }
