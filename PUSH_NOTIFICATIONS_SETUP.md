@@ -202,3 +202,5 @@ For issues or questions:
 4. Verify Supabase database entries
 
 The push notification system is now fully integrated and ready for use!
+
+

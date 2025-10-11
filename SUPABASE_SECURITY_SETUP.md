@@ -88,3 +88,5 @@ If you still get errors, check:
 2. Run the RLS policies above
 3. Test your app authentication
 4. Check debug console for success messages
+
+

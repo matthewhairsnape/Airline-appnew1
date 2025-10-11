@@ -73,6 +73,18 @@ class PushNotificationService {
   /// Get FCM token
   static Future<String?> _getFCMToken() async {
     try {
+      if (Platform.isIOS) {
+        String? apnsToken = await _firebaseMessaging.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint('Waiting for APNS token...');
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await _firebaseMessaging.getAPNSToken();
+          if (apnsToken == null) {
+            debugPrint('APNS token not available after delay.');
+            return null;
+          }
+        }
+      }
       _fcmToken = await _firebaseMessaging.getToken();
       debugPrint('FCM Token: $_fcmToken');
       return _fcmToken;
