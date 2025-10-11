@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 import '../../../utils/app_styles.dart';
-import '../../../models/flight_tracking_model.dart';
+import '../../../services/media_service.dart';
 
 class SectionFeedbackModal extends StatefulWidget {
   final String sectionName;
@@ -38,6 +40,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
   TextEditingController _dislikesCommentController = TextEditingController();
   List<String> _likesMediaFiles = [];
   List<String> _dislikesMediaFiles = [];
+  ScrollController _scrollController = ScrollController();
+  FocusNode _likesFocusNode = FocusNode();
+  FocusNode _dislikesFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -86,223 +91,264 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     _floatingController.dispose();
     _likesCommentController.dispose();
     _dislikesCommentController.dispose();
+    _scrollController.dispose();
+    _likesFocusNode.dispose();
+    _dislikesFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.95,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            width: 40,
-            height: 4,
-            margin: EdgeInsets.only(top: 12, bottom: 20),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
+    final keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
+    
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, -5),
             ),
-          ),
-          
-          // Animated header with stage-specific image
-          FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: AnimatedBuilder(
-                animation: _floatingAnimation,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(0, _floatingAnimation.value * 5),
-                    child: Container(
-                      height: 200,
-                      margin: EdgeInsets.symmetric(horizontal: 24),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 15,
-                            offset: Offset(0, 5),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: EdgeInsets.only(top: 12, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Scrollable content
+            Flexible(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, 16, 24, keyboardPadding > 0 ? keyboardPadding + 24 : 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header image with animation
+                      FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: AnimatedBuilder(
+                            animation: _floatingAnimation,
+                            builder: (context, child) {
+                              return Transform.translate(
+                                offset: Offset(0, _floatingAnimation.value * 5),
+                                child: Container(
+                                  height: 180,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 12,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.asset(
+                                      _getSectionImage(widget.sectionName),
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      
+                      SizedBox(height: 24),
+                      
+                      // Title
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${widget.sectionName} Feedback',
+                              style: AppStyles.textStyle_24_600,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: Colors.grey[600]),
+                            onPressed: () => Navigator.pop(context),
                           ),
                         ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.asset(
-                          _getSectionImage(widget.sectionName),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                        ),
+                      
+                      SizedBox(height: 8),
+                      
+                      // Subtitle
+                      Text(
+                        'Rate your ${widget.sectionName.toLowerCase()} experience',
+                        style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
                       ),
+                      
+                      SizedBox(height: 24),
+                      
+                      // Star rating
+                      _buildRatingSection(),
+                      
+                      SizedBox(height: 32),
+                      
+                      // Feedback tags and comments
+                      _buildFeedbackContent(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // Sticky submit button with safe area
+            SafeArea(
+              top: false,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: Offset(0, -2),
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-          
-          SizedBox(height: 20),
-          
-          // Header
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close, color: Colors.black),
+                  ],
                 ),
-                Expanded(
-                  child: Text(
-                    '${widget.sectionName} Feedback',
-                    style: AppStyles.textStyle_20_600.copyWith(color: Colors.black),
-                    textAlign: TextAlign.center,
+                child: ElevatedButton(
+                  onPressed: _canSubmit() ? _submitFeedback : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    disabledBackgroundColor: Colors.grey[300],
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.feedback, color: Colors.white, size: 20),
+                      SizedBox(width: 12),
+                      Text(
+                        'Submit Feedback',
+                        style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 48), // Balance the close button
-              ],
-            ),
-          ),
-          
-          SizedBox(height: 24),
-          
-          // Rating Section
-          _buildRatingSection(),
-          
-          SizedBox(height: 32),
-          
-          // Feedback Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // What stands out section
-                  _buildFeedbackSection(
-                    'What stands out?',
-                    widget.likes,
-                    _selectedLikes,
-                    Icons.thumb_up,
-                    Colors.green,
-                    (value) {
-                      setState(() {
-                        if (_selectedLikes.contains(value)) {
-                          _selectedLikes.remove(value);
-                        } else {
-                          _selectedLikes.add(value);
-                          // Remove from dislikes if it was selected there
-                          _selectedDislikes.remove(value);
-                        }
-                      });
-                    },
-                    true, // isLikes
-                  ),
-                  
-                  SizedBox(height: 32),
-                  
-                  // What could be improved section
-                  _buildFeedbackSection(
-                    'What could be improved?',
-                    widget.dislikes,
-                    _selectedDislikes,
-                    Icons.thumb_down,
-                    Colors.red,
-                    (value) {
-                      setState(() {
-                        if (_selectedDislikes.contains(value)) {
-                          _selectedDislikes.remove(value);
-                        } else {
-                          _selectedDislikes.add(value);
-                          // Remove from likes if it was selected there
-                          _selectedLikes.remove(value);
-                        }
-                      });
-                    },
-                    false, // isLikes
-                  ),
-                ],
               ),
             ),
-          ),
-          
-          // Submit Button
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: ElevatedButton(
-              onPressed: _canSubmit() ? _submitFeedback : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: Text(
-                'Submit Feedback',
-                style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+  
+  Widget _buildFeedbackContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // What stands out section
+        _buildFeedbackSection(
+          'What Stands Out',
+          widget.likes,
+          _selectedLikes,
+          Icons.thumb_up,
+          Colors.green,
+          (value) {
+            setState(() {
+              if (_selectedLikes.contains(value)) {
+                _selectedLikes.remove(value);
+              } else {
+                _selectedLikes.add(value);
+                _selectedDislikes.remove(value);
+              }
+            });
+            HapticFeedback.selectionClick();
+          },
+          true,
+        ),
+        
+        SizedBox(height: 32),
+        
+        // What could be improved section
+        _buildFeedbackSection(
+          'What could be improved?',
+          widget.dislikes,
+          _selectedDislikes,
+          Icons.thumb_down,
+          Colors.red,
+          (value) {
+            setState(() {
+              if (_selectedDislikes.contains(value)) {
+                _selectedDislikes.remove(value);
+              } else {
+                _selectedDislikes.add(value);
+                _selectedLikes.remove(value);
+              }
+            });
+            HapticFeedback.selectionClick();
+          },
+          false,
+        ),
+        
+        SizedBox(height: 24),
+      ],
     );
   }
 
   Widget _buildRatingSection() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24),
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Rate Your ${widget.sectionName} Experience',
-            style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
-          ),
-          SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(5, (index) {
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _rating = index + 1;
-                  });
-                },
-                child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(
-                    index < _rating ? Icons.star : Icons.star_border,
-                    color: index < _rating ? Colors.amber : Colors.grey[400],
-                    size: 32,
-                  ),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _rating = index + 1;
+                });
+                HapticFeedback.selectionClick();
+              },
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  index < _rating ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: index < _rating ? Colors.amber : Colors.grey[300],
+                  size: 44,
                 ),
-              );
-            }),
-          ),
-          SizedBox(height: 8),
+              ),
+            );
+          }),
+        ),
+        if (_rating > 0) ...[
+          SizedBox(height: 12),
           Text(
             _getRatingText(_rating),
-            style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+            style: AppStyles.textStyle_16_600.copyWith(color: Colors.grey[700]),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -449,6 +495,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                 SizedBox(height: 8),
                 TextField(
                   controller: isLikes ? _likesCommentController : _dislikesCommentController,
+                  focusNode: isLikes ? _likesFocusNode : _dislikesFocusNode,
                   maxLines: 3,
                   maxLength: 250,
                   decoration: InputDecoration(
@@ -463,13 +510,53 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     contentPadding: EdgeInsets.all(12),
                     counterText: '${(isLikes ? _likesCommentController : _dislikesCommentController).text.length}/250',
                   ),
+                  onChanged: (value) {
+                    setState(() {}); // Refresh to show live preview
+                  },
+                  onTap: () {
+                    // Scroll to the text field when tapped
+                    Future.delayed(Duration(milliseconds: 300), () {
+                      if (_scrollController.hasClients) {
+                        _scrollController.animateTo(
+                          _scrollController.position.maxScrollExtent * 0.8,
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    });
+                  },
                 ),
+                // Live preview of comment
+                if ((isLikes ? _likesCommentController : _dislikesCommentController).text.isNotEmpty)
+                  Container(
+                    margin: EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: color.withOpacity(0.3), width: 1),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Preview:',
+                          style: AppStyles.textStyle_12_600.copyWith(color: color),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          (isLikes ? _likesCommentController : _dislikesCommentController).text,
+                          style: AppStyles.textStyle_14_400.copyWith(color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
         
         // Media upload section (if enabled)
-        if ((isLikes && _likesMediaFiles.isNotEmpty) || (!isLikes && _dislikesMediaFiles.isNotEmpty))
+        if ((isLikes && _showLikesCommentBox) || (!isLikes && _showDislikesCommentBox))
           Container(
             margin: EdgeInsets.only(top: 12),
             padding: EdgeInsets.all(16),
@@ -499,8 +586,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                         icon: Icon(Icons.camera_alt, color: Colors.white, size: 16),
                         label: Text('Upload Image'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -516,8 +603,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                         icon: Icon(Icons.videocam, color: Colors.white, size: 16),
                         label: Text('Record Clip'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -527,6 +614,47 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       ),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        
+        // Media thumbnails preview
+        if ((isLikes && _likesMediaFiles.isNotEmpty) || (!isLikes && _dislikesMediaFiles.isNotEmpty))
+          Container(
+            margin: EdgeInsets.only(top: 12),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green[300]!, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Media Added Successfully',
+                      style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[700]),
+                    ),
+                    Spacer(),
+                    Text(
+                      '${(isLikes ? _likesMediaFiles : _dislikesMediaFiles).length} file(s)',
+                      style: AppStyles.textStyle_12_500.copyWith(color: Colors.green[600]),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                // Thumbnails grid
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: (isLikes ? _likesMediaFiles : _dislikesMediaFiles).map((mediaPath) {
+                    return _buildMediaThumbnail(mediaPath, isLikes);
+                  }).toList(),
                 ),
               ],
             ),
@@ -646,9 +774,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     switch (sectionName.toLowerCase()) {
       case 'at the airport':
         return 'assets/images/Airport 2.png';
-      case 'in the air':
+      case 'during the flight':
         return 'assets/images/Flight 2.png';
-      case 'touched down':
+      case 'overall experience':
         return 'assets/images/End of Flight.png';
       default:
         return 'assets/images/Airport 2.png';
@@ -688,6 +816,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     label: Text('Upload Image'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -706,6 +835,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     label: Text('Record Video'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -721,41 +851,222 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     );
   }
 
-  void _uploadImage(bool isLikes) {
-    // TODO: Implement image picker
-    // For now, just add a placeholder
-    setState(() {
-      if (isLikes) {
-        _likesMediaFiles.add('image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+  void _uploadImage(bool isLikes) async {
+    try {
+      // Show source selection dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Select Image Source'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.camera_alt),
+                  title: Text('Camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImageFromSource(true, isLikes);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo_library),
+                  title: Text('Gallery'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickImageFromSource(false, isLikes);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error showing image source dialog: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error selecting image source'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickImageFromSource(bool fromCamera, bool isLikes) async {
+    try {
+      final String? imagePath = await MediaService.pickImage(fromCamera: fromCamera);
+      
+      if (imagePath != null) {
+        setState(() {
+          if (isLikes) {
+            _likesMediaFiles.add(imagePath);
+          } else {
+            _dislikesMediaFiles.add(imagePath);
+          }
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Image added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
-        _dislikesMediaFiles.add('image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No image selected'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
-    });
+    } catch (e) {
+      debugPrint('❌ Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding image'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _recordVideo(bool isLikes) async {
+    try {
+      final String? videoPath = await MediaService.recordVideo();
+      
+      if (videoPath != null) {
+        setState(() {
+          if (isLikes) {
+            _likesMediaFiles.add(videoPath);
+          } else {
+            _dislikesMediaFiles.add(videoPath);
+          }
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Video recorded successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Video recording cancelled'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error recording video: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error recording video'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Widget _buildMediaThumbnail(String mediaPath, bool isLikes) {
+    final String fileName = mediaPath.split('/').last;
+    final bool isImage = fileName.toLowerCase().endsWith('.jpg') || 
+                        fileName.toLowerCase().endsWith('.jpeg') || 
+                        fileName.toLowerCase().endsWith('.png');
+    final bool isVideo = fileName.toLowerCase().endsWith('.mp4') || 
+                        fileName.toLowerCase().endsWith('.mov') || 
+                        fileName.toLowerCase().endsWith('.avi');
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Image upload functionality coming soon!'),
-        backgroundColor: Colors.green,
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green[300]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Media preview
+          ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: Container(
+              width: 80,
+              height: 80,
+              color: Colors.grey[100],
+              child: isImage
+                  ? Image.file(
+                      File(mediaPath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.image, color: Colors.grey[400], size: 32);
+                      },
+                    )
+                  : isVideo
+                      ? Container(
+                          color: Colors.black.withOpacity(0.8),
+                          child: Icon(Icons.play_circle_filled, color: Colors.white, size: 32),
+                        )
+                      : Icon(Icons.insert_drive_file, color: Colors.grey[400], size: 32),
+            ),
+          ),
+          // Remove button
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isLikes) {
+                    _likesMediaFiles.remove(mediaPath);
+                  } else {
+                    _dislikesMediaFiles.remove(mediaPath);
+                  }
+                });
+              },
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.close, color: Colors.white, size: 12),
+              ),
+            ),
+          ),
+          // Media type indicator
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                isImage ? 'IMG' : isVideo ? 'VID' : 'FILE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  void _recordVideo(bool isLikes) {
-    // TODO: Implement video recording
-    // For now, just add a placeholder
-    setState(() {
-      if (isLikes) {
-        _likesMediaFiles.add('video_${DateTime.now().millisecondsSinceEpoch}.mp4');
-      } else {
-        _dislikesMediaFiles.add('video_${DateTime.now().millisecondsSinceEpoch}.mp4');
-      }
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Video recording functionality coming soon!'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
 }

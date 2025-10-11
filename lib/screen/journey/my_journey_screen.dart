@@ -25,9 +25,9 @@ class MyJourneyScreen extends ConsumerStatefulWidget {
 
 class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
   Map<String, bool> _expandedSections = {
-    'At The Airport': true,
-    'In The Air': false,
-    'Touched Down': false,
+    'At the Airport': true,
+    'During the Flight': false,
+    'Overall Experience': false,
   };
 
   @override
@@ -123,27 +123,27 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           
           // Timeline Sections
           TimelineSection(
-            title: 'At The Airport',
+            title: 'At the Airport',
             icon: Icons.assignment,
             events: _getPreFlightEvents(flight),
-            isExpanded: _expandedSections['At The Airport']!,
-            onToggle: () => _toggleSection('At The Airport'),
+            isExpanded: _expandedSections['At the Airport']!,
+            onToggle: () => _toggleSection('At the Airport'),
           ),
           
           TimelineSection(
-            title: 'In The Air',
+            title: 'During the Flight',
             icon: Icons.flight,
             events: _getInFlightEvents(flight),
-            isExpanded: _expandedSections['In The Air']!,
-            onToggle: () => _toggleSection('In The Air'),
+            isExpanded: _expandedSections['During the Flight']!,
+            onToggle: () => _toggleSection('During the Flight'),
           ),
           
           TimelineSection(
-            title: 'Touched Down',
+            title: 'Overall Experience',
             icon: Icons.star,
             events: _getPostFlightEvents(flight),
-            isExpanded: _expandedSections['Touched Down']!,
-            onToggle: () => _toggleSection('Touched Down'),
+            isExpanded: _expandedSections['Overall Experience']!,
+            onToggle: () => _toggleSection('Overall Experience'),
           ),
           
           SizedBox(height: 32),

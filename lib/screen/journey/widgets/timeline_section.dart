@@ -150,21 +150,32 @@ class _TimelineSectionState extends State<TimelineSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SectionFeedbackModal(
-        sectionName: widget.title,
-        likes: feedbackData['likes'] ?? [],
-        dislikes: feedbackData['dislikes'] ?? [],
-        onSubmitted: () {
-          // TODO: Submit feedback to backend
-          debugPrint('${widget.title} feedback submitted');
-        },
+      enableDrag: true,
+      isDismissible: true,
+      useSafeArea: false,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SectionFeedbackModal(
+          sectionName: widget.title,
+          likes: feedbackData['likes'] ?? [],
+          dislikes: feedbackData['dislikes'] ?? [],
+          onSubmitted: () {
+            debugPrint('${widget.title} feedback submitted');
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
 
   Map<String, List<String>> _getFeedbackData() {
     switch (widget.title) {
-      case 'At The Airport':
+      case 'At the Airport':
         return {
           'likes': [
             'Check-in process',
@@ -185,7 +196,7 @@ class _TimelineSectionState extends State<TimelineSection> {
             'Something else',
           ],
         };
-      case 'In The Air':
+      case 'During the Flight':
         return {
           'likes': [
             'Seat comfort',
@@ -206,27 +217,24 @@ class _TimelineSectionState extends State<TimelineSection> {
             'Something else',
           ],
         };
-      case 'Touched Down':
+      case 'Overall Experience':
         return {
           'likes': [
             'Friendly and helpful service',
-            'Smooth and troublefree flight',
-            'Onboard Comfort',
-            'Food and Beverage',
-            'Wi-Fi and IFE',
-            'Communication from airline',
-            'Baggage delivery or ease of connection',
-            'Something else',
+            'Smooth and troublefree Flight',
+            'Cleanliness of the cabin',
+            'Flight is on-time',
+            'Accessiblity',
+            'Fast Baggage Delivery',
+            'Something Else',
           ],
           'dislikes': [
-            'Wi-Fi',
-            'Friendly and helpful service',
-            'Stressful and uneasy flight',
-            'Onboard Comfort',
-            'Food and Beverage',
-            'Wi-Fi and IFE',
-            'Communication from airline',
-            'Baggage delivery or ease of connection',
+            'Service and Communication',
+            'Unattended problems during flight',
+            'Ontime performance',
+            'Cleanliness of the cabin',
+            'Accessibility',
+            'Slow Baggage delivery',
             'Something else',
           ],
         };
