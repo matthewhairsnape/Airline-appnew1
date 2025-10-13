@@ -47,4 +47,5 @@ class AppRoutes {
   static const liveDashboard = "/live-dashboard";
   static const supabaseTest = "/supabase-test";
   static const directDataTest = "/direct-data-test";
+  static const flightStatusTest = "/flight-status-test";
 }

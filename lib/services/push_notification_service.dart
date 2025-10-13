@@ -193,6 +193,111 @@ class PushNotificationService {
     }
   }
 
+  /// Send notification to a specific user
+  static Future<void> sendNotificationToUser({
+    required String userId,
+    required String title,
+    required String body,
+    Map<String, String>? data,
+  }) async {
+    try {
+      // Get user's FCM token from Supabase
+      final userData = await _supabase
+          .from('users')
+          .select('fcm_token')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userData == null || userData['fcm_token'] == null) {
+        debugPrint('❌ No FCM token found for user: $userId');
+        return;
+      }
+
+      final fcmToken = userData['fcm_token'] as String;
+      
+      // Send notification via Supabase Edge Function
+      await _supabase.functions.invoke(
+        'send-push-notification',
+        body: {
+          'token': fcmToken,
+          'title': title,
+          'body': body,
+          'data': data ?? {},
+        },
+      );
+
+      debugPrint('✅ Push notification sent to user: $userId');
+    } catch (e) {
+      debugPrint('❌ Error sending push notification to user $userId: $e');
+    }
+  }
+
+  /// Send notification to multiple users
+  static Future<void> sendNotificationToUsers({
+    required List<String> userIds,
+    required String title,
+    required String body,
+    Map<String, String>? data,
+  }) async {
+    try {
+      // Get FCM tokens for all users
+      final usersData = await _supabase
+          .from('users')
+          .select('id, fcm_token')
+          .inFilter('id', userIds)
+          .not('fcm_token', 'is', null);
+
+      if (usersData.isEmpty) {
+        debugPrint('❌ No FCM tokens found for any of the users');
+        return;
+      }
+
+      final tokens = usersData
+          .map((user) => user['fcm_token'] as String)
+          .toList();
+
+      // Send notification via Supabase Edge Function
+      await _supabase.functions.invoke(
+        'send-push-notification',
+        body: {
+          'tokens': tokens,
+          'title': title,
+          'body': body,
+          'data': data ?? {},
+        },
+      );
+
+      debugPrint('✅ Push notification sent to ${tokens.length} users');
+    } catch (e) {
+      debugPrint('❌ Error sending push notification to users: $e');
+    }
+  }
+
+  /// Send notification to all users subscribed to a topic
+  static Future<void> sendNotificationToTopic({
+    required String topic,
+    required String title,
+    required String body,
+    Map<String, String>? data,
+  }) async {
+    try {
+      // Send notification via Supabase Edge Function
+      await _supabase.functions.invoke(
+        'send-push-notification',
+        body: {
+          'topic': topic,
+          'title': title,
+          'body': body,
+          'data': data ?? {},
+        },
+      );
+
+      debugPrint('✅ Push notification sent to topic: $topic');
+    } catch (e) {
+      debugPrint('❌ Error sending push notification to topic $topic: $e');
+    }
+  }
+
   /// Clear FCM token (for logout)
   static Future<void> clearToken() async {
     try {
