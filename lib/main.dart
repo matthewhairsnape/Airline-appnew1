@@ -5,6 +5,8 @@ import 'package:airline_app/screen/leaderboard/media_full_screen.dart';
 import 'package:airline_app/screen/login/log_in.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
 import 'package:airline_app/services/supabase_service.dart';
+import 'package:airline_app/services/push_notification_service.dart';
+import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -27,6 +29,11 @@ import 'package:airline_app/screen/reviewsubmission/reviewsubmission_screen.dart
 import 'package:airline_app/screen/reviewsubmission/start_reviews.dart';
 import 'package:airline_app/screen/reviewsubmission/submit_screen.dart';
 import 'package:airline_app/screen/journey/my_journey_screen.dart';
+import 'package:airline_app/screen/test/push_notification_test.dart';
+import 'package:airline_app/screen/debug/auth_debug_screen.dart';
+import 'package:airline_app/screen/dashboard/simple_dashboard_screen.dart';
+import 'package:airline_app/screen/test/supabase_test_screen.dart';
+import 'package:airline_app/screen/test/direct_data_test_screen.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -34,6 +41,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 // import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
@@ -42,8 +51,19 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final String languageCode = prefs.getString('selectedLanguageSym') ?? 'en';
 
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   // Initialize Supabase
   await SupabaseService.initialize();
+
+  // Initialize Simple Data Flow Service (includes basic real-time sync)
+  await SimpleDataFlowService.instance.initialize();
+
+  // Initialize push notification service
+  await PushNotificationService.initialize();
 
   // Initialize flight notification service
   final notificationService = FlightNotificationService();
@@ -144,6 +164,11 @@ class MyApp extends ConsumerWidget {
         AppRoutes.helpFaqs: (context) => HelpFaq(),
         AppRoutes.termsofservice: (context) => TermsOfService(),
         AppRoutes.myJourney: (context) => const MyJourneyScreen(),
+        AppRoutes.pushNotificationTest: (context) => const PushNotificationTestScreen(),
+        AppRoutes.authDebug: (context) => const AuthDebugScreen(),
+        AppRoutes.liveDashboard: (context) => const SimpleDashboardScreen(),
+        AppRoutes.supabaseTest: (context) => const SupabaseTestScreen(),
+        AppRoutes.directDataTest: (context) => const DirectDataTestScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

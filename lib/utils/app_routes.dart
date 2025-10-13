@@ -42,4 +42,9 @@ class AppRoutes {
   static const helpFaqs = "/helpFaqs";
   static const stagefeedback = "/stagefeedback";
   static const myJourney = "/my-journey";
+  static const pushNotificationTest = "/push-notification-test";
+  static const authDebug = "/auth-debug";
+  static const liveDashboard = "/live-dashboard";
+  static const supabaseTest = "/supabase-test";
+  static const directDataTest = "/direct-data-test";
 }

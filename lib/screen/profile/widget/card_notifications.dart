@@ -1,4 +1,5 @@
 import 'package:airline_app/main.dart';
+import 'package:airline_app/provider/auth_provider.dart';
 import 'package:airline_app/provider/selected_language_provider.dart';
 import 'package:airline_app/screen/profile/widget/show_modal_widget.dart';
 import 'package:airline_app/utils/app_localizations.dart';
@@ -45,22 +46,16 @@ class _CardNotificationsState extends ConsumerState<CardNotifications> {
             cancelText: AppLocalizations.of(context).translate("Cancel"),
             confirmText: AppLocalizations.of(context).translate("Sign Out"),
             onPressed: () async {
-              // Delete token from SharedPreferences
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('token');
-              await prefs.remove('userData');
-
-              // Close the modal bottom sheet
+              // Close the modal bottom sheet first
               if (!context.mounted) {
                 return;
               }
               Navigator.pop(context);
 
-              // Navigate to login screen and remove all previous routes
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRoutes.loginscreen,
-                (Route<dynamic> route) => false,
-              );
+              // Use the auth provider to sign out
+              await ref.read(authProvider.notifier).signOut();
+              
+              // The AuthWrapper will automatically redirect to login screen
             });
       },
     );
