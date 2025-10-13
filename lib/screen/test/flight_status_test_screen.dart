@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/flight_status_integration.dart';
 import '../../services/supabase_service.dart';
 import '../../config/cirium_config.dart';
+import '../../widgets/notification_permission_widget.dart';
 
 class FlightStatusTestScreen extends StatefulWidget {
   const FlightStatusTestScreen({super.key});
@@ -238,6 +239,14 @@ class _FlightStatusTestScreenState extends State<FlightStatusTestScreen> {
                             ),
                           ),
                         ),
+                        // Notification permission widget
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: NotificationPermissionWidget(),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 8),
                         Expanded(
                           child: ListView.builder(
                             itemCount: _journeys.length,

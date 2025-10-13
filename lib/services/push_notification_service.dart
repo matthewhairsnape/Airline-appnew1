@@ -22,22 +22,36 @@ class PushNotificationService {
       // Request permission for notifications (iOS only)
       if (Platform.isIOS) {
         final settings = await _firebaseMessaging.requestPermission(
-          alert: true,
-          announcement: false,
-          badge: true,
-          carPlay: false,
-          criticalAlert: false,
-          provisional: false,
-          sound: true,
+          alert: true,           // Show alerts/banners
+          announcement: false,   // Siri announcements
+          badge: true,           // App icon badge
+          carPlay: false,        // CarPlay notifications
+          criticalAlert: false,  // Critical alerts (requires special entitlement)
+          provisional: false,    // Provisional notifications (quiet notifications)
+          sound: true,           // Sound for notifications
         );
 
         if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-          debugPrint('User granted permission for notifications');
+          debugPrint('✅ User granted full permission for notifications');
         } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-          debugPrint('User granted provisional permission for notifications');
+          debugPrint('⚠️ User granted provisional permission for notifications');
+        } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
+          debugPrint('❌ User denied permission for notifications');
+        } else if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+          debugPrint('❓ User has not yet responded to permission request');
         } else {
-          debugPrint('User declined or has not accepted permission for notifications');
+          debugPrint('❌ Unknown permission status: ${settings.authorizationStatus}');
         }
+
+        // Log detailed permission settings
+        debugPrint('📱 Notification settings:');
+        debugPrint('  - Alert: ${settings.alert}');
+        debugPrint('  - Badge: ${settings.badge}');
+        debugPrint('  - Sound: ${settings.sound}');
+        debugPrint('  - Announcement: ${settings.announcement}');
+        debugPrint('  - CarPlay: ${settings.carPlay}');
+        debugPrint('  - Critical Alert: ${settings.criticalAlert}');
+        // debugPrint('  - Provisional: ${settings.provisional}');
       }
 
       // Get FCM token
@@ -156,12 +170,17 @@ class PushNotificationService {
 
   /// Handle foreground messages
   static void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('Received foreground message: ${message.messageId}');
-    debugPrint('Message data: ${message.data}');
-    debugPrint('Message notification: ${message.notification?.title}');
+    debugPrint('📱 Received foreground message: ${message.messageId}');
+    debugPrint('📱 Message data: ${message.data}');
+    debugPrint('📱 Message notification: ${message.notification?.title}');
+    debugPrint('📱 Message body: ${message.notification?.body}');
     
-    // You can show a local notification or update UI here
-    // For now, we'll just log the message
+    // Show a local notification or update UI here
+    // For foreground messages, you might want to show an in-app banner
+    // or update the UI directly instead of showing a system notification
+    
+    // You can also trigger a callback if you have a listener set up
+    // _onForegroundMessage?.call(message);
   }
 
   /// Handle notification tap
@@ -296,6 +315,49 @@ class PushNotificationService {
     } catch (e) {
       debugPrint('❌ Error sending push notification to topic $topic: $e');
     }
+  }
+
+  /// Check current notification permission status
+  static Future<AuthorizationStatus> checkPermissionStatus() async {
+    if (Platform.isIOS) {
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      return settings.authorizationStatus;
+    }
+    return AuthorizationStatus.authorized; // Android doesn't require explicit permission
+  }
+
+  /// Request notification permissions again (useful if user initially denied)
+  static Future<bool> requestPermissionsAgain() async {
+    if (Platform.isIOS) {
+      final settings = await _firebaseMessaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      final isGranted = settings.authorizationStatus == AuthorizationStatus.authorized;
+      
+      if (isGranted) {
+        debugPrint('✅ User granted permission for notifications on retry');
+        // Get FCM token again
+        await _getFCMToken();
+      } else {
+        debugPrint('❌ User still denied permission for notifications');
+      }
+      
+      return isGranted;
+    }
+    return true; // Android doesn't require explicit permission
+  }
+
+  /// Check if notifications are enabled
+  static Future<bool> areNotificationsEnabled() async {
+    final status = await checkPermissionStatus();
+    return status == AuthorizationStatus.authorized;
   }
 
   /// Clear FCM token (for logout)
