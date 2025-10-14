@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:airline_app/models/flight_tracking_model.dart';
 import 'package:airline_app/models/stage_feedback_model.dart';
 import 'package:airline_app/services/stage_question_service.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Service to handle flight-related push notifications
@@ -45,13 +45,43 @@ class FlightNotificationService {
         onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
       );
 
+      // Create notification channel for Android
+      if (Platform.isAndroid) {
+        await _createNotificationChannel();
+      }
+
       // Request permissions
       await _requestPermissions();
 
       _isInitialized = true;
-      debugPrint('✅ Flight notification service initialized');
     } catch (e) {
-      debugPrint('❌ Error initializing notifications: $e');
+      // Log error but don't crash the app
+      if (kDebugMode) {
+        debugPrint('Error initializing notifications: $e');
+      }
+    }
+  }
+
+  /// Create notification channel for Android
+  Future<void> _createNotificationChannel() async {
+    try {
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'flight_tracking',
+        'Flight Tracking',
+        description: 'Notifications for flight status and feedback requests',
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error creating notification channel: $e');
+      }
     }
   }
 
@@ -78,8 +108,9 @@ class FlightNotificationService {
   /// Handle notification tap (background/terminated)
   void _onDidReceiveNotificationResponse(
       NotificationResponse notificationResponse) {
-    debugPrint(
-        'Notification tapped: ${notificationResponse.payload}');
+    if (kDebugMode) {
+      debugPrint('Notification tapped: ${notificationResponse.payload}');
+    }
     // Handle navigation to stage-specific feedback screen
     // This will be handled by the app's navigation system
   }
@@ -107,8 +138,6 @@ class FlightNotificationService {
       body: message,
       payload: '${flight.pnr}|${stage.toString()}',
     );
-
-    debugPrint('📬 Sent notification for stage: $stage');
   }
 
   /// Show a notification
@@ -140,13 +169,20 @@ class FlightNotificationService {
       iOS: iosDetails,
     );
 
-    await _flutterLocalNotificationsPlugin.show(
-      id,
-      title,
-      body,
-      notificationDetails,
-      payload: payload,
-    );
+    try {
+      await _flutterLocalNotificationsPlugin.show(
+        id,
+        title,
+        body,
+        notificationDetails,
+        payload: payload,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error showing local notification: $e');
+      }
+      // Don't rethrow in production to avoid crashing the app
+    }
   }
 
   /// Send a custom notification

@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'flight_notification_service.dart';
 
 class PushNotificationService {
   static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -170,23 +171,46 @@ class PushNotificationService {
 
   /// Handle foreground messages
   static void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('📱 Received foreground message: ${message.messageId}');
-    debugPrint('📱 Message data: ${message.data}');
-    debugPrint('📱 Message notification: ${message.notification?.title}');
-    debugPrint('📱 Message body: ${message.notification?.body}');
+    if (kDebugMode) {
+      debugPrint('Received foreground message: ${message.messageId}');
+      debugPrint('Message data: ${message.data}');
+      debugPrint('Message notification: ${message.notification?.title}');
+      debugPrint('Message body: ${message.notification?.body}');
+    }
     
-    // Show a local notification or update UI here
-    // For foreground messages, you might want to show an in-app banner
-    // or update the UI directly instead of showing a system notification
-    
-    // You can also trigger a callback if you have a listener set up
-    // _onForegroundMessage?.call(message);
+    // Show a local notification for foreground messages
+    if (message.notification != null) {
+      _showForegroundNotification(message);
+    }
+  }
+
+  /// Show local notification for foreground messages
+  static Future<void> _showForegroundNotification(RemoteMessage message) async {
+    try {
+      final notification = message.notification;
+      if (notification == null) return;
+
+      final flightNotificationService = FlightNotificationService();
+      await flightNotificationService.initialize();
+      
+      await flightNotificationService.sendCustomNotification(
+        title: notification.title ?? 'Notification',
+        message: notification.body ?? '',
+        payload: message.data.toString(),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error showing foreground notification: $e');
+      }
+    }
   }
 
   /// Handle notification tap
   static void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('Notification tapped: ${message.messageId}');
-    debugPrint('Message data: ${message.data}');
+    if (kDebugMode) {
+      debugPrint('Notification tapped: ${message.messageId}');
+      debugPrint('Message data: ${message.data}');
+    }
     
     // Handle navigation based on notification data
     // You can add navigation logic here based on the message data
