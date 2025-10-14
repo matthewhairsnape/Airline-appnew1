@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/boarding_pass.dart';
+import '../../../services/supabase_service.dart';
+import '../../../provider/user_data_provider.dart';
+import '../../../provider/auth_provider.dart';
 import '../../../utils/app_styles.dart';
 import '../../../utils/app_routes.dart';
 import '../../../screen/app_widgets/main_button.dart';
+import '../../../screen/app_widgets/custom_snackbar.dart';
 
-class FlightConfirmationDialog extends StatelessWidget {
+class FlightConfirmationDialog extends ConsumerWidget {
   final BoardingPass boardingPass;
   final VoidCallback? onCancel;
+  final Map<String, dynamic>? ciriumFlightData;
+  final String? seatNumber;
+  final String? terminal;
+  final String? gate;
+  final String? aircraftType;
+  final DateTime? scheduledDeparture;
+  final DateTime? scheduledArrival;
 
   const FlightConfirmationDialog({
     Key? key,
     required this.boardingPass,
     this.onCancel,
+    this.ciriumFlightData,
+    this.seatNumber,
+    this.terminal,
+    this.gate,
+    this.aircraftType,
+    this.scheduledDeparture,
+    this.scheduledArrival,
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -157,9 +176,9 @@ class FlightConfirmationDialog extends StatelessWidget {
                 Expanded(
                   child: MainButton(
                     text: 'Confirm',
-                    onPressed: () {
+                    onPressed: () async {
                       debugPrint('🎯 Flight confirmation: User clicked Confirm button');
-                      debugPrint('🎯 Flight confirmation: Navigating to journey screen');
+                      await _saveFlightDataToDatabase(context, ref);
                       Navigator.pop(context);
                       Navigator.pushReplacementNamed(context, AppRoutes.myJourney);
                     },
@@ -173,8 +192,224 @@ class FlightConfirmationDialog extends StatelessWidget {
       );
   }
 
+  // Method to save flight data to database
+  Future<void> _saveFlightDataToDatabase(BuildContext context, WidgetRef ref) async {
+    if (!SupabaseService.isInitialized) {
+      debugPrint('⚠️ Supabase not initialized, skipping database save');
+      return;
+    }
+
+    try {
+      // Try to get user ID from userDataProvider first
+      final userData = ref.read(userDataProvider);
+      debugPrint('🔍 User data from userDataProvider: $userData');
+      
+      String userId = userData?['id'] ?? '';
+      debugPrint('🔍 Extracted user ID from userDataProvider: $userId');
+      
+      // Fallback: try to get user ID from authProvider
+      if (userId.isEmpty) {
+        final authState = ref.read(authProvider);
+        debugPrint('🔍 Auth state: $authState');
+        
+        authState.user.when(
+          data: (user) {
+            if (user != null) {
+              userId = user.id;
+              debugPrint('🔍 Extracted user ID from authProvider: $userId');
+            }
+          },
+          loading: () => debugPrint('🔍 Auth state is loading'),
+          error: (error, stack) => debugPrint('🔍 Auth state error: $error'),
+        );
+      }
+      
+      // Final fallback: try to get user ID from Supabase session
+      if (userId.isEmpty) {
+        try {
+          final session = SupabaseService.client.auth.currentSession;
+          if (session?.user != null) {
+            userId = session!.user.id;
+            debugPrint('🔍 Extracted user ID from Supabase session: $userId');
+            
+            // Try to populate userDataProvider with session data
+            if (userData == null) {
+              debugPrint('🔄 Attempting to populate userDataProvider with session data');
+              final userDataNotifier = ref.read(userDataProvider.notifier);
+              userDataNotifier.setUserData({
+                'id': userId,
+                'email': session.user.email,
+                'name': session.user.userMetadata?['name'] ?? session.user.email?.split('@').first,
+                'display_name': session.user.userMetadata?['display_name'] ?? session.user.email?.split('@').first,
+              });
+            }
+          }
+        } catch (e) {
+          debugPrint('🔍 Error getting user ID from Supabase session: $e');
+        }
+      }
+      
+      if (userId.isEmpty) {
+        debugPrint('❌ User ID not found in both providers, cannot save flight data');
+        debugPrint('🔍 Available user data keys: ${userData?.keys.toList()}');
+        CustomSnackBar.error(context, 'User not authenticated. Please log in again.');
+        return;
+      }
+
+      // Validate boarding pass data
+      if (!_validateBoardingPassData()) {
+        CustomSnackBar.error(context, 'Invalid flight data. Please scan again.');
+        return;
+      }
+
+      // Extract flight details from boarding pass and Cirium data
+      final carrier = boardingPass.airlineCode;
+      final flightNumber = boardingPass.flightNumber.replaceAll('$carrier ', '');
+      
+      debugPrint('🔍 Flight details:');
+      debugPrint('  Carrier: $carrier');
+      debugPrint('  Flight Number: $flightNumber');
+      debugPrint('  Departure Airport: ${boardingPass.departureAirportCode}');
+      debugPrint('  Arrival Airport: ${boardingPass.arrivalAirportCode}');
+      
+      // Use provided scheduled times or parse from boarding pass
+      final departureTime = scheduledDeparture ?? _parseFlightTime(boardingPass.departureTime);
+      final arrivalTime = scheduledArrival ?? _parseFlightTime(boardingPass.arrivalTime);
+      
+      if (departureTime == null || arrivalTime == null) {
+        debugPrint('❌ Could not parse flight times');
+        CustomSnackBar.error(context, 'Invalid flight time data');
+        return;
+      }
+
+      // Validate flight times
+      if (arrivalTime.isBefore(departureTime)) {
+        debugPrint('❌ Arrival time is before departure time');
+        CustomSnackBar.error(context, 'Invalid flight schedule. Arrival time cannot be before departure time.');
+        return;
+      }
+
+      // Save journey to Supabase using enhanced method
+      final journeyResult = await SupabaseService.saveFlightData(
+        userId: userId.toString(),
+        pnr: boardingPass.pnr,
+        carrier: carrier,
+        flightNumber: flightNumber,
+        departureAirport: boardingPass.departureAirportCode,
+        arrivalAirport: boardingPass.arrivalAirportCode,
+        scheduledDeparture: departureTime,
+        scheduledArrival: arrivalTime,
+        seatNumber: seatNumber?.isNotEmpty == true ? seatNumber : null,
+        classOfTravel: boardingPass.classOfTravel,
+        terminal: terminal?.isNotEmpty == true ? terminal : null,
+        gate: gate?.isNotEmpty == true ? gate : null,
+        aircraftType: aircraftType?.isNotEmpty == true ? aircraftType : null,
+        ciriumData: ciriumFlightData,
+      );
+
+      if (journeyResult != null) {
+        debugPrint('✅ Flight data saved to database successfully');
+        CustomSnackBar.success(context, 'Flight confirmed and saved!');
+      } else {
+        debugPrint('❌ Failed to save flight data to database');
+        CustomSnackBar.error(context, 'Failed to save flight data. Please try again.');
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving flight data: $e');
+      CustomSnackBar.error(context, 'Error saving flight data: ${e.toString()}');
+    }
+  }
+
+  // Helper method to validate boarding pass data
+  bool _validateBoardingPassData() {
+    // Check required fields
+    if (boardingPass.pnr.isEmpty) {
+      debugPrint('❌ PNR is empty');
+      return false;
+    }
+    
+    if (boardingPass.airlineCode.isEmpty) {
+      debugPrint('❌ Airline code is empty');
+      return false;
+    }
+    
+    if (boardingPass.flightNumber.isEmpty) {
+      debugPrint('❌ Flight number is empty');
+      return false;
+    }
+    
+    if (boardingPass.departureAirportCode.isEmpty) {
+      debugPrint('❌ Departure airport code is empty');
+      return false;
+    }
+    
+    if (boardingPass.arrivalAirportCode.isEmpty) {
+      debugPrint('❌ Arrival airport code is empty');
+      return false;
+    }
+    
+    if (boardingPass.departureTime.isEmpty) {
+      debugPrint('❌ Departure time is empty');
+      return false;
+    }
+    
+    if (boardingPass.arrivalTime.isEmpty) {
+      debugPrint('❌ Arrival time is empty');
+      return false;
+    }
+    
+    // Validate airport codes format (should be 3 characters)
+    if (boardingPass.departureAirportCode.length != 3) {
+      debugPrint('❌ Invalid departure airport code format: ${boardingPass.departureAirportCode}');
+      return false;
+    }
+    
+    if (boardingPass.arrivalAirportCode.length != 3) {
+      debugPrint('❌ Invalid arrival airport code format: ${boardingPass.arrivalAirportCode}');
+      return false;
+    }
+    
+    // Validate PNR format (should be 6 characters)
+    if (boardingPass.pnr.length != 6) {
+      debugPrint('❌ Invalid PNR format: ${boardingPass.pnr}');
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Helper method to parse flight time
+  DateTime? _parseFlightTime(String timeString) {
+    try {
+      // Assuming time format is "HH:MM"
+      final parts = timeString.split(':');
+      if (parts.length == 2) {
+        final hour = int.parse(parts[0]);
+        final minute = int.parse(parts[1]);
+        
+        // Use today's date as base, you might want to adjust this based on your needs
+        final now = DateTime.now();
+        return DateTime(now.year, now.month, now.day, hour, minute);
+      }
+    } catch (e) {
+      debugPrint('Error parsing time: $e');
+    }
+    return null;
+  }
+
   // Static method to show the dialog
-  static void show(BuildContext context, BoardingPass boardingPass, {VoidCallback? onCancel}) {
+  static void show(
+    BuildContext context, 
+    BoardingPass boardingPass, {
+    VoidCallback? onCancel,
+    Map<String, dynamic>? ciriumFlightData,
+    String? seatNumber,
+    String? terminal,
+    String? gate,
+    String? aircraftType,
+    DateTime? scheduledDeparture,
+    DateTime? scheduledArrival,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -183,6 +418,13 @@ class FlightConfirmationDialog extends StatelessWidget {
       builder: (context) => FlightConfirmationDialog(
         boardingPass: boardingPass,
         onCancel: onCancel,
+        ciriumFlightData: ciriumFlightData,
+        seatNumber: seatNumber,
+        terminal: terminal,
+        gate: gate,
+        aircraftType: aircraftType,
+        scheduledDeparture: scheduledDeparture,
+        scheduledArrival: scheduledArrival,
       ),
     );
   }

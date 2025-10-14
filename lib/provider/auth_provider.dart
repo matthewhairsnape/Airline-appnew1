@@ -39,8 +39,12 @@ class User {
       avatarUrl: json['avatar_url'],
       phone: json['phone'],
       role: json['role'] ?? 'passenger',
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
     );
   }
 
@@ -100,17 +104,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _initialize();
   }
 
-  final SupabaseClient _supabase = Supabase.instance.client;
+  // Use SupabaseService.client (ensures initialize() was called)
+  final SupabaseClient _supabase = SupabaseService.client;
 
   Future<void> _initialize() async {
     try {
       debugPrint('🔧 Initializing authentication...');
-      
+
       // Check if Supabase is initialized
       if (!SupabaseService.isInitialized) {
         debugPrint('❌ Supabase not initialized during auth initialization');
         state = state.copyWith(
-          user: AsyncValue.error('Supabase not initialized', StackTrace.current),
+          user:
+              AsyncValue.error('Supabase not initialized', StackTrace.current),
           isInitialized: true,
         );
         return;
@@ -121,40 +127,115 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Listen to auth state changes
       _supabase.auth.onAuthStateChange.listen((data) async {
         debugPrint('🔄 Auth state changed: ${data.event}');
+
         final session = data.session;
-        if (session?.user != null) {
-          debugPrint('👤 User found in session: ${session!.user.id}');
-          // Try to find user by Auth ID first, then by email as fallback
-          var userData = await _supabase
-              .from('users')
-              .select()
-              .eq('id', session.user.id)
-              .maybeSingle();
-              
-          if (userData == null) {
-            // Fallback: find by email
-            userData = await _supabase
+        final authUser = session?.user;
+
+        if (authUser != null) {
+          debugPrint('👤 User found in session: ${authUser.id}');
+          try {
+            // Try to find profile by id first
+            var userData = await _supabase
                 .from('users')
                 .select()
-                .eq('email', session.user.email!)
+                .eq('id', authUser.id)
                 .maybeSingle();
-          }
-              
-          if (userData != null) {
-            await _loadUserData(userData['id']);
-          } else {
-            debugPrint('❌ User profile not found in database');
-            state = state.copyWith(
-              user: const AsyncValue.data(null),
-              isInitialized: true,
-            );
+
+            // Fallback: find by email
+            if (userData == null) {
+              final email = authUser.email;
+              if (email != null && email.isNotEmpty) {
+                userData = await _supabase
+                    .from('users')
+                    .select()
+                    .eq('email', email)
+                    .maybeSingle();
+              }
+            }
+
+            if (userData == null) {
+              debugPrint(
+                  '➕ No profile found — creating new profile for ${authUser.id}');
+
+              final userDataToInsert = {
+                'id': authUser.id,
+                'email': authUser.email,
+                'name': authUser.userMetadata?['name'] ??
+                    authUser.email?.split('@').first,
+                'display_name': authUser.userMetadata?['display_name'] ??
+                    authUser.email?.split('@').first,
+                'role': 'passenger',
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+
+              try {
+                // This request will include JWT because we are inside an authenticated session change event
+                final inserted = await _supabase
+                    .from('users')
+                    .insert(userDataToInsert)
+                    .select()
+                    .single();
+                debugPrint('✅ Created user profile: ${inserted['id']}');
+                await _loadUserData(inserted['id']);
+              } catch (e, st) {
+                debugPrint('❌ Failed to create profile in listener: $e\n$st');
+                // Try to recover by loading any existing profile
+                final existing = await () async {
+                  final email = authUser.email;
+                  if (email != null && email.isNotEmpty) {
+                    return await _supabase
+                        .from('users')
+                        .select()
+                        .eq('email', email)
+                        .maybeSingle();
+                  }
+                  return null;
+                }();
+                if (existing != null) {
+                  await _loadUserData(existing['id']);
+                } else {
+                  // set state to unauthenticated but initialized
+                  state = state.copyWith(
+                      user: const AsyncValue.data(null), isInitialized: true);
+                }
+              }
+            } else {
+              debugPrint('✅ Profile found, loading user data');
+              await _loadUserData(userData['id']);
+            }
+          } catch (e, st) {
+            // Try to recover by loading any existing profile (by email)
+            Map<String, dynamic>? existing;
+            final emailForRecovery = authUser.email;
+            if (emailForRecovery != null && emailForRecovery.isNotEmpty) {
+              try {
+                existing = await _supabase
+                    .from('users')
+                    .select()
+                    .eq('email', emailForRecovery)
+                    .maybeSingle();
+              } catch (e, st) {
+                debugPrint(
+                    '❌ Error checking existing user by email during recovery: $e\n$st');
+                existing = null;
+              }
+            } else {
+              existing = null;
+            }
+
+            if (existing != null) {
+              await _loadUserData(existing['id']);
+            } else {
+              // set state to unauthenticated but initialized
+              state = state.copyWith(
+                  user: const AsyncValue.data(null), isInitialized: true);
+            }
           }
         } else {
           debugPrint('👤 No user in session');
           state = state.copyWith(
-            user: const AsyncValue.data(null),
-            isInitialized: true,
-          );
+              user: const AsyncValue.data(null), isInitialized: true);
         }
       });
 
@@ -168,30 +249,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
             .select()
             .eq('id', session.user.id)
             .maybeSingle();
-            
         if (userData == null) {
-          // Fallback: find by email
-          userData = await _supabase
-              .from('users')
-              .select()
-              .eq('email', session.user.email!)
-              .maybeSingle();
+          final email = session.user.email;
+          if (email != null && email.isNotEmpty) {
+            userData = await _supabase
+                .from('users')
+                .select()
+                .eq('email', email)
+                .maybeSingle();
+          }
         }
-            
+
         if (userData != null) {
           await _loadUserData(userData['id']);
         } else {
-          debugPrint('❌ User profile not found in database');
+          debugPrint('❌ User profile not found in database at startup');
+          // The onAuthStateChange listener will create the profile if/when it can
           state = state.copyWith(isInitialized: true);
         }
       } else {
         debugPrint('👤 No existing session found');
         state = state.copyWith(isInitialized: true);
       }
-      
+
       debugPrint('✅ Authentication initialization complete');
-    } catch (e) {
-      debugPrint('❌ Error initializing auth: $e');
+    } catch (e, st) {
+      debugPrint('❌ Error initializing auth: $e\n$st');
       state = state.copyWith(
         user: AsyncValue.error(e, StackTrace.current),
         isInitialized: true,
@@ -204,29 +287,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(user: const AsyncValue.loading());
 
       // Get user data from Supabase
-      final response = await _supabase
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .single();
+      final response =
+          await _supabase.from('users').select().eq('id', userId).single();
 
       final user = User.fromJson(response);
-      
-      // Save FCM token for the user
-      await PushNotificationService.saveTokenForUser(userId);
+
+      // Save FCM token for the user (non-fatal)
+      try {
+        await PushNotificationService.saveTokenForUser(userId);
+      } catch (e) {
+        debugPrint('⚠️ Failed to save FCM token (non-fatal): $e');
+      }
 
       // Save user data to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('userData', json.encode(user.toJson()));
-      await prefs.setString('token', _supabase.auth.currentSession?.accessToken ?? '');
-      await prefs.setInt('lastAccessTime', DateTime.now().millisecondsSinceEpoch);
+      await prefs.setString(
+          'token', _supabase.auth.currentSession?.accessToken ?? '');
+      await prefs.setInt(
+          'lastAccessTime', DateTime.now().millisecondsSinceEpoch);
 
       state = state.copyWith(
         user: AsyncValue.data(user),
         isInitialized: true,
       );
-    } catch (e) {
-      debugPrint('Error loading user data: $e');
+    } catch (e, st) {
+      debugPrint('Error loading user data: $e\n$st');
       state = state.copyWith(
         user: AsyncValue.error(e, StackTrace.current),
         isInitialized: true,
@@ -234,6 +320,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // signUp: only create profile immediately if session/token exists
+  // otherwise rely on auth listener to create the profile once the session is available
   Future<void> signUp({
     required String email,
     required String password,
@@ -254,50 +342,55 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
 
-      debugPrint('📝 Sign up response: ${response.user?.id}');
+      debugPrint(
+          '📝 Sign up response: user=${response.user?.id} sessionExists=${response.session != null}');
 
       if (response.user != null) {
-        // Create user profile in users table
-        // Use the Auth user ID as the primary key to maintain consistency
-        final userData = {
-          'id': response.user!.id, // Use Auth user ID as primary key
-          'email': email,
-          'name': fullName,
-          'display_name': fullName,
-          'role': 'passenger',
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        };
+        // If signUp returned a session (JWT), we can safely create the profile immediately
+        final session = response.session;
+        if (session != null && (session.accessToken?.isNotEmpty ?? false)) {
+          debugPrint(
+              '🔐 Session present after signUp — creating profile immediately');
 
-        try {
-          final insertedUser = await _supabase.from('users').insert(userData).select().single();
-          debugPrint('✅ User profile created in database with ID: ${insertedUser['id']}');
+          final userData = {
+            'id': response.user!.id,
+            'email': email,
+            'name': fullName,
+            'display_name': fullName,
+            'role': 'passenger',
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          };
 
-          // Load user data (this will also save FCM token)
-          await _loadUserData(insertedUser['id']);
-          debugPrint('✅ Sign up successful');
-        } catch (e) {
-          debugPrint('❌ Error creating user profile: $e');
-          // If insert fails, try to find existing user
-          final existingUser = await _supabase
-              .from('users')
-              .select()
-              .eq('email', email)
-              .maybeSingle();
-              
-          if (existingUser != null) {
-            debugPrint('✅ Found existing user profile');
-            await _loadUserData(existingUser['id']);
-            debugPrint('✅ Sign up successful (existing user)');
-          } else {
-            rethrow;
+          try {
+            final insertedUser = await _supabase
+                .from('users')
+                .insert(userData)
+                .select()
+                .single();
+            debugPrint(
+                '✅ User profile created in database with ID: ${insertedUser['id']}');
+
+            // Load user data (this will also save FCM token)
+            await _loadUserData(insertedUser['id']);
+            debugPrint('✅ Sign up successful (immediate profile creation)');
+            return;
+          } catch (e, st) {
+            debugPrint(
+                '❌ Error creating user profile immediately after signUp: $e\n$st');
+            // Fall through: let the auth listener create the profile when session becomes active or if some race happened
           }
         }
+
+        // If there's no session (common when email confirmation is required), don't attempt to insert as anon.
+        debugPrint(
+            'ℹ️ No session/token after signUp — deferring profile creation to auth listener');
+        return;
       } else {
         throw Exception('Failed to create user account - no user returned');
       }
-    } catch (e) {
-      debugPrint('❌ Error during sign up: $e');
+    } catch (e, st) {
+      debugPrint('❌ Error during sign up: $e\n$st');
       state = state.copyWith(
         user: AsyncValue.error(e, StackTrace.current),
       );
@@ -325,7 +418,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       debugPrint('🔐 Sign in response: ${response.user?.id}');
-      
+
       if (response.user != null) {
         // Try to find user by Auth ID first, then by email as fallback
         var userData = await _supabase
@@ -333,8 +426,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             .select()
             .eq('id', response.user!.id)
             .maybeSingle();
-            
-        if (userData == null) {
+
+        if (userData == null && email.isNotEmpty) {
           // Fallback: find by email
           userData = await _supabase
               .from('users')
@@ -342,7 +435,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               .eq('email', email)
               .maybeSingle();
         }
-            
+
         if (userData != null) {
           // Load user data (this will also save FCM token)
           await _loadUserData(userData['id']);
@@ -353,8 +446,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else {
         throw Exception('Failed to sign in - no user returned');
       }
-    } catch (e) {
-      debugPrint('❌ Error during sign in: $e');
+    } catch (e, st) {
+      debugPrint('❌ Error during sign in: $e\n$st');
       state = state.copyWith(
         user: AsyncValue.error(e, StackTrace.current),
       );
@@ -377,8 +470,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         user: const AsyncValue.data(null),
       );
-    } catch (e) {
-      debugPrint('Error during sign out: $e');
+    } catch (e, st) {
+      debugPrint('Error during sign out: $e\n$st');
       rethrow;
     }
   }
@@ -386,8 +479,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> resetPassword(String email) async {
     try {
       await _supabase.auth.resetPasswordForEmail(email);
-    } catch (e) {
-      debugPrint('Error resetting password: $e');
+    } catch (e, st) {
+      debugPrint('Error resetting password: $e\n$st');
       rethrow;
     }
   }
@@ -411,15 +504,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (phone != null) updates['phone'] = phone;
       if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
 
-      await _supabase
-          .from('users')
-          .update(updates)
-          .eq('id', currentUser.id);
+      await _supabase.from('users').update(updates).eq('id', currentUser.id);
 
       // Reload user data
       await _loadUserData(currentUser.id);
-    } catch (e) {
-      debugPrint('Error updating profile: $e');
+    } catch (e, st) {
+      debugPrint('Error updating profile: $e\n$st');
       rethrow;
     }
   }

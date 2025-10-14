@@ -517,7 +517,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+    final userId = ref.read(userDataProvider)?['id'] ?? '';
 
     final newPass = BoardingPass(
       name: userId.toString(),
@@ -542,7 +542,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
-      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+      final userId = ref.read(userDataProvider)?['id'] ?? '';
       await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,
@@ -594,6 +594,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         onCancel: () {
           // User cancelled, stay on current screen
         },
+        ciriumFlightData: flightInfo,
+        seatNumber: seatNumber,
+        terminal: flightStatus['airportResources']?['departureTerminal'],
+        gate: flightStatus['airportResources']?['departureGate'],
+        aircraftType: flightStatus['flightEquipment']?['iata'],
+        scheduledDeparture: departureEntireTime,
+        scheduledArrival: arrivalEntireTime,
       );
     }
   }

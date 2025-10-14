@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:airline_app/screen/feed/feed_filter_screen.dart';
 import 'package:airline_app/screen/feed/feed_screen.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_filter_screen.dart';
@@ -38,38 +39,57 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-// import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Get saved language before initializing rest of the app
   final prefs = await SharedPreferences.getInstance();
   final String languageCode = prefs.getString('selectedLanguageSym') ?? 'en';
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Init Firebase, Supabase, other services with defensive error handling
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint('✅ Firebase initialized');
+  } catch (e, st) {
+    debugPrint('❌ Firebase init failed: $e\n$st');
+    // You can choose to proceed or exit; here we proceed but log the error.
+  }
 
-  // Initialize Supabase
-  await SupabaseService.initialize();
+  try {
+    await SupabaseService.initialize(); // uses String.fromEnvironment defaults
+    debugPrint('✅ SupabaseService.initialize completed');
+  } catch (e, st) {
+    debugPrint('❌ Supabase init failed: $e\n$st');
+    // If Supabase is critical for the app, consider showing an error UI instead of proceeding.
+  }
 
-  // Initialize Simple Data Flow Service (includes basic real-time sync)
-  await SimpleDataFlowService.instance.initialize();
+  try {
+    await SimpleDataFlowService.instance.initialize();
+    debugPrint('✅ SimpleDataFlowService initialized');
+  } catch (e, st) {
+    debugPrint('❌ SimpleDataFlowService init failed: $e\n$st');
+  }
 
-  // Initialize notification system
-  await NotificationManager().initialize();
+  try {
+    await NotificationManager().initialize();
+    debugPrint('✅ NotificationManager initialized');
+  } catch (e, st) {
+    debugPrint('❌ NotificationManager init failed: $e\n$st');
+  }
 
   runApp(
     ProviderScope(
       overrides: [
         localeProvider.overrideWith((ref) => Locale(languageCode)),
       ],
-      child: MyApp(),
+      child: const MyApp(),
     ),
   );
 }
 
-final localeProvider = StateProvider<Locale>((ref) => Locale('en'));
+final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
@@ -84,12 +104,12 @@ class MyApp extends ConsumerWidget {
 
     return MaterialApp(
       locale: locale,
-      supportedLocales: [
+      supportedLocales: const [
         Locale('en', ''),
         Locale('zh', ''),
         Locale('es', ''),
       ],
-      localizationsDelegates: [
+      localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -98,13 +118,13 @@ class MyApp extends ConsumerWidget {
       title: 'Airline App',
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
         ),
-        bottomSheetTheme: BottomSheetThemeData(backgroundColor: Colors.white),
+        bottomSheetTheme: const BottomSheetThemeData(backgroundColor: Colors.white),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: true,
-        pageTransitionsTheme: PageTransitionsTheme(
+        pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: CustomPageTransitionBuilder(),
             TargetPlatform.iOS: CustomPageTransitionBuilder(),
@@ -125,8 +145,6 @@ class MyApp extends ConsumerWidget {
         AppRoutes.profilescreen: (context) => const ProfileScreen(),
         AppRoutes.filterscreen: (context) => const LeaderboardFilterScreen(),
         AppRoutes.cardnotificationscreen: (context) => NotificationsScreen(),
-        //Airlines routes
-
         AppRoutes.questionfirstscreenforairline: (context) =>
             QuestionFirstScreenForAirline(),
         AppRoutes.detailfirstscreenforairline: (context) =>
@@ -135,18 +153,14 @@ class MyApp extends ConsumerWidget {
             QuestionSecondScreenForAirline(),
         AppRoutes.detailsecondscreenforairline: (context) =>
             DetailSecondScreenForAirline(),
-
-
-                    AppRoutes.questionfirstscreenforairport: (context) =>
+        AppRoutes.questionfirstscreenforairport: (context) =>
             QuestionFirstScreenForAirport(),
         AppRoutes.detailfirstscreenforairport: (context) =>
             DetailFirstScreenForAirport(),
-                    AppRoutes.questionsecondscreenforairport: (context) =>
+        AppRoutes.questionsecondscreenforairport: (context) =>
             QuestionSecondScreenForAirport(),
         AppRoutes.detailsecondscreenforairport: (context) =>
             DetailSecondScreenForAirport(),
-
-        //////
         AppRoutes.submitscreen: (context) => SubmitScreen(),
         AppRoutes.completereviews: (context) => CompleteReviews(),
         AppRoutes.eidtprofilescreen: (context) => EditProfileScreen(),
@@ -161,6 +175,7 @@ class MyApp extends ConsumerWidget {
 }
 
 class CustomPageTransitionBuilder extends PageTransitionsBuilder {
+  const CustomPageTransitionBuilder(); // <- add this
   @override
   Widget buildTransitions<T>(
     PageRoute<T> route,

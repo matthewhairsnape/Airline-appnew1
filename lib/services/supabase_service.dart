@@ -10,7 +10,8 @@ class SupabaseService {
     }
     return _client!;
   }
-
+static bool get isAuthenticated =>
+    isInitialized && client.auth.currentSession?.user != null;
   static Future<void> initialize() async {
     // Try to get from environment variables first, then fallback to hardcoded values
     const supabaseUrl = String.fromEnvironment(
@@ -45,6 +46,316 @@ class SupabaseService {
   static bool get isInitialized => _client != null;
 
   // Journey methods
+  // Enhanced method to save flight data with validation
+  static Future<Map<String, dynamic>?> saveFlightData({
+    required String userId,
+    required String pnr,
+    required String carrier,
+    required String flightNumber,
+    required String departureAirport,
+    required String arrivalAirport,
+    required DateTime scheduledDeparture,
+    required DateTime scheduledArrival,
+    String? seatNumber,
+    String? classOfTravel,
+    String? terminal,
+    String? gate,
+    String? aircraftType,
+    Map<String, dynamic>? ciriumData,
+  }) async {
+    if (!isInitialized) {
+      debugPrint('❌ Supabase not initialized');
+      return null;
+    }
+
+    // Validate required fields
+    if (userId.isEmpty || pnr.isEmpty || carrier.isEmpty || flightNumber.isEmpty) {
+      debugPrint('❌ Missing required flight data');
+      return null;
+    }
+
+    try {
+      // Check if journey already exists for this PNR
+      final existingJourney = await client
+          .from('journeys')
+          .select('id')
+          .eq('pnr', pnr)
+          .eq('passenger_id', userId)
+          .maybeSingle();
+
+      if (existingJourney != null) {
+        debugPrint('⚠️ Journey already exists for PNR: $pnr');
+        return existingJourney;
+      }
+
+      // Try to create or get flight first
+      final flightResult = await _createOrGetFlight(
+        carrier: carrier,
+        flightNumber: flightNumber,
+        departureAirport: departureAirport,
+        arrivalAirport: arrivalAirport,
+        scheduledDeparture: scheduledDeparture,
+        scheduledArrival: scheduledArrival,
+        aircraftType: aircraftType,
+        terminal: terminal,
+        gate: gate,
+      );
+
+      // Create journey with or without flight reference
+      final journey = await client.from('journeys').insert({
+        'passenger_id': userId,
+        'flight_id': flightResult?['id'], // May be null if flight creation failed
+        'pnr': pnr,
+        'seat_number': seatNumber,
+        'visit_status': 'scheduled',
+        'media': ciriumData, // Store Cirium data in media column
+        // Store flight info directly in journey if flight creation failed
+        'connection_time_mins': flightResult == null ? 0 : null,
+      }).select().single();
+
+      // Add initial event
+      await client.from('journey_events').insert({
+        'journey_id': journey['id'],
+        'event_type': 'trip_added',
+        'title': 'Trip Added',
+        'description': 'Boarding pass scanned and confirmed successfully',
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': {
+          'carrier': carrier,
+          'flight_number': flightNumber,
+          'pnr': pnr,
+        },
+      });
+
+      debugPrint('✅ Flight data saved successfully: ${journey['id']}');
+      return journey;
+    } catch (e) {
+      debugPrint('❌ Error saving flight data: $e');
+      return null;
+    }
+  }
+
+  // Helper method to create or get flight
+  static Future<Map<String, dynamic>?> _createOrGetFlight({
+    required String carrier,
+    required String flightNumber,
+    required String departureAirport,
+    required String arrivalAirport,
+    required DateTime scheduledDeparture,
+    required DateTime scheduledArrival,
+    String? aircraftType,
+    String? terminal,
+    String? gate,
+  }) async {
+    try {
+      debugPrint('🔍 Looking for airline with IATA code: $carrier');
+      
+      // Get airline ID
+      final airlineData = await client
+          .from('airlines')
+          .select('id, iata_code, name')
+          .eq('iata_code', carrier)
+          .maybeSingle();
+
+      if (airlineData == null) {
+        debugPrint('❌ Airline $carrier not found in database');
+        
+        // Try to create the airline if it doesn't exist
+        debugPrint('🔄 Attempting to create airline: $carrier');
+        try {
+          final newAirline = await client.from('airlines').insert({
+            'iata_code': carrier,
+            'name': 'Airline $carrier', // Generic name
+            'created_at': DateTime.now().toIso8601String(),
+          }).select('id').single();
+          
+          debugPrint('✅ Created new airline: ${newAirline['id']}');
+          return await _createOrGetFlight(
+            carrier: carrier,
+            flightNumber: flightNumber,
+            departureAirport: departureAirport,
+            arrivalAirport: arrivalAirport,
+            scheduledDeparture: scheduledDeparture,
+            scheduledArrival: scheduledArrival,
+            aircraftType: aircraftType,
+            terminal: terminal,
+            gate: gate,
+          );
+        } catch (createError) {
+          debugPrint('❌ Failed to create airline: $createError');
+          
+          // Fallback: Try to create a simplified journey without airline/airport references
+          debugPrint('🔄 Attempting fallback approach without airline/airport references');
+          return await _createJourneyWithoutReferences(
+            carrier: carrier,
+            flightNumber: flightNumber,
+            departureAirport: departureAirport,
+            arrivalAirport: arrivalAirport,
+            scheduledDeparture: scheduledDeparture,
+            scheduledArrival: scheduledArrival,
+            aircraftType: aircraftType,
+            terminal: terminal,
+            gate: gate,
+          );
+        }
+      }
+      
+      debugPrint('✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
+
+      // Get airport IDs
+      debugPrint('🔍 Looking for departure airport: $departureAirport');
+      final depAirportData = await client
+          .from('airports')
+          .select('id, iata_code, name')
+          .eq('iata_code', departureAirport)
+          .maybeSingle();
+
+      debugPrint('🔍 Looking for arrival airport: $arrivalAirport');
+      final arrAirportData = await client
+          .from('airports')
+          .select('id, iata_code, name')
+          .eq('iata_code', arrivalAirport)
+          .maybeSingle();
+
+      if (depAirportData == null || arrAirportData == null) {
+        debugPrint('❌ Airports not found: dep=$departureAirport, arr=$arrivalAirport');
+        
+        // Try to create missing airports
+        if (depAirportData == null) {
+          debugPrint('🔄 Creating departure airport: $departureAirport');
+          try {
+            await client.from('airports').insert({
+              'iata_code': departureAirport,
+              'name': 'Airport $departureAirport',
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          } catch (e) {
+            debugPrint('❌ Failed to create departure airport: $e');
+          }
+        }
+        
+        if (arrAirportData == null) {
+          debugPrint('🔄 Creating arrival airport: $arrivalAirport');
+          try {
+            await client.from('airports').insert({
+              'iata_code': arrivalAirport,
+              'name': 'Airport $arrivalAirport',
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          } catch (e) {
+            debugPrint('❌ Failed to create arrival airport: $e');
+          }
+        }
+        
+        // Retry the query after creating airports
+        final retryDepAirport = await client
+            .from('airports')
+            .select('id')
+            .eq('iata_code', departureAirport)
+            .maybeSingle();
+            
+        final retryArrAirport = await client
+            .from('airports')
+            .select('id')
+            .eq('iata_code', arrivalAirport)
+            .maybeSingle();
+            
+        if (retryDepAirport == null || retryArrAirport == null) {
+          debugPrint('❌ Still cannot find airports after creation attempt');
+          return null;
+        }
+        
+        // Use the retry results
+        final depAirportId = retryDepAirport['id'];
+        final arrAirportId = retryArrAirport['id'];
+        
+        debugPrint('✅ Using airport IDs: dep=$depAirportId, arr=$arrAirportId');
+      } else {
+        debugPrint('✅ Found airports: dep=${depAirportData['name']}, arr=${arrAirportData['name']}');
+      }
+
+      // Get the final airport IDs
+      final depAirportId = depAirportData?['id'] ?? (await client
+          .from('airports')
+          .select('id')
+          .eq('iata_code', departureAirport)
+          .maybeSingle())?['id'];
+          
+      final arrAirportId = arrAirportData?['id'] ?? (await client
+          .from('airports')
+          .select('id')
+          .eq('iata_code', arrivalAirport)
+          .maybeSingle())?['id'];
+
+      if (depAirportId == null || arrAirportId == null) {
+        debugPrint('❌ Could not get airport IDs: dep=$depAirportId, arr=$arrAirportId');
+        return null;
+      }
+
+      // Check if flight already exists
+      var flightData = await client
+          .from('flights')
+          .select('id')
+          .eq('flight_number', flightNumber)
+          .eq('carrier_code', carrier)
+          .eq('departure_time', scheduledDeparture.toIso8601String())
+          .maybeSingle();
+
+      if (flightData == null) {
+        // Create new flight
+        flightData = await client.from('flights').insert({
+          'flight_number': flightNumber,
+          'carrier_code': carrier,
+          'departure_airport': departureAirport,
+          'arrival_airport': arrivalAirport,
+          'aircraft_type': aircraftType,
+          'departure_time': scheduledDeparture.toIso8601String(),
+          'arrival_time': scheduledArrival.toIso8601String(),
+        }).select().single();
+      }
+
+      return flightData;
+    } catch (e) {
+      debugPrint('❌ Error creating/getting flight: $e');
+      return null;
+    }
+  }
+
+  // Fallback method to create journey without airline/airport references
+  static Future<Map<String, dynamic>?> _createJourneyWithoutReferences({
+    required String carrier,
+    required String flightNumber,
+    required String departureAirport,
+    required String arrivalAirport,
+    required DateTime scheduledDeparture,
+    required DateTime scheduledArrival,
+    String? aircraftType,
+    String? terminal,
+    String? gate,
+  }) async {
+    try {
+      debugPrint('🔄 Creating journey without airline/airport references');
+      
+      // Create a simplified flight record with just the basic info
+      final flightData = await client.from('flights').insert({
+        'flight_number': flightNumber,
+        'carrier_code': carrier, // Store carrier as text instead of foreign key
+        'departure_airport': departureAirport, // Store as text instead of foreign key
+        'arrival_airport': arrivalAirport, // Store as text instead of foreign key
+        'aircraft_type': aircraftType,
+        'departure_time': scheduledDeparture.toIso8601String(),
+        'arrival_time': scheduledArrival.toIso8601String(),
+        'created_at': DateTime.now().toIso8601String(),
+      }).select('id').single();
+      
+      debugPrint('✅ Created simplified flight: ${flightData['id']}');
+      return flightData;
+    } catch (e) {
+      debugPrint('❌ Error creating simplified flight: $e');
+      return null;
+    }
+  }
+
   static Future<Map<String, dynamic>?> createJourney({
     required String userId,
     required String pnr,
@@ -116,16 +427,11 @@ class SupabaseService {
 
       // Create journey
       final journey = await client.from('journeys').insert({
-        'user_id': userId,
+        'passenger_id': userId,
         'flight_id': flightData['id'],
         'pnr': pnr,
         'seat_number': seatNumber,
-        'class_of_travel': classOfTravel,
-        'terminal': terminal,
-        'gate': gate,
-        'boarding_pass_scanned_at': DateTime.now().toIso8601String(),
-        'status': 'scheduled',
-        'current_phase': 'pre_check_in',
+        'visit_status': 'scheduled',
       }).select().single();
 
       // Add initial event
@@ -247,7 +553,7 @@ class SupabaseService {
               arrival_airport:airports!flights_arrival_airport_id_fkey (*)
             )
           ''')
-          .eq('user_id', userId)
+          .eq('passenger_id', userId)
           .order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(data);
