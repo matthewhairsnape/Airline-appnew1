@@ -183,7 +183,7 @@ class CiriumApiService {
         return 'unknown';
       case 'DEP':
       case 'DEPARTED':
-        return 'in_flight';
+        return 'departed';
       case 'BOARDING':
         return 'boarding';
       case 'GATE_CLOSED':
@@ -193,6 +193,8 @@ class CiriumApiService {
       case 'TAKEOFF':
         return 'takeoff';
       case 'CRUISING':
+        return 'in_flight';
+      case 'IN_FLIGHT':
         return 'in_flight';
       case 'DESCENT':
         return 'descent';

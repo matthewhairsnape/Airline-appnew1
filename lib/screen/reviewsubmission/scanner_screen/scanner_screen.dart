@@ -517,7 +517,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    final userId = ref.read(userDataProvider)?['id'] ?? '';
+    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
 
     final newPass = BoardingPass(
       name: userId.toString(),
@@ -542,7 +542,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
-      final userId = ref.read(userDataProvider)?['id'] ?? '';
+      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
       await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,

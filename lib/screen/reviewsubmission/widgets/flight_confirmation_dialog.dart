@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/boarding_pass.dart';
 import '../../../services/supabase_service.dart';
 import '../../../provider/user_data_provider.dart';
-import '../../../provider/auth_provider.dart';
 import '../../../utils/app_styles.dart';
 import '../../../utils/app_routes.dart';
 import '../../../screen/app_widgets/main_button.dart';
@@ -200,58 +199,10 @@ class FlightConfirmationDialog extends ConsumerWidget {
     }
 
     try {
-      // Try to get user ID from userDataProvider first
-      final userData = ref.read(userDataProvider);
-      debugPrint('🔍 User data from userDataProvider: $userData');
-      
-      String userId = userData?['id'] ?? '';
-      debugPrint('🔍 Extracted user ID from userDataProvider: $userId');
-      
-      // Fallback: try to get user ID from authProvider
+      final session = SupabaseService.client.auth.currentSession;
+      final userId = session?.user.id ?? '';
       if (userId.isEmpty) {
-        final authState = ref.read(authProvider);
-        debugPrint('🔍 Auth state: $authState');
-        
-        authState.user.when(
-          data: (user) {
-            if (user != null) {
-              userId = user.id;
-              debugPrint('🔍 Extracted user ID from authProvider: $userId');
-            }
-          },
-          loading: () => debugPrint('🔍 Auth state is loading'),
-          error: (error, stack) => debugPrint('🔍 Auth state error: $error'),
-        );
-      }
-      
-      // Final fallback: try to get user ID from Supabase session
-      if (userId.isEmpty) {
-        try {
-          final session = SupabaseService.client.auth.currentSession;
-          if (session?.user != null) {
-            userId = session!.user.id;
-            debugPrint('🔍 Extracted user ID from Supabase session: $userId');
-            
-            // Try to populate userDataProvider with session data
-            if (userData == null) {
-              debugPrint('🔄 Attempting to populate userDataProvider with session data');
-              final userDataNotifier = ref.read(userDataProvider.notifier);
-              userDataNotifier.setUserData({
-                'id': userId,
-                'email': session.user.email,
-                'name': session.user.userMetadata?['name'] ?? session.user.email?.split('@').first,
-                'display_name': session.user.userMetadata?['display_name'] ?? session.user.email?.split('@').first,
-              });
-            }
-          }
-        } catch (e) {
-          debugPrint('🔍 Error getting user ID from Supabase session: $e');
-        }
-      }
-      
-      if (userId.isEmpty) {
-        debugPrint('❌ User ID not found in both providers, cannot save flight data');
-        debugPrint('🔍 Available user data keys: ${userData?.keys.toList()}');
+        debugPrint('❌ User ID not found, cannot save flight data');
         CustomSnackBar.error(context, 'User not authenticated. Please log in again.');
         return;
       }
@@ -265,12 +216,6 @@ class FlightConfirmationDialog extends ConsumerWidget {
       // Extract flight details from boarding pass and Cirium data
       final carrier = boardingPass.airlineCode;
       final flightNumber = boardingPass.flightNumber.replaceAll('$carrier ', '');
-      
-      debugPrint('🔍 Flight details:');
-      debugPrint('  Carrier: $carrier');
-      debugPrint('  Flight Number: $flightNumber');
-      debugPrint('  Departure Airport: ${boardingPass.departureAirportCode}');
-      debugPrint('  Arrival Airport: ${boardingPass.arrivalAirportCode}');
       
       // Use provided scheduled times or parse from boarding pass
       final departureTime = scheduledDeparture ?? _parseFlightTime(boardingPass.departureTime);

@@ -187,8 +187,8 @@ class CiriumFlightTrackingService {
           operationalTimes['scheduledGateDeparture'];
       final gateDeparture = DateTime.parse(gateTime['dateLocal']);
 
-      // If within 2 hours of departure, boarding likely started
-      if (now.isAfter(gateDeparture.subtract(Duration(hours: 2))) &&
+      // If within 1 hour of departure, boarding likely started
+      if (now.isAfter(gateDeparture.subtract(Duration(hours: 1))) &&
           now.isBefore(gateDeparture)) {
         return FlightPhase.boarding;
       }

@@ -107,7 +107,7 @@ static bool get isAuthenticated =>
         'flight_id': flightResult?['id'], // May be null if flight creation failed
         'pnr': pnr,
         'seat_number': seatNumber,
-        'visit_status': 'scheduled',
+        'visit_status': 'Upcoming', // Use valid check constraint value
         'media': ciriumData, // Store Cirium data in media column
         // Store flight info directly in journey if flight creation failed
         'connection_time_mins': flightResult == null ? 0 : null,
@@ -431,7 +431,7 @@ static bool get isAuthenticated =>
         'flight_id': flightData['id'],
         'pnr': pnr,
         'seat_number': seatNumber,
-        'visit_status': 'scheduled',
+        'visit_status': 'Upcoming', // Use valid check constraint value
       }).select().single();
 
       // Add initial event
