@@ -128,6 +128,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             events: _getPreFlightEvents(flight),
             isExpanded: _expandedSections['At the Airport']!,
             onToggle: () => _toggleSection('At the Airport'),
+            flight: flight,
           ),
           
           TimelineSection(
@@ -136,6 +137,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             events: _getInFlightEvents(flight),
             isExpanded: _expandedSections['During the Flight']!,
             onToggle: () => _toggleSection('During the Flight'),
+            flight: flight,
           ),
           
           TimelineSection(
@@ -144,6 +146,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             events: _getPostFlightEvents(flight),
             isExpanded: _expandedSections['Overall Experience']!,
             onToggle: () => _toggleSection('Overall Experience'),
+            flight: flight,
           ),
           
           SizedBox(height: 32),

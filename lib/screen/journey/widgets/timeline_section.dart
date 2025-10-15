@@ -10,6 +10,7 @@ class TimelineSection extends StatefulWidget {
   final List<TimelineEvent> events;
   final bool isExpanded;
   final VoidCallback? onToggle;
+  final FlightTrackingModel? flight;
 
   const TimelineSection({
     Key? key,
@@ -18,6 +19,7 @@ class TimelineSection extends StatefulWidget {
     required this.events,
     this.isExpanded = false,
     this.onToggle,
+    this.flight,
   }) : super(key: key);
 
   @override
@@ -164,6 +166,7 @@ class _TimelineSectionState extends State<TimelineSection> {
           sectionName: widget.title,
           likes: feedbackData['likes'] ?? [],
           dislikes: feedbackData['dislikes'] ?? [],
+          flight: widget.flight,
           onSubmitted: () {
             debugPrint('${widget.title} feedback submitted');
             Navigator.pop(context);

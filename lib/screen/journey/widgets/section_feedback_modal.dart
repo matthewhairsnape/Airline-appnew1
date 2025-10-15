@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../../../utils/app_styles.dart';
 import '../../../services/media_service.dart';
+import '../../../services/phase_feedback_service.dart';
+import '../../../services/supabase_service.dart';
+import '../../../models/flight_tracking_model.dart';
 
 class SectionFeedbackModal extends StatefulWidget {
   final String sectionName;
   final List<String> likes;
   final List<String> dislikes;
   final VoidCallback? onSubmitted;
+  final FlightTrackingModel? flight;
 
   const SectionFeedbackModal({
     Key? key,
@@ -16,6 +21,7 @@ class SectionFeedbackModal extends StatefulWidget {
     required this.likes,
     required this.dislikes,
     this.onSubmitted,
+    this.flight,
   }) : super(key: key);
 
   @override
@@ -667,7 +673,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     return _rating > 0;
   }
 
-  void _submitFeedback() {
+  Future<void> _submitFeedback() async {
     debugPrint('${widget.sectionName} Feedback:');
     debugPrint('Rating: $_rating');
     debugPrint('Likes: $_selectedLikes');
@@ -676,6 +682,62 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     debugPrint('Dislikes Comment: ${_dislikesCommentController.text}');
     debugPrint('Likes Media: $_likesMediaFiles');
     debugPrint('Dislikes Media: $_dislikesMediaFiles');
+    
+    // Save to database if flight data is available
+    if (widget.flight != null) {
+      try {
+        // Get current user
+        final session = SupabaseService.client.auth.currentSession;
+        if (session?.user.id == null) {
+          _showErrorDialog('User not authenticated. Please log in again.');
+          return;
+        }
+
+        final userId = session!.user.id;
+        final flightId = widget.flight!.flightId;
+        final journeyId = widget.flight!.pnr; // Using PNR as journey ID
+        final seat = widget.flight!.seatNumber ?? 'Unknown';
+
+        debugPrint('📝 Submitting ${widget.sectionName} feedback for user: $userId, flight: $flightId, journey: $journeyId');
+
+        // Convert selected likes/dislikes to the format expected by PhaseFeedbackService
+        final Map<String, Set<String>> likesMap = {
+          'likes': _selectedLikes,
+        };
+        final Map<String, Set<String>> dislikesMap = {
+          'dislikes': _selectedDislikes,
+        };
+
+        // Add comments to the maps
+        if (_likesCommentController.text.isNotEmpty) {
+          likesMap['comments'] = {_likesCommentController.text};
+        }
+        if (_dislikesCommentController.text.isNotEmpty) {
+          dislikesMap['comments'] = {_dislikesCommentController.text};
+        }
+
+        final success = await PhaseFeedbackService.submitPhaseFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          flightId: flightId,
+          seat: seat,
+          phase: widget.sectionName,
+          overallRating: _rating,
+          likes: likesMap,
+          dislikes: dislikesMap,
+        );
+
+        if (success) {
+          debugPrint('✅ ${widget.sectionName} feedback submitted successfully');
+        } else {
+          debugPrint('❌ Failed to submit ${widget.sectionName} feedback');
+        }
+      } catch (e) {
+        debugPrint('❌ Error submitting ${widget.sectionName} feedback: $e');
+      }
+    } else {
+      debugPrint('⚠️ No flight data available for ${widget.sectionName} feedback');
+    }
     
     // Close the feedback modal
     Navigator.pop(context);
@@ -747,6 +809,81 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     ),
                     child: Text(
                       'Done',
+                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Error Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error,
+                    color: Colors.red,
+                    size: 50,
+                  ),
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Title
+                Text(
+                  'Error',
+                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 12),
+                
+                // Description
+                Text(
+                  message,
+                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 32),
+                
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'OK',
                       style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
                     ),
                   ),

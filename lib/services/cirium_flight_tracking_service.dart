@@ -70,7 +70,7 @@ class CiriumFlightTrackingService {
 
       // Create flight tracking model
       final flightTracking = FlightTrackingModel(
-        flightId: flightStatus['flightId']?.toString() ?? pnr,
+        flightId: pnr, // Use PNR as flight ID since it's our primary key
         pnr: pnr,
         carrier: carrier,
         flightNumber: flightNumber,

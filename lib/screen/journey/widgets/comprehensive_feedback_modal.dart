@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../utils/app_styles.dart';
 import '../../../models/flight_tracking_model.dart';
+import '../../../services/phase_feedback_service.dart';
+import '../../../services/supabase_service.dart';
 
 class ComprehensiveFeedbackModal extends StatefulWidget {
   final FlightTrackingModel flight;
@@ -358,20 +361,89 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     return _overallRating > 0;
   }
 
-  void _submitFeedback() {
-    // TODO: Submit feedback to backend
-    debugPrint('Overall Rating: $_overallRating');
-    debugPrint('Pre-Flight Likes: $_preFlightLikes');
-    debugPrint('Pre-Flight Dislikes: $_preFlightDislikes');
-    debugPrint('In-Flight Likes: $_inFlightLikes');
-    debugPrint('In-Flight Dislikes: $_inFlightDislikes');
-    debugPrint('Post-Flight Likes: $_postFlightLikes');
-    debugPrint('Post-Flight Dislikes: $_postFlightDislikes');
-    
-    // Close the feedback modal
-    Navigator.pop(context);
-    
-    // Show confirmation dialog
+  Future<void> _submitFeedback() async {
+    try {
+      // Get current user
+      final session = SupabaseService.client.auth.currentSession;
+      if (session?.user.id == null) {
+        _showErrorDialog('User not authenticated. Please log in again.');
+        return;
+      }
+
+      final userId = session!.user.id;
+      final flightId = widget.flight.flightId;
+      final journeyId = widget.flight.pnr; // Using PNR as journey ID
+      final seat = widget.flight.seatNumber ?? 'Unknown';
+
+      debugPrint('📝 Submitting feedback for user: $userId, flight: $flightId, journey: $journeyId');
+
+      // Submit feedback for each phase to the correct table
+      final phases = [
+        {
+          'phase': 'Pre-Flight',
+          'likes': _preFlightLikes,
+          'dislikes': _preFlightDislikes,
+        },
+        {
+          'phase': 'In-Flight',
+          'likes': _inFlightLikes,
+          'dislikes': _inFlightDislikes,
+        },
+        {
+          'phase': 'Post-Flight',
+          'likes': _postFlightLikes,
+          'dislikes': _postFlightDislikes,
+        },
+      ];
+
+      bool allSuccess = true;
+      for (final phaseData in phases) {
+        final phase = phaseData['phase'] as String;
+        final likes = phaseData['likes'] as Map<String, Set<String>>;
+        final dislikes = phaseData['dislikes'] as Map<String, Set<String>>;
+
+        debugPrint('🔄 Processing phase: $phase');
+        debugPrint('   Likes: $likes');
+        debugPrint('   Dislikes: $dislikes');
+
+        final success = await PhaseFeedbackService.submitPhaseFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          flightId: flightId,
+          seat: seat,
+          phase: phase,
+          overallRating: _overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
+
+        if (!success) {
+          allSuccess = false;
+          debugPrint('❌ Failed to submit feedback for phase: $phase');
+        } else {
+          debugPrint('✅ Successfully submitted feedback for phase: $phase');
+        }
+      }
+
+      if (allSuccess) {
+        // Close the feedback modal
+        Navigator.pop(context);
+        
+        // Show success confirmation
+        _showSuccessDialog();
+        
+        // Call the callback
+        widget.onSubmitted?.call();
+      } else {
+        _showErrorDialog('Some feedback failed to submit. Please try again.');
+      }
+    } catch (e) {
+      debugPrint('❌ Error submitting feedback: $e');
+      _showErrorDialog('An error occurred while submitting feedback.');
+    }
+  }
+
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -438,6 +510,81 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                     ),
                     child: Text(
                       'Done',
+                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Error Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error,
+                    color: Colors.red,
+                    size: 50,
+                  ),
+                ),
+                
+                SizedBox(height: 24),
+                
+                // Title
+                Text(
+                  'Error',
+                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 12),
+                
+                // Description
+                Text(
+                  message,
+                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 32),
+                
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'OK',
                       style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
                     ),
                   ),
