@@ -4,6 +4,7 @@ import 'package:airline_app/models/boarding_pass.dart';
 import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
+import 'package:airline_app/provider/auth_provider.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/bottom_button_bar.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
@@ -215,7 +216,9 @@ class _EventCardState extends ConsumerState<EventCard> {
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
     // Get user ID, use empty string if not logged in (same as scanner)
-    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+    // Get user ID from auth provider
+    final authState = ref.read(authProvider);
+    final userId = authState.user.value?.id ?? '';
 
     final newPass = BoardingPass(
       name: userId.toString(),
@@ -246,7 +249,9 @@ class _EventCardState extends ConsumerState<EventCard> {
     
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
-      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+      // Get user ID from auth provider
+    final authState = ref.read(authProvider);
+    final userId = authState.user.value?.id ?? '';
       await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,

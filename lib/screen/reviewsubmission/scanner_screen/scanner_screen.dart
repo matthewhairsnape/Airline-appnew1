@@ -4,6 +4,7 @@ import 'package:airline_app/controller/fetch_flight_info_by_cirium.dart';
 import 'package:airline_app/models/boarding_pass.dart';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
+import 'package:airline_app/provider/auth_provider.dart';
 import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/screen/app_widgets/appbar_widget.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
@@ -517,10 +518,21 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final arrivalEntireTime =
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+    // Get user ID from auth provider
+    final authState = ref.read(authProvider);
+    final userId = authState.user.value?.id ?? '';
+
+    if (userId.isEmpty) {
+      debugPrint('❌ No authenticated user found for journey creation');
+      if (mounted) {
+        CustomSnackBar.error(context, 'Please log in to save your journey');
+        Navigator.pop(context);
+      }
+      return;
+    }
 
     final newPass = BoardingPass(
-      name: userId.toString(),
+      name: userId,
       pnr: pnr,
       airlineName: airlineName.toString(),
       departureAirportCode: (departureAirport['fs'] ?? '').toString(),
@@ -542,7 +554,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
-      final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
       await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,

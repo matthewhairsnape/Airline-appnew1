@@ -457,54 +457,6 @@ class _LoginState extends ConsumerState<Login> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Spacer(),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: screenSize.width * 0.1,
-                            vertical: screenSize.height * 0.08),
-                        child: Container(
-                          width: double.infinity,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withAlpha(229),
-                                Colors.white.withAlpha(178),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(51),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(28),
-                              onTap: () {
-                                Navigator.pushNamed(context, AppRoutes.startreviews);
-                              },
-                              child: Center(
-                                child: Text(
-                                  "Continue",
-                                  style: AppStyles.textStyle_24_600.copyWith(
-                                    color: Colors.black87,
-                                    letterSpacing: 0.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

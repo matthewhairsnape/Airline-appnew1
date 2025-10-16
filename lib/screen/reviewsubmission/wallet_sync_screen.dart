@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:airline_app/provider/user_data_provider.dart';
 import 'package:airline_app/provider/flight_tracking_provider.dart';
+import 'package:airline_app/provider/auth_provider.dart';
 import 'package:airline_app/screen/app_widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -227,7 +228,9 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
     // Get user ID, use empty string if not logged in
-    final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
+    // Get user ID from auth provider
+    final authState = ref.read(authProvider);
+    final userId = authState.user.value?.id ?? '';
 
     final newPass = BoardingPass(
       name: userId.toString(),

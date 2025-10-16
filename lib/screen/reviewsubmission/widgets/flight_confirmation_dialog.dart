@@ -314,9 +314,9 @@ class FlightConfirmationDialog extends ConsumerWidget {
       return false;
     }
     
-    // Validate PNR format (should be 6 characters)
-    if (boardingPass.pnr.length != 6) {
-      debugPrint('❌ Invalid PNR format: ${boardingPass.pnr}');
+    // Validate PNR format (should be 5-7 characters)
+    if (boardingPass.pnr.length < 5 || boardingPass.pnr.length > 7) {
+      debugPrint('❌ Invalid PNR format: ${boardingPass.pnr} (length: ${boardingPass.pnr.length})');
       return false;
     }
     

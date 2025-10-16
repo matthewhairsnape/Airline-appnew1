@@ -10,6 +10,7 @@ import 'package:airline_app/services/notification_manager.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
+import 'package:airline_app/widgets/auth_wrapper.dart';
 import 'package:airline_app/screen/profile/about_app.dart';
 import 'package:airline_app/screen/profile/edit_profile_screen.dart';
 import 'package:airline_app/screen/profile/help_faq.dart';
@@ -132,42 +133,45 @@ class MyApp extends ConsumerWidget {
         ),
       ),
       routes: {
+        // Public routes (no authentication required)
         AppRoutes.loginscreen: (context) => const Login(),
         AppRoutes.skipscreen: (context) => const SkipScreen(),
-        AppRoutes.startreviews: (context) => const StartReviews(),
+        
+        // Protected routes (authentication required)
+        AppRoutes.startreviews: (context) => const AuthWrapper(child: StartReviews()),
         AppRoutes.reviewsubmissionscreen: (context) =>
-            const ReviewsubmissionScreen(),
-        AppRoutes.feedscreen: (context) => FeedScreen(),
-        AppRoutes.feedfilterscreen: (context) => FeedFilterScreen(),
-        AppRoutes.leaderboardscreen: (context) => const LeaderboardScreen(),
-        AppRoutes.detailairport: (context) => const DetailAirport(),
-        AppRoutes.mediafullscreen: (context) => const MediaFullScreen(),
-        AppRoutes.profilescreen: (context) => const ProfileScreen(),
-        AppRoutes.filterscreen: (context) => const LeaderboardFilterScreen(),
-        AppRoutes.cardnotificationscreen: (context) => NotificationsScreen(),
+            const AuthWrapper(child: ReviewsubmissionScreen()),
+        AppRoutes.feedscreen: (context) => const AuthWrapper(child: FeedScreen()),
+        AppRoutes.feedfilterscreen: (context) => const AuthWrapper(child: FeedFilterScreen()),
+        AppRoutes.leaderboardscreen: (context) => const AuthWrapper(child: LeaderboardScreen()),
+        AppRoutes.detailairport: (context) => const AuthWrapper(child: DetailAirport()),
+        AppRoutes.mediafullscreen: (context) => const AuthWrapper(child: MediaFullScreen()),
+        AppRoutes.profilescreen: (context) => const AuthWrapper(child: ProfileScreen()),
+        AppRoutes.filterscreen: (context) => const AuthWrapper(child: LeaderboardFilterScreen()),
+        AppRoutes.cardnotificationscreen: (context) => const AuthWrapper(child: NotificationsScreen()),
         AppRoutes.questionfirstscreenforairline: (context) =>
-            QuestionFirstScreenForAirline(),
+            const AuthWrapper(child: QuestionFirstScreenForAirline()),
         AppRoutes.detailfirstscreenforairline: (context) =>
-            DetailFirstScreenForAirline(),
+            const AuthWrapper(child: DetailFirstScreenForAirline()),
         AppRoutes.questionsecondscreenforairline: (context) =>
-            QuestionSecondScreenForAirline(),
+            const AuthWrapper(child: QuestionSecondScreenForAirline()),
         AppRoutes.detailsecondscreenforairline: (context) =>
-            DetailSecondScreenForAirline(),
+            const AuthWrapper(child: DetailSecondScreenForAirline()),
         AppRoutes.questionfirstscreenforairport: (context) =>
-            QuestionFirstScreenForAirport(),
+            const AuthWrapper(child: QuestionFirstScreenForAirport()),
         AppRoutes.detailfirstscreenforairport: (context) =>
-            DetailFirstScreenForAirport(),
+            const AuthWrapper(child: DetailFirstScreenForAirport()),
         AppRoutes.questionsecondscreenforairport: (context) =>
-            QuestionSecondScreenForAirport(),
+            const AuthWrapper(child: QuestionSecondScreenForAirport()),
         AppRoutes.detailsecondscreenforairport: (context) =>
-            DetailSecondScreenForAirport(),
-        AppRoutes.submitscreen: (context) => SubmitScreen(),
-        AppRoutes.completereviews: (context) => CompleteReviews(),
-        AppRoutes.eidtprofilescreen: (context) => EditProfileScreen(),
-        AppRoutes.aboutapp: (context) => AboutApp(),
-        AppRoutes.helpFaqs: (context) => HelpFaq(),
-        AppRoutes.termsofservice: (context) => TermsOfService(),
-        AppRoutes.myJourney: (context) => const MyJourneyScreen(),
+            const AuthWrapper(child: DetailSecondScreenForAirport()),
+        AppRoutes.submitscreen: (context) => const AuthWrapper(child: SubmitScreen()),
+        AppRoutes.completereviews: (context) => const AuthWrapper(child: CompleteReviews()),
+        AppRoutes.eidtprofilescreen: (context) => const AuthWrapper(child: EditProfileScreen()),
+        AppRoutes.aboutapp: (context) => const AuthWrapper(child: AboutApp()),
+        AppRoutes.helpFaqs: (context) => const AuthWrapper(child: HelpFaq()),
+        AppRoutes.termsofservice: (context) => const AuthWrapper(child: TermsOfService()),
+        AppRoutes.myJourney: (context) => const AuthWrapper(child: MyJourneyScreen()),
       },
       debugShowCheckedModeBanner: false,
     );
