@@ -4,6 +4,7 @@ import 'package:airline_app/models/stage_feedback_model.dart';
 import 'package:airline_app/services/cirium_flight_tracking_service.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
 import 'package:airline_app/services/stage_question_service.dart';
+import 'package:airline_app/services/journey_database_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -227,6 +228,47 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       }
     } catch (e) {
       debugPrint('❌ Error loading completed flights: $e');
+    }
+  }
+
+  /// Sync journeys from database for a specific user
+  Future<void> syncJourneysFromDatabase(String userId) async {
+    try {
+      debugPrint('🔄 Syncing journeys from database for user: $userId');
+      
+      final databaseFlights = await JourneyDatabaseService.syncUserJourneys(userId);
+      
+      if (databaseFlights.isEmpty) {
+        debugPrint('📭 No journeys found in database for user: $userId');
+        return;
+      }
+
+      // Separate active and completed flights
+      final Map<String, FlightTrackingModel> activeFlights = {};
+      final Map<String, FlightTrackingModel> completedFlights = {};
+      
+      for (final flight in databaseFlights) {
+        if (flight.currentPhase == FlightPhase.completed) {
+          completedFlights[flight.pnr] = flight;
+        } else {
+          activeFlights[flight.pnr] = flight;
+        }
+      }
+
+      // Update state with database flights
+      state = state.copyWith(
+        trackedFlights: activeFlights,
+        completedFlights: completedFlights,
+      );
+
+      // Save completed flights to local storage
+      if (completedFlights.isNotEmpty) {
+        _saveCompletedFlights(completedFlights);
+      }
+
+      debugPrint('✅ Synced ${activeFlights.length} active and ${completedFlights.length} completed flights from database');
+    } catch (e) {
+      debugPrint('❌ Error syncing journeys from database: $e');
     }
   }
 

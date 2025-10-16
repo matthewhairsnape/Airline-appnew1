@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/flight_tracking_model.dart';
 import '../../models/stage_feedback_model.dart';
 import '../../provider/flight_tracking_provider.dart';
 import '../../provider/stage_feedback_provider.dart';
+import '../../services/supabase_service.dart';
 import '../../utils/app_styles.dart';
 import '../../utils/app_routes.dart';
 import '../../utils/app_localizations.dart';
@@ -23,12 +25,37 @@ class MyJourneyScreen extends ConsumerStatefulWidget {
   ConsumerState<MyJourneyScreen> createState() => _MyJourneyScreenState();
 }
 
-class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
+class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTickerProviderStateMixin {
   Map<String, bool> _expandedSections = {
     'At the Airport': true,
     'During the Flight': false,
     'Overall Experience': false,
   };
+  
+  late TabController _tabController;
+  int _selectedTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      setState(() {
+        _selectedTabIndex = _tabController.index;
+      });
+    });
+    
+    // Sync journeys from database when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncJourneysFromDatabase();
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,15 +87,62 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           style: AppStyles.textStyle_20_600.copyWith(color: Colors.black),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black),
+            onPressed: () {
+              _syncJourneysFromDatabase();
+            },
+            tooltip: 'Sync Journeys',
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.black,
+          unselectedLabelColor: Colors.grey[600],
+          indicatorColor: Colors.black,
+          tabs: [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.flight_takeoff, size: 20),
+                  SizedBox(width: 8),
+                  Text('Active (${activeFlights.length})'),
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history, size: 20),
+                  SizedBox(width: 8),
+                  Text('Completed (${completedFlights.length})'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      body: allFlights.isEmpty
-          ? _buildEmptyState()
-          : _buildJourneyTimeline(allFlights.first),
-      // Remove the bottom feedback button - feedback is now in each section
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Active Journeys Tab
+          activeFlights.isEmpty
+              ? _buildEmptyState('No Active Journeys', 'Connect your flight to start tracking your journey')
+              : _buildJourneyList(activeFlights),
+          
+          // Completed Journeys Tab
+          completedFlights.isEmpty
+              ? _buildEmptyState('No Completed Journeys', 'Your completed journeys will appear here')
+              : _buildCompletedJourneyList(completedFlights),
+        ],
+      ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String title, String subtitle) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(32),
@@ -76,40 +150,235 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.flight_takeoff,
+              title.contains('Active') ? Icons.flight_takeoff : Icons.history,
               size: 80,
               color: Colors.grey[400],
             ),
             SizedBox(height: 24),
             Text(
-              'No Active Flights',
+              title,
               style: AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
             ),
             SizedBox(height: 12),
             Text(
-              'Connect your flight to start tracking your journey',
+              subtitle,
               style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                _showSyncOptionsModal(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            if (title.contains('Active')) ...[
+              SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: () {
+                  _showSyncOptionsModal(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Connect Flight',
+                  style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
                 ),
               ),
-              child: Text(
-                'Connect Flight',
-                style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
-              ),
-            ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildJourneyList(List<FlightTrackingModel> flights) {
+    return SingleChildScrollView(
+      child: Column(
+        children: flights.map((flight) => _buildJourneyTimeline(flight)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCompletedJourneyList(List<FlightTrackingModel> flights) {
+    return SingleChildScrollView(
+      child: Column(
+        children: flights.map((flight) => _buildCompletedJourneyCard(flight)).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCompletedJourneyCard(FlightTrackingModel flight) {
+    return Container(
+      margin: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(25),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 24,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${flight.carrier}${flight.flightNumber}',
+                        style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '${flight.departureAirport} → ${flight.arrivalAirport}',
+                        style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'PNR: ${flight.pnr}',
+                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Completed',
+                    style: AppStyles.textStyle_12_600.copyWith(color: Colors.green),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Flight Details
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Departure',
+                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        _formatDateTime(flight.departureTime),
+                        style: AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                      ),
+                      Text(
+                        flight.departureAirport,
+                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 40,
+                  color: Colors.grey[300],
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Arrival',
+                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        _formatDateTime(flight.arrivalTime),
+                        style: AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                      ),
+                      Text(
+                        flight.arrivalAirport,
+                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 20),
+          
+          // Action Buttons
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      _showJourneyDetails(flight);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'View Details',
+                      style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _showFeedbackForCompletedJourney(flight);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Rate Experience',
+                      style: AppStyles.textStyle_14_600.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 20),
+        ],
       ),
     );
   }
@@ -281,6 +550,114 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     }
 
     return events;
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    return '$hour:$minute\n$day/$month';
+  }
+
+  void _showJourneyDetails(FlightTrackingModel flight) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Journey Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Flight', '${flight.carrier}${flight.flightNumber}'),
+            _buildDetailRow('Route', '${flight.departureAirport} → ${flight.arrivalAirport}'),
+            _buildDetailRow('PNR', flight.pnr),
+            _buildDetailRow('Departure', _formatDateTime(flight.departureTime)),
+            _buildDetailRow('Arrival', _formatDateTime(flight.arrivalTime)),
+            if (flight.seatNumber != null)
+              _buildDetailRow('Seat', flight.seatNumber!),
+            if (flight.gate != null)
+              _buildDetailRow('Gate', flight.gate!),
+            if (flight.terminal != null)
+              _buildDetailRow('Terminal', flight.terminal!),
+            _buildDetailRow('Status', 'Completed'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeedbackForCompletedJourney(FlightTrackingModel flight) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ComprehensiveFeedbackModal(
+        flight: flight,
+        onSubmitted: () {
+          Navigator.pop(context);
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Thank you for your feedback!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Sync journeys from database based on current user
+  Future<void> _syncJourneysFromDatabase() async {
+    try {
+      // Get current user ID
+      final session = SupabaseService.client.auth.currentSession;
+      if (session?.user.id == null) {
+        debugPrint('❌ No authenticated user found for journey sync');
+        return;
+      }
+
+      final userId = session!.user.id;
+      debugPrint('🔄 Syncing journeys for user: $userId');
+
+      // Sync journeys from database
+      await ref.read(flightTrackingProvider.notifier).syncJourneysFromDatabase(userId);
+      
+      debugPrint('✅ Journey sync completed');
+    } catch (e) {
+      debugPrint('❌ Error syncing journeys from database: $e');
+    }
   }
 
   void _showSyncOptionsModal(BuildContext context) {
