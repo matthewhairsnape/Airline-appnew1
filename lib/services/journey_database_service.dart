@@ -101,6 +101,7 @@ class JourneyDatabaseService {
 
       final flightTrackingModel = FlightTrackingModel(
         flightId: journeyData['id'], // Use journey ID as flight ID
+        journeyId: journeyData['id'], // Store journey ID separately
         pnr: journeyData['pnr'] ?? '',
         carrier: carrier,
         flightNumber: flight['flight_number']?.toString() ?? '',

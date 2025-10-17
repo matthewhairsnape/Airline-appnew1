@@ -5,6 +5,8 @@ import 'package:airline_app/services/cirium_flight_tracking_service.dart';
 import 'package:airline_app/services/flight_notification_service.dart';
 import 'package:airline_app/services/stage_question_service.dart';
 import 'package:airline_app/services/journey_database_service.dart';
+import 'package:airline_app/services/journey_notification_service.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -75,6 +77,9 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
   void _handleFlightUpdate(FlightTrackingModel flight) {
     debugPrint('🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase}');
 
+    // Send push notification for phase change
+    _sendPhaseChangeNotification(flight);
+
     // Check if flight is completed
     if (flight.currentPhase == FlightPhase.completed) {
       // Move to completed flights
@@ -102,6 +107,35 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
 
       // Send notification for phase change
       notificationService.notifyFlightPhaseChange(flight);
+    }
+  }
+
+  /// Send push notification for flight phase change
+  Future<void> _sendPhaseChangeNotification(FlightTrackingModel flight) async {
+    try {
+      // Get current user ID
+      final session = SupabaseService.client.auth.currentSession;
+      if (session?.user.id == null) return;
+
+      final userId = session!.user.id;
+      final flightInfo = '${flight.carrier}${flight.flightNumber}';
+
+      // Send notification based on phase
+      await JourneyNotificationService.sendFlightPhaseNotification(
+        userId: userId,
+        journeyId: flight.journeyId ?? flight.flightId,
+        phase: flight.currentPhase,
+        flightInfo: flightInfo,
+        additionalData: {
+          'pnr': flight.pnr,
+          'departure_airport': flight.departureAirport,
+          'arrival_airport': flight.arrivalAirport,
+          'gate': flight.gate,
+          'terminal': flight.terminal,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error sending phase change notification: $e');
     }
   }
 
