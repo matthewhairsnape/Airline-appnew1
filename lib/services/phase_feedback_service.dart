@@ -114,30 +114,21 @@ class PhaseFeedbackService {
       // Get airport info from flight using the actual flight ID
       final flightData = await _client
           .from('flights')
-          .select('departure_airport, arrival_airport')
+          .select('departure_airport_id, arrival_airport_id')
           .eq('id', flightId)
           .single();
 
-      final airportCode = flightData['departure_airport'] ?? flightData['arrival_airport'];
-      if (airportCode == null) {
-        debugPrint('❌ No airport code found for flight');
-        return false;
-      }
-
-      // Get airport UUID by IATA code
-      final airportData = await _client
-          .from('airports')
-          .select('id')
-          .eq('iata_code', airportCode)
-          .single();
-
-      final airportId = airportData['id'];
+      final departureAirportId = flightData['departure_airport_id'];
+      final arrivalAirportId = flightData['arrival_airport_id'];
+      
+      // For "At the Airport" feedback, we typically want the departure airport
+      final airportId = departureAirportId ?? arrivalAirportId;
       if (airportId == null) {
-        debugPrint('❌ No airport UUID found for code: $airportCode');
+        debugPrint('❌ No airport ID found for flight');
         return false;
       }
 
-      debugPrint('✅ Found airport ID: $airportId for code: $airportCode');
+      debugPrint('✅ Found airport ID: $airportId');
 
       // Map feedback selections to airport review scores
       final scores = _mapToAirportScores(likes, dislikes, overallRating);
@@ -179,32 +170,49 @@ class PhaseFeedbackService {
       debugPrint('✈️ Submitting airline review...');
       
       // Get airline info from flight using the actual flight ID
-      final flightData = await _client
-          .from('flights')
-          .select('carrier_code')
-          .eq('id', flightId)
-          .single();
+      String? airlineId;
+      
+      try {
+        // First try with airline_id column
+        final flightData = await _client
+            .from('flights')
+            .select('airline_id')
+            .eq('id', flightId)
+            .single();
 
-      final airlineCode = flightData['carrier_code'];
-      if (airlineCode == null) {
-        debugPrint('❌ No airline code found for flight');
-        return false;
+        airlineId = flightData['airline_id'];
+      } catch (e) {
+        if (e.toString().contains('airline_id does not exist')) {
+          debugPrint('⚠️ airline_id column not found, trying carrier_code approach');
+          
+          // Fallback: get carrier_code and find airline by IATA code
+          final flightData = await _client
+              .from('flights')
+              .select('carrier_code')
+              .eq('id', flightId)
+              .single();
+
+          final carrierCode = flightData['carrier_code'];
+          if (carrierCode != null) {
+            final airlineData = await _client
+                .from('airlines')
+                .select('id')
+                .eq('iata_code', carrierCode)
+                .maybeSingle();
+            
+            airlineId = airlineData?['id'];
+          }
+        } else {
+          rethrow;
+        }
       }
 
-      // Get airline UUID by IATA code
-      final airlineData = await _client
-          .from('airlines')
-          .select('id')
-          .eq('iata_code', airlineCode)
-          .single();
-
-      final airlineId = airlineData['id'];
       if (airlineId == null) {
-        debugPrint('❌ No airline UUID found for code: $airlineCode');
+        debugPrint('❌ No airline ID found for flight');
         return false;
       }
 
-      debugPrint('✅ Found airline ID: $airlineId for code: $airlineCode');
+      debugPrint('✅ Found airline ID: $airlineId');
 
       // Map feedback selections to airline review scores
       final scores = _mapToAirlineScores(likes, dislikes, overallRating);
