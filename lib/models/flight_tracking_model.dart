@@ -1,6 +1,7 @@
 /// Model for tracking flight phases and status in real-time
 class FlightTrackingModel {
   final String flightId;
+  final String? journeyId; // Journey ID from database
   final String pnr;
   final String carrier;
   final String flightNumber;
@@ -23,6 +24,7 @@ class FlightTrackingModel {
 
   FlightTrackingModel({
     required this.flightId,
+    this.journeyId,
     required this.pnr,
     required this.carrier,
     required this.flightNumber,
@@ -44,6 +46,7 @@ class FlightTrackingModel {
 
   FlightTrackingModel copyWith({
     String? flightId,
+    String? journeyId,
     String? pnr,
     String? carrier,
     String? flightNumber,
@@ -64,6 +67,7 @@ class FlightTrackingModel {
   }) {
     return FlightTrackingModel(
       flightId: flightId ?? this.flightId,
+      journeyId: journeyId ?? this.journeyId,
       pnr: pnr ?? this.pnr,
       carrier: carrier ?? this.carrier,
       flightNumber: flightNumber ?? this.flightNumber,
