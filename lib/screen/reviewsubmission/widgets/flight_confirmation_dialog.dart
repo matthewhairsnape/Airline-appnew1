@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/boarding_pass.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/airport_data_service.dart';
 import '../../../provider/user_data_provider.dart';
 import '../../../utils/app_styles.dart';
 import '../../../utils/app_routes.dart';
@@ -234,8 +235,35 @@ class FlightConfirmationDialog extends ConsumerWidget {
         return;
       }
 
-      // Save journey to Supabase using enhanced method
-      final journeyResult = await SupabaseService.saveFlightData(
+      // Extract airport data from Cirium response
+      Map<String, dynamic>? departureAirportData;
+      Map<String, dynamic>? arrivalAirportData;
+      
+      if (ciriumFlightData != null) {
+        departureAirportData = AirportDataService.extractAirportDataFromFlightStatus(
+          ciriumFlightData!,
+          'departure',
+        );
+        arrivalAirportData = AirportDataService.extractAirportDataFromFlightStatus(
+          ciriumFlightData!,
+          'arrival',
+        );
+      }
+
+      // If airport data is not available from Cirium, try to fetch it separately
+      if (departureAirportData == null || arrivalAirportData == null) {
+        debugPrint('🔄 Fetching airport data from Cirium API');
+        final airportData = await AirportDataService.getOrCreateAirportData(
+          departureIata: boardingPass.departureAirportCode,
+          arrivalIata: boardingPass.arrivalAirportCode,
+        );
+        
+        departureAirportData ??= airportData['departure'];
+        arrivalAirportData ??= airportData['arrival'];
+      }
+
+      // Save journey to Supabase using enhanced method with airport details
+      final journeyResult = await SupabaseService.saveFlightDataWithAirportDetails(
         userId: userId.toString(),
         pnr: boardingPass.pnr,
         carrier: carrier,
@@ -250,6 +278,8 @@ class FlightConfirmationDialog extends ConsumerWidget {
         gate: gate?.isNotEmpty == true ? gate : null,
         aircraftType: aircraftType?.isNotEmpty == true ? aircraftType : null,
         ciriumData: ciriumFlightData,
+        departureAirportData: departureAirportData,
+        arrivalAirportData: arrivalAirportData,
       );
 
       if (journeyResult != null) {

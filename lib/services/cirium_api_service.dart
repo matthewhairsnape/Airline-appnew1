@@ -131,6 +131,11 @@ class CiriumApiService {
       final departureDelay = departureDate?['delayMinutes'] as int?;
       final arrivalDelay = arrivalDate?['delayMinutes'] as int?;
 
+      // Extract airport resources data
+      final airportResources = status['airportResources'] as Map<String, dynamic>?;
+      final departureAirportData = airportResources?['departure'] as Map<String, dynamic>?;
+      final arrivalAirportData = airportResources?['arrival'] as Map<String, dynamic>?;
+
       return {
         'carrier': carrier,
         'flightNumber': flightNumber,
@@ -148,6 +153,10 @@ class CiriumApiService {
         'departureDelay': departureDelay,
         'arrivalDelay': arrivalDelay,
         'lastUpdated': DateTime.now().toIso8601String(),
+        // Airport data
+        'departureAirportData': departureAirportData,
+        'arrivalAirportData': arrivalAirportData,
+        'airportResources': airportResources,
       };
     } catch (e) {
       debugPrint('❌ Error parsing Cirium flight status: $e');

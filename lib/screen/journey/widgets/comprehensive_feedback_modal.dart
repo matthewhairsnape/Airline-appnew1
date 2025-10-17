@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../utils/app_styles.dart';
 import '../../../models/flight_tracking_model.dart';
 import '../../../services/phase_feedback_service.dart';

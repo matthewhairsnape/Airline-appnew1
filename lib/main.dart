@@ -7,6 +7,7 @@ import 'package:airline_app/screen/login/log_in.dart';
 import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/services/notification_manager.dart';
+import 'package:airline_app/services/journey_notification_service.dart';
 import 'package:airline_app/screen/login/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -78,6 +79,13 @@ void main() async {
     debugPrint('✅ NotificationManager initialized');
   } catch (e, st) {
     debugPrint('❌ NotificationManager init failed: $e\n$st');
+  }
+
+  try {
+    await JourneyNotificationService.initialize();
+    debugPrint('✅ JourneyNotificationService initialized');
+  } catch (e, st) {
+    debugPrint('❌ JourneyNotificationService init failed: $e\n$st');
   }
 
   runApp(

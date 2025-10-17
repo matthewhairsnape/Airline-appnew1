@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/flight_tracking_model.dart';
-import '../../models/stage_feedback_model.dart';
 import '../../provider/flight_tracking_provider.dart';
-import '../../provider/stage_feedback_provider.dart';
 import '../../services/supabase_service.dart';
+import '../../services/feedback_checking_service.dart';
 import '../../utils/app_styles.dart';
 import '../../utils/app_routes.dart';
 import '../../utils/app_localizations.dart';
@@ -14,8 +12,6 @@ import '../reviewsubmission/wallet_sync_screen.dart';
 import '../reviewsubmission/scanner_screen/scanner_screen.dart';
 import 'widgets/flight_status_card.dart';
 import 'widgets/timeline_section.dart';
-import 'widgets/timeline_event_card.dart';
-import 'widgets/micro_review_modal.dart';
 import 'widgets/comprehensive_feedback_modal.dart';
 
 class MyJourneyScreen extends ConsumerStatefulWidget {
@@ -34,6 +30,10 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   
   late TabController _tabController;
   int _selectedTabIndex = 0;
+  
+  // Feedback status tracking
+  Map<String, Map<String, bool>> _feedbackStatus = {};
+  Map<String, Map<String, Map<String, dynamic>?>> _existingFeedback = {};
 
   @override
   void initState() {
@@ -207,6 +207,10 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   }
 
   Widget _buildCompletedJourneyCard(FlightTrackingModel flight) {
+    final journeyId = flight.journeyId;
+    final feedbackPercentage = journeyId != null ? getFeedbackCompletionPercentage(journeyId) : 0;
+    final hasAnyFeedback = journeyId != null ? _feedbackStatus[journeyId]?.values.any((hasFeedback) => hasFeedback) ?? false : false;
+    
     return Container(
       margin: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -259,6 +263,23 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                         'PNR: ${flight.pnr}',
                         style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
                       ),
+                      if (hasAnyFeedback) ...[
+                        SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.feedback,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Feedback: $feedbackPercentage% Complete',
+                              style: AppStyles.textStyle_12_500.copyWith(color: Colors.blue),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -359,16 +380,20 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      _showFeedbackForCompletedJourney(flight);
+                      if (hasAnyFeedback) {
+                        _showFeedbackManagement(flight);
+                      } else {
+                        _showFeedbackForCompletedJourney(flight);
+                      }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: hasAnyFeedback ? Colors.blue : Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: Text(
-                      'Rate Experience',
+                      hasAnyFeedback ? 'Manage Feedback' : 'Rate Experience',
                       style: AppStyles.textStyle_14_600.copyWith(color: Colors.white),
                     ),
                   ),
@@ -626,6 +651,10 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         flight: flight,
         onSubmitted: () {
           Navigator.pop(context);
+          // Reload feedback status
+          if (flight.journeyId != null) {
+            _loadFeedbackStatusForFlight(flight.journeyId!);
+          }
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -636,6 +665,218 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         },
       ),
     );
+  }
+
+  void _showFeedbackManagement(FlightTrackingModel flight) {
+    if (flight.journeyId == null) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Manage Feedback',
+              style: AppStyles.textStyle_24_600,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            
+            // Pre-flight feedback
+            _buildFeedbackStageCard(
+              flight,
+              'Pre-Flight Experience',
+              'pre_flight',
+              flight.journeyId!,
+              Icons.assignment,
+              Colors.blue,
+            ),
+            
+            SizedBox(height: 12),
+            
+            // In-flight feedback
+            _buildFeedbackStageCard(
+              flight,
+              'In-Flight Experience',
+              'in_flight',
+              flight.journeyId!,
+              Icons.flight,
+              Colors.orange,
+            ),
+            
+            SizedBox(height: 12),
+            
+            // Post-flight feedback
+            _buildFeedbackStageCard(
+              flight,
+              'Overall Experience',
+              'post_flight',
+              flight.journeyId!,
+              Icons.star,
+              Colors.purple,
+            ),
+            
+            SizedBox(height: 12),
+            
+            // Airline review
+            _buildFeedbackStageCard(
+              flight,
+              'Airline Review',
+              'airline_review',
+              flight.journeyId!,
+              Icons.airplanemode_active,
+              Colors.green,
+            ),
+            
+            SizedBox(height: 12),
+            
+            // Airport review
+            _buildFeedbackStageCard(
+              flight,
+              'Airport Review',
+              'airport_review',
+              flight.journeyId!,
+              Icons.location_city,
+              Colors.teal,
+            ),
+            
+            SizedBox(height: 24),
+            
+            // Overall completion status
+            Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Feedback Completion: ${getFeedbackCompletionPercentage(flight.journeyId!)}%',
+                      style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedbackStageCard(FlightTrackingModel flight, String title, String stage, String journeyId, IconData icon, Color color) {
+    final hasFeedback = hasFeedbackForStage(journeyId, stage);
+    final existingFeedback = getExistingFeedbackForStage(journeyId, stage);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: hasFeedback ? color.withOpacity(0.1) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasFeedback ? color : Colors.grey[300]!,
+          width: 1,
+        ),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: hasFeedback ? color : Colors.grey[300],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            hasFeedback ? Icons.check : icon,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          title,
+          style: AppStyles.textStyle_16_600.copyWith(
+            color: hasFeedback ? color : Colors.grey[700],
+          ),
+        ),
+        subtitle: Text(
+          hasFeedback ? 'Feedback submitted' : 'No feedback yet',
+          style: AppStyles.textStyle_14_500.copyWith(
+            color: hasFeedback ? color : Colors.grey[500],
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: hasFeedback ? color : Colors.grey[400],
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          _showFeedbackForStage(flight, stage, existingFeedback);
+        },
+      ),
+    );
+  }
+
+  void _showFeedbackForStage(FlightTrackingModel flight, String stage, Map<String, dynamic>? existingFeedback) {
+    if (stage == 'airline_review') {
+      // Navigate to airline review screen
+      Navigator.pushNamed(
+        context,
+        AppRoutes.questionfirstscreenforairline,
+        arguments: {
+          'flight': flight,
+          'existingFeedback': existingFeedback,
+        },
+      );
+    } else if (stage == 'airport_review') {
+      // Navigate to airport review screen
+      Navigator.pushNamed(
+        context,
+        AppRoutes.questionfirstscreenforairport,
+        arguments: {
+          'flight': flight,
+          'existingFeedback': existingFeedback,
+        },
+      );
+    } else {
+      // Use comprehensive feedback modal for stage feedback
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => ComprehensiveFeedbackModal(
+          flight: flight,
+          onSubmitted: () {
+            Navigator.pop(context);
+            // Reload feedback status
+            if (flight.journeyId != null) {
+              _loadFeedbackStatusForFlight(flight.journeyId!);
+            }
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Feedback ${existingFeedback != null ? 'updated' : 'submitted'} successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
 
   /// Sync journeys from database based on current user
@@ -654,10 +895,69 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
       // Sync journeys from database
       await ref.read(flightTrackingProvider.notifier).syncJourneysFromDatabase(userId);
       
+      // Load feedback status for completed flights
+      await _loadFeedbackStatusForCompletedFlights();
+      
       debugPrint('✅ Journey sync completed');
     } catch (e) {
       debugPrint('❌ Error syncing journeys from database: $e');
     }
+  }
+
+  /// Load feedback status for all completed flights
+  Future<void> _loadFeedbackStatusForCompletedFlights() async {
+    try {
+      final flightTrackingState = ref.read(flightTrackingProvider);
+      final completedFlights = flightTrackingState.completedFlights.values.toList();
+      
+      for (final flight in completedFlights) {
+        if (flight.journeyId != null) {
+          await _loadFeedbackStatusForFlight(flight.journeyId!);
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading feedback status: $e');
+    }
+  }
+
+  /// Load feedback status for a specific flight
+  Future<void> _loadFeedbackStatusForFlight(String journeyId) async {
+    try {
+      // Check feedback status
+      final feedbackStatus = await FeedbackCheckingService.checkFeedbackStatus(journeyId);
+      _feedbackStatus[journeyId] = feedbackStatus;
+      
+      // Load existing feedback for all stages
+      final allFeedback = await FeedbackCheckingService.getAllFeedbackForJourney(journeyId);
+      _existingFeedback[journeyId] = allFeedback;
+      
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading feedback for journey $journeyId: $e');
+    }
+  }
+
+  /// Get feedback status for a specific flight and stage
+  bool hasFeedbackForStage(String journeyId, String stage) {
+    return _feedbackStatus[journeyId]?[stage] ?? false;
+  }
+
+  /// Get existing feedback for a specific flight and stage
+  Map<String, dynamic>? getExistingFeedbackForStage(String journeyId, String stage) {
+    return _existingFeedback[journeyId]?[stage];
+  }
+
+  /// Get feedback completion percentage for a flight
+  int getFeedbackCompletionPercentage(String journeyId) {
+    final status = _feedbackStatus[journeyId];
+    if (status == null) return 0;
+    
+    final completedStages = status.values.where((hasFeedback) => hasFeedback).length;
+    final totalStages = status.length;
+    
+    return ((completedStages / totalStages) * 100).round();
   }
 
   void _showSyncOptionsModal(BuildContext context) {
