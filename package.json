@@ -1,0 +1,26 @@
+{
+  "name": "apple-jwt-generator",
+  "version": "1.0.0",
+  "description": "Generate Apple JWT tokens for APNs authentication",
+  "main": "generate_apple_jwt.js",
+  "scripts": {
+    "start": "node generate_apple_jwt.js",
+    "generate": "node generate_apple_jwt.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "apple",
+    "jwt",
+    "apns",
+    "push-notifications",
+    "authentication"
+  ],
+  "author": "Airline App Team",
+  "license": "MIT",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
