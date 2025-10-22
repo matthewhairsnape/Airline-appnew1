@@ -4,6 +4,7 @@ import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/provider/leaderboard_provider.dart';
 import 'package:airline_app/screen/app_widgets/loading_widget.dart';
+import 'package:airline_app/models/leaderboard_category_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,32 +15,15 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
   ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   bool isExpanded = false;
   
-  final List<Map<String, dynamic>> categories = [
-    {
-      'name': 'Wi-Fi Experience',
-      'icon': Icons.wifi,
-      'subtitle': 'Top performers in Wi-Fi connectivity',
-    },
-    {
-      'name': 'Seat Comfort',
-      'icon': Icons.chair,
-      'subtitle': 'Top performers in seat comfort',
-    },
-    {
-      'name': 'Food and Drink',
-      'icon': Icons.restaurant,
-      'subtitle': 'Top performers in food and drink',
-    },
-  ];
+  // Get categories from the service
+  List<LeaderboardCategory> get categories => LeaderboardCategoryService.getAllCategories();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     
     // Load leaderboard data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -47,14 +31,26 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   void _onWillPop() {
     Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+  }
+
+  /// Convert icon name to Material Icon
+  IconData _getIconForCategory(String iconName) {
+    switch (iconName) {
+      case 'wifi':
+        return Icons.wifi;
+      case 'people':
+        return Icons.people;
+      case 'chair':
+        return Icons.chair;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'schedule':
+        return Icons.schedule;
+      default:
+        return Icons.star;
+    }
   }
 
   Widget _buildLeaderboardTab() {
@@ -69,13 +65,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
               child: Row(
                 children: categories.asMap().entries.map((entry) {
                   final int index = entry.key;
-                  final Map<String, dynamic> category = entry.value;
+                  final LeaderboardCategory category = entry.value;
                   final leaderboardState = ref.watch(leaderboardProvider);
-                  final bool isSelected = category['name'] == leaderboardState.selectedCategory;
+                  final bool isSelected = category.tab == leaderboardState.selectedCategory;
                   
                   return GestureDetector(
                     onTap: () {
-                      ref.read(leaderboardProvider.notifier).changeCategory(category['name']);
+                      ref.read(leaderboardProvider.notifier).changeCategory(category.tab);
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 12),
@@ -92,13 +88,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            category['icon'],
+                            _getIconForCategory(category.icon),
                             color: isSelected ? Colors.white : Colors.grey.shade600,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            category['name'],
+                            category.tab,
                             style: AppStyles.textStyle_14_600.copyWith(
                               color: isSelected ? Colors.white : Colors.grey.shade600,
                             ),
@@ -119,11 +115,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
               builder: (context, ref, child) {
                 final leaderboardState = ref.watch(leaderboardProvider);
                 final selectedCategory = categories.firstWhere(
-                  (cat) => cat['name'] == leaderboardState.selectedCategory,
+                  (cat) => cat.tab == leaderboardState.selectedCategory,
                   orElse: () => categories.first,
                 );
                 return Text(
-                  selectedCategory['subtitle'],
+                  selectedCategory.description,
                   style: AppStyles.textStyle_14_400.copyWith(
                     color: Colors.grey.shade600,
                   ),
@@ -143,18 +139,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
     );
   }
 
-  Widget _buildIssuesTab() {
-    return KeyboardDismissWidget(
-      child: Column(
-        children: [
-          const SizedBox(height: 16),
-          Expanded(
-            child: _buildIssuesContent(),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildLeaderboardContent() {
     final leaderboardState = ref.watch(leaderboardProvider);
@@ -318,7 +302,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
 
                     // Category Icon
                     Icon(
-                      categories.first['icon'],
+                      _getIconForCategory(categories.first.icon),
                       color: Colors.black,
                       size: 20,
                     ),
@@ -350,7 +334,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Expand to top 40',
+                        'Show More (Top 10)',
                         style: AppStyles.textStyle_14_600.copyWith(
                           color: Colors.white,
                         ),
@@ -387,7 +371,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Show top 5',
+                        'Show Top 5',
                         style: AppStyles.textStyle_14_600.copyWith(
                           color: Colors.grey.shade700,
                         ),
@@ -408,153 +392,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
     );
   }
 
-  Widget _buildIssuesContent() {
-    final leaderboardState = ref.watch(leaderboardProvider);
-    
-    if (leaderboardState.isLoading) {
-      return const Center(
-        child: LoadingWidget(),
-      );
-    }
-
-    if (leaderboardState.issues.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 64,
-              color: Colors.green.shade300,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Issues Reported',
-              style: AppStyles.textStyle_18_600.copyWith(
-                color: Colors.green.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'All flights are running smoothly',
-              style: AppStyles.textStyle_14_400.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      itemCount: leaderboardState.issues.length,
-      itemBuilder: (context, index) {
-        final issue = leaderboardState.issues[index];
-        final rank = index + 1;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.shade100,
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Rank Badge
-              Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(right: 12),
-                child: Center(
-                  child: Text(
-                    '$rank',
-                    style: AppStyles.textStyle_16_600.copyWith(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Airline Logo
-              _buildAirlineLogo(issue['logo']),
-
-              const SizedBox(width: 16),
-
-              // Flight Info and Feedback
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Flight Number and Stage Badge
-                    Row(
-                      children: [
-                        Text(
-                          issue['flight'] ?? 'Unknown Flight',
-                          style: AppStyles.textStyle_16_600.copyWith(
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: issue['phaseColor'],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            issue['phase'] ?? 'Unknown',
-                            style: AppStyles.textStyle_12_600.copyWith(
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 4),
-                    
-                    // Airline Name
-                    Text(
-                      issue['airline'] ?? 'Unknown Airline',
-                      style: AppStyles.textStyle_14_400.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Likes Bubble (tappable)
-                    GestureDetector(
-                      onTap: () => _showFeedbackDetails(context, issue, 'likes'),
-                      child: _buildCompactLikes(issue['likes'] ?? []),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Dislikes Bubble (tappable)
-                    GestureDetector(
-                      onTap: () => _showFeedbackDetails(context, issue, 'dislikes'),
-                      child: _buildCompactDislikes(issue['dislikes'] ?? []),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   /// Build compact likes widget
   Widget _buildCompactLikes(List<Map<String, dynamic>> likes) {
@@ -656,53 +493,17 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
           elevation: 0,
           automaticallyImplyLeading: false,
           title: Text(
-            'Realtime Rankings',
+            'Leaderboard',
             style: AppStyles.textStyle_20_600.copyWith(
               color: Colors.black,
             ),
           ),
           centerTitle: true,
-          bottom: TabBar(
-            controller: _tabController,
-            labelColor: Colors.black,
-            unselectedLabelColor: Colors.grey[600],
-            indicatorColor: Colors.black,
-            tabs: [
-              Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                    Icon(Icons.leaderboard, size: 20),
-                    SizedBox(width: 8),
-                    Text('Leaderboard'),
-                        ],
-                      ),
-                    ),
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.receipt_long, size: 20),
-                    SizedBox(width: 8),
-                    Text('Issues'),
-                  ],
-                  ),
-                ),
-            ],
-          ),
         ),
         bottomNavigationBar: const BottomNavBar(
           currentIndex: 2,
         ),
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            // Leaderboard Tab
-            _buildLeaderboardTab(),
-            // Issues Tab
-            _buildIssuesTab(),
-          ],
-        ),
+        body: _buildLeaderboardTab(),
       ),
     );
   }

@@ -32,7 +32,7 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
       _selectedIndex = index;
     });
 
-    // Navigation for Review, My Journey, and Leaderboard tabs
+    // Navigation for Review, My Journey, Leaderboard, and Realtime tabs
     switch (index) {
       case 0:
         if (ModalRoute.of(context)?.settings.name != AppRoutes.startreviews) {
@@ -47,6 +47,11 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
       case 2:
         if (ModalRoute.of(context)?.settings.name != AppRoutes.leaderboardscreen) {
           Navigator.pushReplacementNamed(context, AppRoutes.leaderboardscreen);
+        }
+        break;
+      case 3:
+        if (ModalRoute.of(context)?.settings.name != AppRoutes.issuesScreen) {
+          Navigator.pushReplacementNamed(context, AppRoutes.issuesScreen);
         }
         break;
     }
@@ -113,6 +118,14 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
               color: _selectedIndex == 2 ? Colors.black : Colors.grey.shade500,
             ),
             title: 'Leaderboard',
+          ),
+          TabItem(
+            icon: Icon(
+              Icons.receipt_long,
+              size: 24,
+              color: _selectedIndex == 3 ? Colors.black : Colors.grey.shade500,
+            ),
+            title: 'Realtime',
           ),
         ],
         initialActiveIndex: _selectedIndex,

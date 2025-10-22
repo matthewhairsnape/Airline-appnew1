@@ -16,9 +16,16 @@ class StartReviews extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Powered by Exp Live Feedback"),
         backgroundColor: Colors.white,
+        elevation: 0,
         automaticallyImplyLeading: false,
+        title: Text(
+          'Connect',
+          style: AppStyles.textStyle_20_600.copyWith(
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Container(
         decoration: BoxDecoration(

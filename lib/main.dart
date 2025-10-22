@@ -9,7 +9,7 @@ import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/services/notification_manager.dart';
 import 'package:airline_app/services/journey_notification_service.dart';
-import 'package:airline_app/screen/login/skip_screen.dart';
+import 'package:airline_app/screen/logIn/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
 import 'package:airline_app/screen/profile/about_app.dart';
@@ -18,6 +18,7 @@ import 'package:airline_app/screen/profile/help_faq.dart';
 import 'package:airline_app/screen/profile/notifications_screen.dart';
 import 'package:airline_app/screen/profile/profile_screen.dart';
 import 'package:airline_app/screen/profile/terms_of_service.dart';
+import 'package:airline_app/provider/selected_language_provider.dart';
 import 'package:airline_app/screen/reviewsubmission/complete_reviews.dart';
 import 'package:airline_app/screen/reviewsubmission/review_airline/detail_first_screen_for_airline.dart';
 import 'package:airline_app/screen/reviewsubmission/review_airline/detail_second_screen_for_airline.dart';
@@ -31,6 +32,7 @@ import 'package:airline_app/screen/reviewsubmission/reviewsubmission_screen.dart
 import 'package:airline_app/screen/reviewsubmission/start_reviews.dart';
 import 'package:airline_app/screen/reviewsubmission/submit_screen.dart';
 import 'package:airline_app/screen/journey/my_journey_screen.dart';
+import 'package:airline_app/screen/issues/issues_screen.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -92,6 +94,7 @@ void main() async {
     ProviderScope(
       overrides: [
         localeProvider.overrideWith((ref) => Locale(languageCode)),
+        selectedLanguageProvider.overrideWith((ref) => SelectedLanguageProvider()..changeLanguage(languageCode)),
       ],
       child: const MyApp(),
     ),
@@ -173,6 +176,7 @@ class MyApp extends ConsumerWidget {
         AppRoutes.termsofservice: (context) => const TermsOfService(),
         AppRoutes.myJourney: (context) => const MyJourneyScreen(),
         AppRoutes.settingsscreen: (context) => const SettingsScreen(),
+        AppRoutes.issuesScreen: (context) => const IssuesScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

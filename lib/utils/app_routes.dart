@@ -43,4 +43,5 @@ class AppRoutes {
   static const stagefeedback = "/stagefeedback";
   static const myJourney = "/my-journey";
   static const settingsscreen = "/settingsscreen";
+  static const issuesScreen = "/issues-screen";
 }

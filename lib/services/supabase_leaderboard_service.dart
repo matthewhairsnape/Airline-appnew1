@@ -10,7 +10,7 @@ class SupabaseLeaderboardService {
   /// Get leaderboard rankings from Supabase
   static Future<List<Map<String, dynamic>>> getLeaderboardRankings({
     String? scoreType,
-    int limit = 40,
+    int limit = 10,
   }) async {
     try {
       debugPrint('📊 Fetching leaderboard rankings from Supabase...');
@@ -52,7 +52,7 @@ class SupabaseLeaderboardService {
   /// Get real-time leaderboard updates
   static Stream<List<Map<String, dynamic>>> subscribeToLeaderboardUpdates({
     String? scoreType,
-    int limit = 40,
+    int limit = 10,
   }) {
     try {
       debugPrint('📡 Subscribing to leaderboard real-time updates...');
@@ -130,7 +130,7 @@ class SupabaseLeaderboardService {
           ''')
           .eq('score_type', scoreType)
           .order('score_value', ascending: false)
-          .limit(40);
+          .limit(10);
 
       final response = await query;
       
@@ -244,10 +244,14 @@ class SupabaseLeaderboardService {
     switch (uiCategory) {
       case 'Wi-Fi Experience':
         return 'wifi_experience';
+      case 'Crew Friendliness':
+        return 'crew_friendliness';
       case 'Seat Comfort':
         return 'seat_comfort';
-      case 'Food and Drink':
-        return 'food_drink';
+      case 'Food & Beverage':
+        return 'food_beverage';
+      case 'Operations & Timeliness':
+        return 'operations_timeliness';
       default:
         return 'overall';
     }
@@ -258,10 +262,14 @@ class SupabaseLeaderboardService {
     switch (scoreType) {
       case 'wifi_experience':
         return 'Wi-Fi Experience';
+      case 'crew_friendliness':
+        return 'Crew Friendliness';
       case 'seat_comfort':
         return 'Seat Comfort';
-      case 'food_drink':
-        return 'Food and Drink';
+      case 'food_beverage':
+        return 'Food & Beverage';
+      case 'operations_timeliness':
+        return 'Operations & Timeliness';
       default:
         return 'Overall';
     }
