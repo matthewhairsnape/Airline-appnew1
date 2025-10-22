@@ -1,4 +1,5 @@
 import 'package:airline_app/provider/auth_provider.dart';
+import 'package:airline_app/provider/selected_language_provider.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
@@ -27,7 +28,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
-            'Sign Out',
+            AppLocalizations.of(context).translate('Sign Out'),
             style: AppStyles.textStyle_18_600.copyWith(
               color: Colors.black,
             ),
@@ -52,33 +53,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(context).pop(); // Close confirmation dialog
                 
-                // Show loading indicator
-                if (context.mounted) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                }
-                
                 try {
-                  await ref.read(authProvider.notifier).signOut();
+                  print('🔄 Starting sign out process...');
                   
-                  // Close loading dialog and navigate
-                  if (context.mounted) {
-                    Navigator.of(context).pop(); // Close loading dialog
-                    Navigator.pushNamedAndRemoveUntil(
-                      context, 
-                      AppRoutes.skipscreen, 
-                      (route) => false
-                    );
-                  }
+                  // Store the navigator before sign out
+                  final navigator = Navigator.of(context);
+                  
+                  // Sign out from auth provider first
+                  await ref.read(authProvider.notifier).signOut();
+                  print('✅ Auth provider sign out completed');
+                  
+                  // Add a small delay to ensure sign out completes
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  print('⏱️ Delay completed, attempting navigation...');
+                  
+                  // Navigate using the stored navigator
+                  print('🎯 Navigating to skip screen...');
+                  navigator.pushReplacementNamed(AppRoutes.skipscreen);
+                  print('✅ Navigation completed');
+                  
                 } catch (e) {
-                  // Close loading dialog and show error
+                  print('❌ Sign out error: $e');
+                  // Show error if sign out fails
                   if (context.mounted) {
-                    Navigator.of(context).pop(); // Close loading dialog
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Sign out failed: $e'),
@@ -90,7 +87,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 }
               },
               child: Text(
-                'Sign Out',
+                AppLocalizations.of(context).translate('Sign Out'),
                 style: AppStyles.textStyle_14_600.copyWith(
                   color: Colors.red,
                 ),
@@ -111,7 +108,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildLanguageButton('English', 'en'),
+              _buildLanguageButton(AppLocalizations.of(context).translate('English'), 'en'),
               _buildLanguageButton('中文', 'zh'),
               _buildLanguageButton('Español', 'es'),
             ],
@@ -126,7 +123,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Consumer(
       builder: (context, ref, child) {
         final currentLocale = ref.watch(localeProvider);
-        final isSelected = currentLocale.languageCode == code;
+        final selectedLanguage = ref.watch(selectedLanguageProvider);
+        final isSelected = currentLocale.languageCode == code || selectedLanguage == code;
 
         return ElevatedButton(
           onPressed: () async {
@@ -135,29 +133,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('selectedLanguageSym', code);
               
-              // Update the locale provider
+              // Update both providers
+              ref.read(selectedLanguageProvider.notifier).changeLanguage(code);
               ref.read(localeProvider.notifier).state = Locale(code);
               
-              // Show success feedback
+              // Show loading dialog
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Language changed to $label. Restart app to see changes.'),
-                    duration: const Duration(seconds: 3),
-                    backgroundColor: Colors.green,
-                    action: SnackBarAction(
-                      label: 'Restart',
-                      textColor: Colors.white,
-                      onPressed: () {
-                        // Force app restart by navigating to skip screen
-                        Navigator.pushNamedAndRemoveUntil(
-                          context, 
-                          AppRoutes.skipscreen, 
-                          (route) => false
-                        );
-                      },
-                    ),
-                  ),
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Changing language to $label...',
+                            style: AppStyles.textStyle_16_600.copyWith(
+                              color: Colors.black,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+                
+                // Wait a moment for the dialog to show
+                await Future.delayed(const Duration(milliseconds: 500));
+                
+                // Force app restart by navigating to skip screen
+                Navigator.pushNamedAndRemoveUntil(
+                  context, 
+                  AppRoutes.skipscreen,
+                  (route) => false
                 );
               }
             } catch (e) {
@@ -355,42 +373,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _buildUserProfileSection(),
               const SizedBox(height: 24),
               
-              // App Settings Section
-              _buildSectionHeader('App Settings'),
-              _buildSettingsItem(
-                context: context,
-                title: 'App Language',
-                onTap: () => setState(() {
-                  showLanguageButtons = !showLanguageButtons;
-                }),
-              ),
-              if (showLanguageButtons) _buildLanguageButtons(),
-              const SizedBox(height: 8),
+              // App Settings Section - Hidden for now
+              // _buildSectionHeader(AppLocalizations.of(context).translate('App Settings')),
+              // _buildSettingsItem(
+              //   context: context,
+              //   title: AppLocalizations.of(context).translate('App Language'),
+              //   onTap: () => setState(() {
+              //     showLanguageButtons = !showLanguageButtons;
+              //   }),
+              // ),
+              // if (showLanguageButtons) _buildLanguageButtons(),
+              // const SizedBox(height: 8),
               
               // Information Section
-              _buildSectionHeader('Information'),
+              _buildSectionHeader(AppLocalizations.of(context).translate('Information')),
               _buildSettingsItem(
                 context: context,
-                title: 'About the app',
+                title: AppLocalizations.of(context).translate('About the app'),
                 onTap: () => Navigator.pushNamed(context, AppRoutes.aboutapp),
               ),
               _buildSettingsItem(
                 context: context,
-                title: 'Terms of Service',
+                title: AppLocalizations.of(context).translate('Terms of Service'),
                 onTap: () => Navigator.pushNamed(context, AppRoutes.termsofservice),
               ),
               _buildSettingsItem(
                 context: context,
-                title: 'Help & FAQ',
+                title: AppLocalizations.of(context).translate('Help & FAQs'),
                 onTap: () => Navigator.pushNamed(context, AppRoutes.helpFaqs),
               ),
               const SizedBox(height: 8),
               
               // Account Section
-              _buildSectionHeader('Account'),
+              _buildSectionHeader(AppLocalizations.of(context).translate('Account')),
               _buildSettingsItem(
                 context: context,
-                title: 'Sign Out',
+                title: AppLocalizations.of(context).translate('Sign Out'),
                 onTap: () => _showSignOutConfirmation(context),
                 textColor: Colors.red,
               ),
@@ -401,4 +419,3 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 }
-

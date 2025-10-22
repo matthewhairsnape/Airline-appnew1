@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:airline_app/services/supabase_leaderboard_service.dart';
+import 'package:airline_app/models/leaderboard_category_model.dart';
 
 /// State for leaderboard data
 class LeaderboardState {
@@ -42,12 +43,12 @@ class LeaderboardState {
 
 /// Provider for leaderboard state management
 class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
-  LeaderboardNotifier() : super(const LeaderboardState(
+  LeaderboardNotifier() : super(LeaderboardState(
     airlines: [],
     issues: [],
     isLoading: true,
-    selectedCategory: 'Wi-Fi Experience',
-    availableCategories: ['Wi-Fi Experience', 'Seat Comfort', 'Food and Drink'],
+    selectedCategory: LeaderboardCategoryService.getAllCategories().first.tab,
+    availableCategories: LeaderboardCategoryService.getAllTabs(),
   ));
 
   /// Load initial leaderboard data
@@ -152,7 +153,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       // Extract data from realtime_feedback_view columns
       final flightNumber = feedback['flight_number'] as String? ?? 'Unknown';
       final passengerName = feedback['passenger_name'] as String? ?? 'Anonymous';
-      final seatNumber = feedback['seat_number'] as String? ?? 'N/A';
+      final seatNumber = feedback['seat'] as String? ?? 'N/A';
       final feedbackId = feedback['feedback_id'] as String? ?? '';
 
       // Generate sample likes and dislikes based on passenger and flight
@@ -264,6 +265,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
           {'text': 'Cold meals', 'count': 8},
           {'text': 'Delayed boarding', 'count': 3},
         ],
+        'passenger': 'John Smith',
+        'seat': '12A',
       },
       {
         'issue': 'Feedback Report',
@@ -282,6 +285,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         'dislikes': [
           {'text': 'Long wait', 'count': 4},
         ],
+        'passenger': 'Sarah Johnson',
+        'seat': '8C',
       },
     ];
   }
