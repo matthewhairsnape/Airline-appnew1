@@ -16,7 +16,7 @@ class DirectSupabaseService {
   }) async {
     try {
       debugPrint('🔄 Saving user directly to Supabase...');
-      
+
       final userData = {
         'id': userId,
         'email': email,
@@ -27,10 +27,7 @@ class DirectSupabaseService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      final response = await client
-          .from('users')
-          .upsert(userData)
-          .select();
+      final response = await client.from('users').upsert(userData).select();
 
       debugPrint('✅ User saved successfully: $response');
       return true;
@@ -54,7 +51,7 @@ class DirectSupabaseService {
   }) async {
     try {
       debugPrint('🔄 Saving journey directly to Supabase...');
-      
+
       final journeyData = {
         'id': journeyId,
         'user_id': userId,
@@ -69,10 +66,8 @@ class DirectSupabaseService {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      final response = await client
-          .from('journeys')
-          .upsert(journeyData)
-          .select();
+      final response =
+          await client.from('journeys').upsert(journeyData).select();
 
       debugPrint('✅ Journey saved successfully: $response');
       return true;
@@ -96,7 +91,7 @@ class DirectSupabaseService {
   }) async {
     try {
       debugPrint('🔄 Saving stage feedback directly to Supabase...');
-      
+
       final feedbackData = {
         'id': feedbackId,
         'journey_id': journeyId,
@@ -111,10 +106,8 @@ class DirectSupabaseService {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      final response = await client
-          .from('stage_feedback')
-          .upsert(feedbackData)
-          .select();
+      final response =
+          await client.from('stage_feedback').upsert(feedbackData).select();
 
       debugPrint('✅ Stage feedback saved successfully: $response');
       return true;
@@ -135,7 +128,7 @@ class DirectSupabaseService {
   }) async {
     try {
       debugPrint('🔄 Saving journey event directly to Supabase...');
-      
+
       final eventData = {
         'id': eventId,
         'journey_id': journeyId,
@@ -147,10 +140,8 @@ class DirectSupabaseService {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      final response = await client
-          .from('journey_events')
-          .upsert(eventData)
-          .select();
+      final response =
+          await client.from('journey_events').upsert(eventData).select();
 
       debugPrint('✅ Journey event saved successfully: $response');
       return true;
@@ -164,12 +155,9 @@ class DirectSupabaseService {
   static Future<Map<String, dynamic>?> getUser(String userId) async {
     try {
       debugPrint('🔄 Getting user from Supabase...');
-      
-      final response = await client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+
+      final response =
+          await client.from('users').select().eq('id', userId).maybeSingle();
 
       debugPrint('✅ User retrieved: $response');
       return response;
@@ -180,10 +168,11 @@ class DirectSupabaseService {
   }
 
   /// Get user journeys from Supabase
-  static Future<List<Map<String, dynamic>>> getUserJourneys(String userId) async {
+  static Future<List<Map<String, dynamic>>> getUserJourneys(
+      String userId) async {
     try {
       debugPrint('🔄 Getting user journeys from Supabase...');
-      
+
       final response = await client
           .from('journeys')
           .select()
@@ -199,10 +188,11 @@ class DirectSupabaseService {
   }
 
   /// Get journey events from Supabase
-  static Future<List<Map<String, dynamic>>> getJourneyEvents(String journeyId) async {
+  static Future<List<Map<String, dynamic>>> getJourneyEvents(
+      String journeyId) async {
     try {
       debugPrint('🔄 Getting journey events from Supabase...');
-      
+
       final response = await client
           .from('journey_events')
           .select()
@@ -221,11 +211,8 @@ class DirectSupabaseService {
   static Future<bool> testConnection() async {
     try {
       debugPrint('🔄 Testing Supabase connection...');
-      
-      final response = await client
-          .from('users')
-          .select('count')
-          .limit(1);
+
+      final response = await client.from('users').select('count').limit(1);
 
       debugPrint('✅ Supabase connection successful');
       return true;
@@ -239,10 +226,10 @@ class DirectSupabaseService {
   static Future<Map<String, dynamic>> getAllUserData(String userId) async {
     try {
       debugPrint('🔄 Getting all user data from Supabase...');
-      
+
       final user = await getUser(userId);
       final journeys = await getUserJourneys(userId);
-      
+
       // Get events for all journeys
       final allEvents = <Map<String, dynamic>>[];
       for (final journey in journeys) {

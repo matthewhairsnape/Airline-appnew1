@@ -7,10 +7,11 @@ class JourneyDatabaseService {
   static final SupabaseClient _client = SupabaseService.client;
 
   /// Fetch journeys for a specific user from the database
-  static Future<List<Map<String, dynamic>>> getUserJourneys(String userId) async {
+  static Future<List<Map<String, dynamic>>> getUserJourneys(
+      String userId) async {
     try {
       debugPrint('🔍 Fetching journeys for user: $userId');
-      
+
       // First try with the join query
       try {
         final response = await _client
@@ -25,16 +26,16 @@ class JourneyDatabaseService {
             .order('created_at', ascending: false);
 
         debugPrint('✅ Found ${response.length} journeys in database with join');
-        
+
         // Debug: Log the structure of the first journey if available
         if (response.isNotEmpty) {
           debugPrint('🔍 Sample journey data: ${response.first}');
         }
-        
+
         return List<Map<String, dynamic>>.from(response);
       } catch (joinError) {
         debugPrint('⚠️ Join query failed, trying simple query: $joinError');
-        
+
         // Fallback: Simple query without joins
         final response = await _client
             .from('journeys')
@@ -42,13 +43,14 @@ class JourneyDatabaseService {
             .eq('passenger_id', userId)
             .order('created_at', ascending: false);
 
-        debugPrint('✅ Found ${response.length} journeys in database (simple query)');
-        
+        debugPrint(
+            '✅ Found ${response.length} journeys in database (simple query)');
+
         // Debug: Log the structure of the first journey if available
         if (response.isNotEmpty) {
           debugPrint('🔍 Sample journey data: ${response.first}');
         }
-        
+
         return List<Map<String, dynamic>>.from(response);
       }
     } catch (e) {
@@ -58,13 +60,14 @@ class JourneyDatabaseService {
   }
 
   /// Convert database journey data to FlightTrackingModel
-  static FlightTrackingModel? convertToFlightTrackingModel(Map<String, dynamic> journeyData) {
+  static FlightTrackingModel? convertToFlightTrackingModel(
+      Map<String, dynamic> journeyData) {
     try {
       final flight = journeyData['flight'];
       if (flight == null) {
         debugPrint('⚠️ No flight data found for journey: ${journeyData['id']}');
         debugPrint('🔍 Journey data structure: $journeyData');
-        
+
         // Try to create a basic flight model from journey data only
         return _createBasicFlightModel(journeyData);
       }
@@ -72,21 +75,24 @@ class JourneyDatabaseService {
       debugPrint('🔍 Flight data structure: $flight');
 
       // Determine flight phase based on journey status or flight data
-      FlightPhase currentPhase = _determinePhaseFromJourney(journeyData, flight);
-      
+      FlightPhase currentPhase =
+          _determinePhaseFromJourney(journeyData, flight);
+
       // Parse departure and arrival times
       DateTime departureTime;
       DateTime arrivalTime;
-      
+
       try {
-        departureTime = DateTime.parse(flight['departure_time'] ?? flight['scheduled_departure'] ?? '');
+        departureTime = DateTime.parse(
+            flight['departure_time'] ?? flight['scheduled_departure'] ?? '');
       } catch (e) {
         debugPrint('❌ Error parsing departure time: $e');
         departureTime = DateTime.now();
       }
-      
+
       try {
-        arrivalTime = DateTime.parse(flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '');
+        arrivalTime = DateTime.parse(
+            flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '');
       } catch (e) {
         debugPrint('❌ Error parsing arrival time: $e');
         arrivalTime = DateTime.now().add(Duration(hours: 2));
@@ -97,7 +103,9 @@ class JourneyDatabaseService {
       String arrivalAirport = flight['arrival_airport']?.toString() ?? '';
 
       // Extract airline code - this should be stored as string in the flights table
-      String carrier = flight['carrier_code']?.toString() ?? flight['airline']?.toString() ?? '';
+      String carrier = flight['carrier_code']?.toString() ??
+          flight['airline']?.toString() ??
+          '';
 
       final flightTrackingModel = FlightTrackingModel(
         flightId: journeyData['id'], // Use journey ID as flight ID
@@ -110,7 +118,7 @@ class JourneyDatabaseService {
         departureAirport: departureAirport,
         arrivalAirport: arrivalAirport,
         currentPhase: currentPhase,
-        phaseStartTime: journeyData['created_at'] != null 
+        phaseStartTime: journeyData['created_at'] != null
             ? DateTime.parse(journeyData['created_at'])
             : DateTime.now(),
         ciriumData: flight, // Store the full flight data
@@ -123,7 +131,8 @@ class JourneyDatabaseService {
         flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
       );
 
-      debugPrint('✅ Converted journey to FlightTrackingModel: ${flightTrackingModel.pnr}');
+      debugPrint(
+          '✅ Converted journey to FlightTrackingModel: ${flightTrackingModel.pnr}');
       return flightTrackingModel;
     } catch (e) {
       debugPrint('❌ Error converting journey to FlightTrackingModel: $e');
@@ -132,11 +141,12 @@ class JourneyDatabaseService {
   }
 
   /// Determine flight phase from journey and flight data
-  static FlightPhase _determinePhaseFromJourney(Map<String, dynamic> journey, Map<String, dynamic> flight) {
+  static FlightPhase _determinePhaseFromJourney(
+      Map<String, dynamic> journey, Map<String, dynamic> flight) {
     // Check journey status first
     final journeyStatus = journey['status']?.toString().toLowerCase();
     final currentPhase = journey['current_phase']?.toString().toLowerCase();
-    
+
     if (currentPhase != null) {
       switch (currentPhase) {
         case 'completed':
@@ -161,8 +171,10 @@ class JourneyDatabaseService {
 
     // Fallback: determine based on current time vs flight times
     final now = DateTime.now();
-    final departureTime = DateTime.tryParse(flight['departure_time'] ?? '') ?? now;
-    final arrivalTime = DateTime.tryParse(flight['arrival_time'] ?? '') ?? now.add(Duration(hours: 2));
+    final departureTime =
+        DateTime.tryParse(flight['departure_time'] ?? '') ?? now;
+    final arrivalTime = DateTime.tryParse(flight['arrival_time'] ?? '') ??
+        now.add(Duration(hours: 2));
 
     if (now.isAfter(arrivalTime.add(Duration(hours: 1)))) {
       return FlightPhase.completed;
@@ -180,9 +192,10 @@ class JourneyDatabaseService {
   }
 
   /// Extract events from journey data
-  static List<FlightEvent> _extractEventsFromJourney(Map<String, dynamic> journey) {
+  static List<FlightEvent> _extractEventsFromJourney(
+      Map<String, dynamic> journey) {
     final events = <FlightEvent>[];
-    
+
     // Add journey creation event
     if (journey['created_at'] != null) {
       events.add(FlightEvent(
@@ -194,13 +207,15 @@ class JourneyDatabaseService {
     }
 
     // Add any journey events if they exist
-    if (journey['journey_events'] != null && journey['journey_events'] is List) {
+    if (journey['journey_events'] != null &&
+        journey['journey_events'] is List) {
       final journeyEvents = journey['journey_events'] as List;
       for (final event in journeyEvents) {
         if (event is Map<String, dynamic>) {
           events.add(FlightEvent(
             eventType: event['event_type'] ?? 'UNKNOWN',
-            timestamp: DateTime.tryParse(event['event_timestamp'] ?? '') ?? DateTime.now(),
+            timestamp: DateTime.tryParse(event['event_timestamp'] ?? '') ??
+                DateTime.now(),
             description: event['description'] ?? '',
             metadata: event['metadata'] ?? {},
           ));
@@ -212,18 +227,19 @@ class JourneyDatabaseService {
   }
 
   /// Create a basic flight model from journey data only
-  static FlightTrackingModel? _createBasicFlightModel(Map<String, dynamic> journeyData) {
+  static FlightTrackingModel? _createBasicFlightModel(
+      Map<String, dynamic> journeyData) {
     try {
       debugPrint('🔧 Creating basic flight model from journey data');
-      
+
       // Extract basic information from journey data
       final pnr = journeyData['pnr']?.toString() ?? '';
       final seatNumber = journeyData['seat_number']?.toString();
-      
+
       // Try to parse times from journey data
       DateTime departureTime = DateTime.now();
       DateTime arrivalTime = DateTime.now().add(Duration(hours: 2));
-      
+
       if (journeyData['departure_time'] != null) {
         try {
           departureTime = DateTime.parse(journeyData['departure_time']);
@@ -231,7 +247,7 @@ class JourneyDatabaseService {
           debugPrint('⚠️ Could not parse departure_time: $e');
         }
       }
-      
+
       if (journeyData['arrival_time'] != null) {
         try {
           arrivalTime = DateTime.parse(journeyData['arrival_time']);
@@ -243,8 +259,9 @@ class JourneyDatabaseService {
       // Determine phase from journey status
       FlightPhase currentPhase = FlightPhase.preCheckIn;
       final status = journeyData['status']?.toString().toLowerCase();
-      final currentPhaseStr = journeyData['current_phase']?.toString().toLowerCase();
-      
+      final currentPhaseStr =
+          journeyData['current_phase']?.toString().toLowerCase();
+
       if (currentPhaseStr != null) {
         switch (currentPhaseStr) {
           case 'completed':
@@ -281,7 +298,7 @@ class JourneyDatabaseService {
         departureAirport: journeyData['departure_airport']?.toString() ?? '',
         arrivalAirport: journeyData['arrival_airport']?.toString() ?? '',
         currentPhase: currentPhase,
-        phaseStartTime: journeyData['created_at'] != null 
+        phaseStartTime: journeyData['created_at'] != null
             ? DateTime.parse(journeyData['created_at'])
             : DateTime.now(),
         ciriumData: journeyData, // Store journey data as cirium data
@@ -311,20 +328,21 @@ class JourneyDatabaseService {
   }
 
   /// Sync database journeys with local flight tracking
-  static Future<List<FlightTrackingModel>> syncUserJourneys(String userId) async {
+  static Future<List<FlightTrackingModel>> syncUserJourneys(
+      String userId) async {
     try {
       debugPrint('🔄 Syncing journeys for user: $userId');
-      
+
       final journeyData = await getUserJourneys(userId);
       final flightModels = <FlightTrackingModel>[];
-      
+
       for (final journey in journeyData) {
         final flightModel = convertToFlightTrackingModel(journey);
         if (flightModel != null) {
           flightModels.add(flightModel);
         }
       }
-      
+
       debugPrint('✅ Synced ${flightModels.length} journeys from database');
       return flightModels;
     } catch (e) {

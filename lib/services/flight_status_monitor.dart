@@ -96,11 +96,13 @@ class FlightStatusMonitor {
       // Check if status has changed
       final lastStatus = _lastKnownStatus[journeyId];
       if (lastStatus == currentPhase) {
-        debugPrint('📊 No status change for journey: $journeyId (still $currentPhase)');
+        debugPrint(
+            '📊 No status change for journey: $journeyId (still $currentPhase)');
         return;
       }
 
-      debugPrint('🔄 Status changed for journey: $journeyId from $lastStatus to $currentPhase');
+      debugPrint(
+          '🔄 Status changed for journey: $journeyId from $lastStatus to $currentPhase');
 
       // Update the journey in Supabase
       await _updateJourneyStatus(journeyId, currentPhase, flightData);
@@ -117,7 +119,6 @@ class FlightStatusMonitor {
       if (_shouldStopMonitoring(currentPhase)) {
         stopMonitoring(journeyId);
       }
-
     } catch (e) {
       debugPrint('❌ Error checking flight status for journey $journeyId: $e');
     }
@@ -131,28 +132,24 @@ class FlightStatusMonitor {
   ) async {
     try {
       // Update journey phase
-      await SupabaseService.client
-          .from('journeys')
-          .update({
-            'current_phase': newPhase,
-            'status': _mapPhaseToStatus(newPhase),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', journeyId);
+      await SupabaseService.client.from('journeys').update({
+        'current_phase': newPhase,
+        'status': _mapPhaseToStatus(newPhase),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', journeyId);
 
       // Add journey event
-      await SupabaseService.client
-          .from('journey_events')
-          .insert({
-            'journey_id': journeyId,
-            'event_type': 'status_change',
-            'title': _getEventTitle(newPhase),
-            'description': _getEventDescription(newPhase, flightData),
-            'event_timestamp': DateTime.now().toIso8601String(),
-            'metadata': flightData,
-          });
+      await SupabaseService.client.from('journey_events').insert({
+        'journey_id': journeyId,
+        'event_type': 'status_change',
+        'title': _getEventTitle(newPhase),
+        'description': _getEventDescription(newPhase, flightData),
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': flightData,
+      });
 
-      debugPrint('✅ Updated journey status in Supabase: $journeyId -> $newPhase');
+      debugPrint(
+          '✅ Updated journey status in Supabase: $journeyId -> $newPhase');
     } catch (e) {
       debugPrint('❌ Error updating journey status in Supabase: $e');
     }
@@ -165,8 +162,9 @@ class FlightStatusMonitor {
     Map<String, dynamic> flightData,
   ) async {
     try {
-      final message = CiriumApiService.getNotificationMessage(phase, flightData);
-      
+      final message =
+          CiriumApiService.getNotificationMessage(phase, flightData);
+
       await PushNotificationService.sendNotificationToUser(
         userId: userId,
         title: 'Flight Status Update',
@@ -242,11 +240,12 @@ class FlightStatusMonitor {
   }
 
   /// Get event description for phase
-  static String _getEventDescription(String phase, Map<String, dynamic> flightData) {
+  static String _getEventDescription(
+      String phase, Map<String, dynamic> flightData) {
     final carrier = flightData['carrier'] ?? '';
     final flightNumber = flightData['flightNumber'] ?? '';
     final flight = '$carrier$flightNumber';
-    
+
     switch (phase) {
       case 'boarding':
         return 'Flight $flight is now boarding. Please proceed to the gate.';
@@ -273,5 +272,6 @@ class FlightStatusMonitor {
   static int get activeMonitorCount => _activeMonitors.length;
 
   /// Check if journey is being monitored
-  static bool isMonitoring(String journeyId) => _activeMonitors.containsKey(journeyId);
+  static bool isMonitoring(String journeyId) =>
+      _activeMonitors.containsKey(journeyId);
 }

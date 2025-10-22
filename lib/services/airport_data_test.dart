@@ -7,15 +7,18 @@ import 'package:airline_app/services/supabase_service.dart';
 class AirportDataTest {
   static Future<void> testAirportDataFlow() async {
     debugPrint('🧪 Starting airport data flow test...');
-    
+
     try {
       // Test 1: Fetch airport data from Cirium API
       debugPrint('📡 Test 1: Fetching airport data from Cirium API');
       final laxData = await AirportDataService.fetchAirportData('LAX');
       if (laxData != null) {
-        debugPrint('✅ LAX data fetched: ${laxData['name']} - ${laxData['city']}, ${laxData['country']}');
-        debugPrint('📍 Coordinates: ${laxData['latitude']}, ${laxData['longitude']}');
-        debugPrint('🛫 ICAO: ${laxData['icao_code']}, IATA: ${laxData['iata_code']}');
+        debugPrint(
+            '✅ LAX data fetched: ${laxData['name']} - ${laxData['city']}, ${laxData['country']}');
+        debugPrint(
+            '📍 Coordinates: ${laxData['latitude']}, ${laxData['longitude']}');
+        debugPrint(
+            '🛫 ICAO: ${laxData['icao_code']}, IATA: ${laxData['iata_code']}');
       } else {
         debugPrint('❌ Failed to fetch LAX data');
       }
@@ -37,20 +40,24 @@ class AirportDataTest {
         departureIata: 'JFK',
         arrivalIata: 'LAX',
       );
-      
+
       if (airportData['departure'] != null) {
-        debugPrint('✅ Departure airport (JFK): ${airportData['departure']?['name']}');
+        debugPrint(
+            '✅ Departure airport (JFK): ${airportData['departure']?['name']}');
       }
       if (airportData['arrival'] != null) {
-        debugPrint('✅ Arrival airport (LAX): ${airportData['arrival']?['name']}');
+        debugPrint(
+            '✅ Arrival airport (LAX): ${airportData['arrival']?['name']}');
       }
 
       // Test 4: Get airport by IATA code
       debugPrint('🔍 Test 4: Getting airport by IATA code');
       final airport = await AirportDataService.getAirportByIata('LAX');
       if (airport != null) {
-        debugPrint('✅ Airport found: ${airport['name']} - ${airport['city']}, ${airport['country']}');
-        debugPrint('📍 Full coordinates: ${airport['latitude']}, ${airport['longitude']}');
+        debugPrint(
+            '✅ Airport found: ${airport['name']} - ${airport['city']}, ${airport['country']}');
+        debugPrint(
+            '📍 Full coordinates: ${airport['latitude']}, ${airport['longitude']}');
       } else {
         debugPrint('❌ Airport not found');
       }
@@ -64,7 +71,7 @@ class AirportDataTest {
   /// Test the complete flight confirmation flow with airport data
   static Future<void> testFlightConfirmationWithAirportData() async {
     debugPrint('🧪 Starting flight confirmation with airport data test...');
-    
+
     try {
       // Mock flight data
       final mockFlightData = {
@@ -93,12 +100,14 @@ class AirportDataTest {
       // Test saving flight data with airport details
       if (SupabaseService.isInitialized) {
         debugPrint('💾 Testing flight data save with airport details...');
-        
+
         // Note: This would require a valid user session
         // For testing purposes, we'll just verify the data structure
         debugPrint('✅ Mock flight data structure validated');
-        debugPrint('🛫 Departure: ${mockFlightData['departureAirportData']?['name']}');
-        debugPrint('🛬 Arrival: ${mockFlightData['arrivalAirportData']?['name']}');
+        debugPrint(
+            '🛫 Departure: ${mockFlightData['departureAirportData']?['name']}');
+        debugPrint(
+            '🛬 Arrival: ${mockFlightData['arrivalAirportData']?['name']}');
       } else {
         debugPrint('⚠️ Supabase not initialized, skipping database test');
       }
@@ -109,4 +118,3 @@ class AirportDataTest {
     }
   }
 }
-

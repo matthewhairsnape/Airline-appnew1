@@ -28,7 +28,7 @@ class SectionFeedbackModal extends StatefulWidget {
   State<SectionFeedbackModal> createState() => _SectionFeedbackModalState();
 }
 
-class _SectionFeedbackModalState extends State<SectionFeedbackModal> 
+class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     with TickerProviderStateMixin {
   int _rating = 0;
   Set<String> _selectedLikes = {};
@@ -38,7 +38,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late Animation<double> _floatingAnimation;
-  
+
   // New state for Tell Us More and Media
   bool _showLikesCommentBox = false;
   bool _showDislikesCommentBox = false;
@@ -57,12 +57,12 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       duration: Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     _floatingController = AnimationController(
       duration: Duration(seconds: 3),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -70,7 +70,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
+
     _slideAnimation = Tween<Offset>(
       begin: Offset(0, 0.3),
       end: Offset.zero,
@@ -78,7 +78,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       parent: _animationController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _floatingAnimation = Tween<double>(
       begin: -0.02,
       end: 0.02,
@@ -86,7 +86,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       parent: _floatingController,
       curve: Curves.easeInOut,
     ));
-    
+
     _animationController.forward();
     _floatingController.repeat(reverse: true);
   }
@@ -106,7 +106,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
   @override
   Widget build(BuildContext context) {
     final keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Container(
@@ -134,15 +134,17 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Scrollable content
             Flexible(
               child: SingleChildScrollView(
                 controller: _scrollController,
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 physics: AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(24, 16, 24, keyboardPadding > 0 ? keyboardPadding + 24 : 24),
+                  padding: EdgeInsets.fromLTRB(24, 16, 24,
+                      keyboardPadding > 0 ? keyboardPadding + 24 : 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -182,9 +184,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                           ),
                         ),
                       ),
-                      
+
                       SizedBox(height: 24),
-                      
+
                       // Title
                       Row(
                         children: [
@@ -200,22 +202,23 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                           ),
                         ],
                       ),
-                      
+
                       SizedBox(height: 8),
-                      
+
                       // Subtitle
                       Text(
                         'Rate your ${widget.sectionName.toLowerCase()} experience',
-                        style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                        style: AppStyles.textStyle_16_400
+                            .copyWith(color: Colors.grey[600]),
                       ),
-                      
+
                       SizedBox(height: 24),
-                      
+
                       // Star rating
                       _buildRatingSection(),
-                      
+
                       SizedBox(height: 32),
-                      
+
                       // Feedback tags and comments
                       _buildFeedbackContent(),
                     ],
@@ -223,7 +226,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                 ),
               ),
             ),
-            
+
             // Sticky submit button with safe area
             SafeArea(
               top: false,
@@ -257,7 +260,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       SizedBox(width: 12),
                       Text(
                         'Submit Feedback',
-                        style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                        style: AppStyles.textStyle_16_600
+                            .copyWith(color: Colors.white),
                       ),
                     ],
                   ),
@@ -269,7 +273,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       ),
     );
   }
-  
+
   Widget _buildFeedbackContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,9 +298,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
           },
           true,
         ),
-        
+
         SizedBox(height: 32),
-        
+
         // What could be improved section
         _buildFeedbackSection(
           'What could be improved?',
@@ -317,7 +321,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
           },
           false,
         ),
-        
+
         SizedBox(height: 24),
       ],
     );
@@ -339,7 +343,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
-                  index < _rating ? Icons.star_rounded : Icons.star_border_rounded,
+                  index < _rating
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
                   color: index < _rating ? Colors.amber : Colors.grey[300],
                   size: 44,
                 ),
@@ -381,7 +387,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
           ],
         ),
         SizedBox(height: 16),
-        
+
         // Regular feedback options
         Wrap(
           spacing: 8,
@@ -404,16 +410,17 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                   option,
                   style: AppStyles.textStyle_14_500.copyWith(
                     color: isSelected ? color : Colors.black,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
             );
           }).toList(),
         ),
-        
+
         SizedBox(height: 12),
-        
+
         // Tell Us More and Media buttons
         Row(
           children: [
@@ -443,16 +450,17 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       SizedBox(width: 8),
                       Text(
                         'Tell Us More',
-                        style: AppStyles.textStyle_14_500.copyWith(color: Colors.white),
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.white),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-            
+
             SizedBox(width: 8),
-            
+
             // Media button
             Expanded(
               child: GestureDetector(
@@ -471,7 +479,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       SizedBox(width: 8),
                       Text(
                         'Media',
-                        style: AppStyles.textStyle_14_500.copyWith(color: Colors.white),
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.white),
                       ),
                     ],
                   ),
@@ -480,9 +489,10 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
             ),
           ],
         ),
-        
+
         // Comment box (if enabled)
-        if ((isLikes && _showLikesCommentBox) || (!isLikes && _showDislikesCommentBox))
+        if ((isLikes && _showLikesCommentBox) ||
+            (!isLikes && _showDislikesCommentBox))
           Container(
             margin: EdgeInsets.only(top: 12),
             padding: EdgeInsets.all(16),
@@ -496,11 +506,14 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
               children: [
                 Text(
                   'Share more about what you ${isLikes ? 'liked' : 'disliked'}...',
-                  style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_14_500
+                      .copyWith(color: Colors.grey[600]),
                 ),
                 SizedBox(height: 8),
                 TextField(
-                  controller: isLikes ? _likesCommentController : _dislikesCommentController,
+                  controller: isLikes
+                      ? _likesCommentController
+                      : _dislikesCommentController,
                   focusNode: isLikes ? _likesFocusNode : _dislikesFocusNode,
                   maxLines: 3,
                   maxLength: 250,
@@ -514,7 +527,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       borderSide: BorderSide(color: color),
                     ),
                     contentPadding: EdgeInsets.all(12),
-                    counterText: '${(isLikes ? _likesCommentController : _dislikesCommentController).text.length}/250',
+                    counterText:
+                        '${(isLikes ? _likesCommentController : _dislikesCommentController).text.length}/250',
                   ),
                   onChanged: (value) {
                     setState(() {}); // Refresh to show live preview
@@ -533,26 +547,36 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                   },
                 ),
                 // Live preview of comment
-                if ((isLikes ? _likesCommentController : _dislikesCommentController).text.isNotEmpty)
+                if ((isLikes
+                        ? _likesCommentController
+                        : _dislikesCommentController)
+                    .text
+                    .isNotEmpty)
                   Container(
                     margin: EdgeInsets.only(top: 8),
                     padding: EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: color.withOpacity(0.3), width: 1),
+                      border:
+                          Border.all(color: color.withOpacity(0.3), width: 1),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Preview:',
-                          style: AppStyles.textStyle_12_600.copyWith(color: color),
+                          style:
+                              AppStyles.textStyle_12_600.copyWith(color: color),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          (isLikes ? _likesCommentController : _dislikesCommentController).text,
-                          style: AppStyles.textStyle_14_400.copyWith(color: Colors.black87),
+                          (isLikes
+                                  ? _likesCommentController
+                                  : _dislikesCommentController)
+                              .text,
+                          style: AppStyles.textStyle_14_400
+                              .copyWith(color: Colors.black87),
                         ),
                       ],
                     ),
@@ -560,9 +584,10 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
               ],
             ),
           ),
-        
+
         // Media upload section (if enabled)
-        if ((isLikes && _showLikesCommentBox) || (!isLikes && _showDislikesCommentBox))
+        if ((isLikes && _showLikesCommentBox) ||
+            (!isLikes && _showDislikesCommentBox))
           Container(
             margin: EdgeInsets.only(top: 12),
             padding: EdgeInsets.all(16),
@@ -576,12 +601,14 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
               children: [
                 Text(
                   'Media Upload',
-                  style: AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                  style:
+                      AppStyles.textStyle_14_600.copyWith(color: Colors.black),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'Add photo or video (optional)',
-                  style: AppStyles.textStyle_12_400.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_12_400
+                      .copyWith(color: Colors.grey[600]),
                 ),
                 SizedBox(height: 12),
                 Row(
@@ -589,7 +616,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _uploadImage(isLikes),
-                        icon: Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                        icon: Icon(Icons.camera_alt,
+                            color: Colors.white, size: 16),
                         label: Text('Upload Image'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
@@ -606,7 +634,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => _recordVideo(isLikes),
-                        icon: Icon(Icons.videocam, color: Colors.white, size: 16),
+                        icon:
+                            Icon(Icons.videocam, color: Colors.white, size: 16),
                         label: Text('Record Clip'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
@@ -624,9 +653,10 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
               ],
             ),
           ),
-        
+
         // Media thumbnails preview
-        if ((isLikes && _likesMediaFiles.isNotEmpty) || (!isLikes && _dislikesMediaFiles.isNotEmpty))
+        if ((isLikes && _likesMediaFiles.isNotEmpty) ||
+            (!isLikes && _dislikesMediaFiles.isNotEmpty))
           Container(
             margin: EdgeInsets.only(top: 12),
             padding: EdgeInsets.all(16),
@@ -644,12 +674,14 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     SizedBox(width: 8),
                     Text(
                       'Media Added Successfully',
-                      style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[700]),
+                      style: AppStyles.textStyle_14_600
+                          .copyWith(color: Colors.green[700]),
                     ),
                     Spacer(),
                     Text(
                       '${(isLikes ? _likesMediaFiles : _dislikesMediaFiles).length} file(s)',
-                      style: AppStyles.textStyle_12_500.copyWith(color: Colors.green[600]),
+                      style: AppStyles.textStyle_12_500
+                          .copyWith(color: Colors.green[600]),
                     ),
                   ],
                 ),
@@ -658,7 +690,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: (isLikes ? _likesMediaFiles : _dislikesMediaFiles).map((mediaPath) {
+                  children: (isLikes ? _likesMediaFiles : _dislikesMediaFiles)
+                      .map((mediaPath) {
                     return _buildMediaThumbnail(mediaPath, isLikes);
                   }).toList(),
                 ),
@@ -682,7 +715,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
     debugPrint('Dislikes Comment: ${_dislikesCommentController.text}');
     debugPrint('Likes Media: $_likesMediaFiles');
     debugPrint('Dislikes Media: $_dislikesMediaFiles');
-    
+
     // Save to database if flight data is available
     if (widget.flight != null) {
       try {
@@ -698,7 +731,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
         final journeyId = widget.flight!.pnr; // Using PNR as journey ID
         final seat = widget.flight!.seatNumber ?? 'Unknown';
 
-        debugPrint('📝 Submitting ${widget.sectionName} feedback for user: $userId, flight: $flightId, journey: $journeyId');
+        debugPrint(
+            '📝 Submitting ${widget.sectionName} feedback for user: $userId, flight: $flightId, journey: $journeyId');
 
         // Convert selected likes/dislikes to the format expected by PhaseFeedbackService
         final Map<String, Set<String>> likesMap = {
@@ -736,12 +770,13 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
         debugPrint('❌ Error submitting ${widget.sectionName} feedback: $e');
       }
     } else {
-      debugPrint('⚠️ No flight data available for ${widget.sectionName} feedback');
+      debugPrint(
+          '⚠️ No flight data available for ${widget.sectionName} feedback');
     }
-    
+
     // Close the feedback modal
     Navigator.pop(context);
-    
+
     // Show confirmation dialog
     showDialog(
       context: context,
@@ -770,27 +805,29 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     size: 50,
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // Title
                 Text(
                   'Feedback Submitted!',
-                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  style:
+                      AppStyles.textStyle_24_600.copyWith(color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 12),
-                
+
                 // Description
                 Text(
                   'Thank you! Your feedback has been recorded and sent to the airline.',
-                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_16_400
+                      .copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 32),
-                
+
                 // Done Button
                 SizedBox(
                   width: double.infinity,
@@ -809,7 +846,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     ),
                     child: Text(
                       'Done',
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
@@ -848,27 +886,29 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     size: 50,
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // Title
                 Text(
                   'Error',
-                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  style:
+                      AppStyles.textStyle_24_600.copyWith(color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 12),
-                
+
                 // Description
                 Text(
                   message,
-                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_16_400
+                      .copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 32),
-                
+
                 // OK Button
                 SizedBox(
                   width: double.infinity,
@@ -884,7 +924,8 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                     ),
                     child: Text(
                       'OK',
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
@@ -898,12 +939,18 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
 
   String _getRatingText(int rating) {
     switch (rating) {
-      case 1: return 'Poor';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Very Good';
-      case 5: return 'Excellent';
-      default: return 'Rate your experience';
+      case 1:
+        return 'Poor';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Very Good';
+      case 5:
+        return 'Excellent';
+      default:
+        return 'Rate your experience';
     }
   }
 
@@ -1033,8 +1080,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
 
   Future<void> _pickImageFromSource(bool fromCamera, bool isLikes) async {
     try {
-      final String? imagePath = await MediaService.pickImage(fromCamera: fromCamera);
-      
+      final String? imagePath =
+          await MediaService.pickImage(fromCamera: fromCamera);
+
       if (imagePath != null) {
         setState(() {
           if (isLikes) {
@@ -1043,7 +1091,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
             _dislikesMediaFiles.add(imagePath);
           }
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Image added successfully!'),
@@ -1072,7 +1120,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
   void _recordVideo(bool isLikes) async {
     try {
       final String? videoPath = await MediaService.recordVideo();
-      
+
       if (videoPath != null) {
         setState(() {
           if (isLikes) {
@@ -1081,7 +1129,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
             _dislikesMediaFiles.add(videoPath);
           }
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Video recorded successfully!'),
@@ -1109,13 +1157,13 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
 
   Widget _buildMediaThumbnail(String mediaPath, bool isLikes) {
     final String fileName = mediaPath.split('/').last;
-    final bool isImage = fileName.toLowerCase().endsWith('.jpg') || 
-                        fileName.toLowerCase().endsWith('.jpeg') || 
-                        fileName.toLowerCase().endsWith('.png');
-    final bool isVideo = fileName.toLowerCase().endsWith('.mp4') || 
-                        fileName.toLowerCase().endsWith('.mov') || 
-                        fileName.toLowerCase().endsWith('.avi');
-    
+    final bool isImage = fileName.toLowerCase().endsWith('.jpg') ||
+        fileName.toLowerCase().endsWith('.jpeg') ||
+        fileName.toLowerCase().endsWith('.png');
+    final bool isVideo = fileName.toLowerCase().endsWith('.mp4') ||
+        fileName.toLowerCase().endsWith('.mov') ||
+        fileName.toLowerCase().endsWith('.avi');
+
     return Container(
       width: 80,
       height: 80,
@@ -1145,15 +1193,18 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                       File(mediaPath),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.image, color: Colors.grey[400], size: 32);
+                        return Icon(Icons.image,
+                            color: Colors.grey[400], size: 32);
                       },
                     )
                   : isVideo
                       ? Container(
                           color: Colors.black.withOpacity(0.8),
-                          child: Icon(Icons.play_circle_filled, color: Colors.white, size: 32),
+                          child: Icon(Icons.play_circle_filled,
+                              color: Colors.white, size: 32),
                         )
-                      : Icon(Icons.insert_drive_file, color: Colors.grey[400], size: 32),
+                      : Icon(Icons.insert_drive_file,
+                          color: Colors.grey[400], size: 32),
             ),
           ),
           // Remove button
@@ -1192,7 +1243,11 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                isImage ? 'IMG' : isVideo ? 'VID' : 'FILE',
+                isImage
+                    ? 'IMG'
+                    : isVideo
+                        ? 'VID'
+                        : 'FILE',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 8,
@@ -1205,5 +1260,4 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
       ),
     );
   }
-
 }

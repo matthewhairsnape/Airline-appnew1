@@ -17,7 +17,7 @@ class PhaseFeedbackService {
   }) async {
     try {
       debugPrint('🔍 Processing phase: "$phase" for PNR: $journeyId');
-      
+
       // First, get the actual database IDs from the journey record
       final journeyData = await _getJourneyData(journeyId);
       if (journeyData == null) {
@@ -27,40 +27,53 @@ class PhaseFeedbackService {
 
       final actualJourneyId = journeyData['id'] as String;
       final actualFlightId = journeyData['flight_id'] as String?;
-      
-      debugPrint('✅ Found journey ID: $actualJourneyId, flight ID: $actualFlightId');
-      
+
+      debugPrint(
+          '✅ Found journey ID: $actualJourneyId, flight ID: $actualFlightId');
+
       // Normalize phase names for better matching
       final normalizedPhase = phase.toLowerCase().trim();
-      
-      if (normalizedPhase == 'pre-flight' || normalizedPhase.contains('pre') || normalizedPhase.contains('airport') || normalizedPhase.contains('at the airport')) {
+
+      if (normalizedPhase == 'pre-flight' ||
+          normalizedPhase.contains('pre') ||
+          normalizedPhase.contains('airport') ||
+          normalizedPhase.contains('at the airport')) {
         debugPrint('🏢 Routing to airport review...');
         return await _submitAirportReview(
           userId: userId,
           journeyId: actualJourneyId,
-          flightId: actualFlightId ?? actualJourneyId, // Use journey ID as fallback
+          flightId:
+              actualFlightId ?? actualJourneyId, // Use journey ID as fallback
           seat: seat,
           overallRating: overallRating,
           likes: likes,
           dislikes: dislikes,
         );
-      } else if (normalizedPhase == 'in-flight' || normalizedPhase.contains('in') || normalizedPhase.contains('flight') || normalizedPhase.contains('during the flight')) {
+      } else if (normalizedPhase == 'in-flight' ||
+          normalizedPhase.contains('in') ||
+          normalizedPhase.contains('flight') ||
+          normalizedPhase.contains('during the flight')) {
         debugPrint('✈️ Routing to airline review...');
         return await _submitAirlineReview(
           userId: userId,
           journeyId: actualJourneyId,
-          flightId: actualFlightId ?? actualJourneyId, // Use journey ID as fallback
+          flightId:
+              actualFlightId ?? actualJourneyId, // Use journey ID as fallback
           seat: seat,
           overallRating: overallRating,
           likes: likes,
           dislikes: dislikes,
         );
-      } else if (normalizedPhase == 'post-flight' || normalizedPhase.contains('post') || normalizedPhase.contains('overall') || normalizedPhase.contains('experience')) {
+      } else if (normalizedPhase == 'post-flight' ||
+          normalizedPhase.contains('post') ||
+          normalizedPhase.contains('overall') ||
+          normalizedPhase.contains('experience')) {
         debugPrint('📝 Routing to overall feedback...');
         return await _submitFeedback(
           userId: userId,
           journeyId: actualJourneyId,
-          flightId: actualFlightId ?? actualJourneyId, // Use journey ID as fallback
+          flightId:
+              actualFlightId ?? actualJourneyId, // Use journey ID as fallback
           seat: seat,
           overallRating: overallRating,
           likes: likes,
@@ -84,12 +97,12 @@ class PhaseFeedbackService {
           .select('id, flight_id, pnr')
           .eq('pnr', pnr)
           .maybeSingle();
-      
+
       if (response == null) {
         debugPrint('❌ No journey found for PNR: $pnr');
         return null;
       }
-      
+
       debugPrint('✅ Found journey data: $response');
       return response;
     } catch (e) {
@@ -110,7 +123,7 @@ class PhaseFeedbackService {
   }) async {
     try {
       debugPrint('🏢 Submitting airport review...');
-      
+
       // Get airport info from flight using the actual flight ID
       final flightData = await _client
           .from('flights')
@@ -120,7 +133,7 @@ class PhaseFeedbackService {
 
       final departureAirportId = flightData['departure_airport_id'];
       final arrivalAirportId = flightData['arrival_airport_id'];
-      
+
       // For "At the Airport" feedback, we typically want the departure airport
       final airportId = departureAirportId ?? arrivalAirportId;
       if (airportId == null) {
@@ -168,10 +181,10 @@ class PhaseFeedbackService {
   }) async {
     try {
       debugPrint('✈️ Submitting airline review...');
-      
+
       // Get airline info from flight using the actual flight ID
       String? airlineId;
-      
+
       try {
         // First try with airline_id column
         final flightData = await _client
@@ -183,8 +196,9 @@ class PhaseFeedbackService {
         airlineId = flightData['airline_id'];
       } catch (e) {
         if (e.toString().contains('airline_id does not exist')) {
-          debugPrint('⚠️ airline_id column not found, trying carrier_code approach');
-          
+          debugPrint(
+              '⚠️ airline_id column not found, trying carrier_code approach');
+
           // Fallback: get carrier_code and find airline by IATA code
           final flightData = await _client
               .from('flights')
@@ -199,7 +213,7 @@ class PhaseFeedbackService {
                 .select('id')
                 .eq('iata_code', carrierCode)
                 .maybeSingle();
-            
+
             airlineId = airlineData?['id'];
           }
         } else {
@@ -252,12 +266,18 @@ class PhaseFeedbackService {
   }) async {
     try {
       debugPrint('📝 Submitting overall feedback...');
-      
+
       // Use feedback table for overall experience
       // Try different phase values that might be valid
-      final validPhases = ['completed', 'landed', 'post-flight', 'overall', 'final'];
+      final validPhases = [
+        'completed',
+        'landed',
+        'post-flight',
+        'overall',
+        'final'
+      ];
       String? successfulPhase;
-      
+
       for (final phase in validPhases) {
         try {
           await _client.from('feedback').insert({
@@ -279,11 +299,11 @@ class PhaseFeedbackService {
           continue;
         }
       }
-      
+
       if (successfulPhase == null) {
         throw Exception('No valid phase found for feedback table');
       }
-      
+
       debugPrint('✅ Used phase: $successfulPhase');
 
       debugPrint('✅ Overall feedback submitted successfully');
@@ -302,13 +322,15 @@ class PhaseFeedbackService {
   ) {
     // Default scores based on overall rating
     final baseScore = overallRating;
-    
+
     return {
-      'cleanliness': _getCategoryScore(likes, dislikes, 'cleanliness', baseScore),
+      'cleanliness':
+          _getCategoryScore(likes, dislikes, 'cleanliness', baseScore),
       'facilities': _getCategoryScore(likes, dislikes, 'facilities', baseScore),
       'staff': _getCategoryScore(likes, dislikes, 'staff', baseScore),
       'waiting_time': _getCategoryScore(likes, dislikes, 'waiting', baseScore),
-      'accessibility': _getCategoryScore(likes, dislikes, 'accessibility', baseScore),
+      'accessibility':
+          _getCategoryScore(likes, dislikes, 'accessibility', baseScore),
     };
   }
 
@@ -320,12 +342,13 @@ class PhaseFeedbackService {
   ) {
     // Default scores based on overall rating
     final baseScore = overallRating;
-    
+
     return {
       'seat_comfort': _getCategoryScore(likes, dislikes, 'seat', baseScore),
       'cabin_service': _getCategoryScore(likes, dislikes, 'service', baseScore),
       'food_beverage': _getCategoryScore(likes, dislikes, 'food', baseScore),
-      'entertainment': _getCategoryScore(likes, dislikes, 'entertainment', baseScore),
+      'entertainment':
+          _getCategoryScore(likes, dislikes, 'entertainment', baseScore),
       'value_for_money': _getCategoryScore(likes, dislikes, 'value', baseScore),
     };
   }
@@ -394,7 +417,8 @@ class PhaseFeedbackService {
   }
 
   /// Convert selections to JSON format for database storage
-  static Map<String, dynamic> _convertSelectionsToJson(Map<String, Set<String>> selections) {
+  static Map<String, dynamic> _convertSelectionsToJson(
+      Map<String, Set<String>> selections) {
     final result = <String, dynamic>{};
     for (final entry in selections.entries) {
       result[entry.key] = entry.value.toList();
@@ -419,15 +443,15 @@ class PhaseFeedbackService {
     Map<String, Set<String>> dislikes,
   ) {
     final tags = <String>[];
-    
+
     for (final selections in likes.values) {
       tags.addAll(selections);
     }
-    
+
     for (final selections in dislikes.values) {
       tags.addAll(selections);
     }
-    
+
     return tags.take(10).toList(); // Limit to 10 tags
   }
 }

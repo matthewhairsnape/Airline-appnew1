@@ -98,7 +98,6 @@ class _FeedFilterScreenState extends ConsumerState<FeedFilterScreen> {
         List.generate(currentCategories.length, (index) => false);
   }
 
-
   void _toggleOnlyOneFilter(int index, List selectedStates) {
     setState(() {
       for (int i = 0; i < selectedStates.length; i++) {
@@ -203,8 +202,6 @@ class _FeedFilterScreenState extends ConsumerState<FeedFilterScreen> {
       ],
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {

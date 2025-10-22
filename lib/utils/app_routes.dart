@@ -17,14 +17,14 @@ class AppRoutes {
   static const feedfilterscreen = "/feedfilterscreen";
   static const syncedscreen = "/syncedscreen";
   static const manualinput = "/manualinput";
-  static const airportinput = "/airportinput"; 
+  static const airportinput = "/airportinput";
   static const questionfirstscreenforairport = "/questionfirstscreenforairport";
   static const detailfirstscreenforairport = "/detailfirstscreenforairport";
   static const questionsecondscreenforairport =
       "/questionsecondscreenforairport";
   static const detailsecondscreenforairport = "/detailsecondscreenforairport";
   static const questionthirdscreenforairport = "/questionthirdscreenforairport";
-  static const flightinput = "/flightinput"; 
+  static const flightinput = "/flightinput";
   static const questionfirstscreenforairline = "/questionfirstscreenforairline";
   static const detailfirstscreenforairline = "/detailfirstscreenforairline";
   static const questionsecondscreenforairline =

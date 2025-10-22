@@ -21,12 +21,12 @@ class ScoringInfoDialog extends StatelessWidget {
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),           
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: const [
                   BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 1,
-                      spreadRadius: 1,
+                    color: Colors.black12,
+                    blurRadius: 1,
+                    spreadRadius: 1,
                   )
                 ],
               ),
@@ -40,10 +40,10 @@ class ScoringInfoDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: const [
                         BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 1,
-                            spreadRadius: 1,
-                           )
+                          color: Colors.black12,
+                          blurRadius: 1,
+                          spreadRadius: 1,
+                        )
                       ],
                     ),
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 2),

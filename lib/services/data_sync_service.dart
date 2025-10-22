@@ -11,7 +11,7 @@ class DataSyncService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString(_userDataKey);
-      
+
       if (userDataString == null) {
         print('⚠️ No user data found in SharedPreferences');
         return false;
@@ -45,7 +45,7 @@ class DataSyncService {
   static Future<bool> syncUserDataFromSupabase(String userId) async {
     try {
       final userData = await SupabaseService.syncUserDataFromSupabase(userId);
-      
+
       if (userData != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_userDataKey, json.encode(userData));
@@ -53,7 +53,7 @@ class DataSyncService {
         print('✅ User data synced from Supabase successfully');
         return true;
       }
-      
+
       return false;
     } catch (e) {
       print('❌ Error syncing user data from Supabase: $e');
@@ -66,12 +66,12 @@ class DataSyncService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final lastSync = prefs.getInt(_lastSyncKey);
-      
+
       if (lastSync == null) return true;
-      
+
       final now = DateTime.now().millisecondsSinceEpoch;
       final oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
-      
+
       return (now - lastSync) > oneHour;
     } catch (e) {
       print('❌ Error checking sync status: $e');
@@ -84,7 +84,7 @@ class DataSyncService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString(_userDataKey);
-      
+
       if (userDataString == null) {
         print('⚠️ No user data to sync');
         return false;
@@ -100,10 +100,10 @@ class DataSyncService {
 
       // Sync to Supabase
       final syncToSupabase = await syncUserDataToSupabase();
-      
+
       // Also sync from Supabase to ensure we have the latest data
       final syncFromSupabase = await syncUserDataFromSupabase(userId);
-      
+
       return syncToSupabase || syncFromSupabase;
     } catch (e) {
       print('❌ Error in force sync: $e');
@@ -115,22 +115,23 @@ class DataSyncService {
   static Future<bool> saveUserData(Map<String, dynamic> userData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Save locally first
       await prefs.setString(_userDataKey, json.encode(userData));
-      
+
       // Then save to Supabase
       final userId = userData['id'];
       if (userId != null) {
-            final success = await SupabaseService.saveUserDataToSupabase(userData);
-        
+        final success = await SupabaseService.saveUserDataToSupabase(userData);
+
         if (success) {
-          await prefs.setInt(_lastSyncKey, DateTime.now().millisecondsSinceEpoch);
+          await prefs.setInt(
+              _lastSyncKey, DateTime.now().millisecondsSinceEpoch);
         }
-        
+
         return success;
       }
-      
+
       return false;
     } catch (e) {
       print('❌ Error saving user data: $e');
@@ -139,7 +140,8 @@ class DataSyncService {
   }
 
   /// Get user data with automatic sync
-  static Future<Map<String, dynamic>?> getUserDataWithSync(String userId) async {
+  static Future<Map<String, dynamic>?> getUserDataWithSync(
+      String userId) async {
     try {
       // Check if we need to sync
       if (await needsSync()) {
@@ -149,11 +151,11 @@ class DataSyncService {
 
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString(_userDataKey);
-      
+
       if (userDataString != null) {
         return json.decode(userDataString);
       }
-      
+
       return null;
     } catch (e) {
       print('❌ Error getting user data with sync: $e');
@@ -161,4 +163,3 @@ class DataSyncService {
     }
   }
 }
-

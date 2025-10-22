@@ -12,27 +12,35 @@ class StageQuestionService {
         type: FeedbackType.positive,
         options: [
           FeedbackOption(id: 'checkin_process', text: 'Check-in process'),
-          FeedbackOption(id: 'security_wait', text: 'Airport Security line wait time'),
+          FeedbackOption(
+              id: 'security_wait', text: 'Airport Security line wait time'),
           FeedbackOption(id: 'boarding_process', text: 'Boarding process'),
-          FeedbackOption(id: 'airport_facilities', text: 'Airport Facilities and Shops'),
-          FeedbackOption(id: 'smooth_experience', text: 'Smooth Airport experience'),
+          FeedbackOption(
+              id: 'airport_facilities', text: 'Airport Facilities and Shops'),
+          FeedbackOption(
+              id: 'smooth_experience', text: 'Smooth Airport experience'),
           FeedbackOption(id: 'airline_lounge', text: 'Airline Lounge'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
       StageQuestion(
         id: 'preflight_negative',
         title: '👎 What could be improved?',
-        subtitle: 'Select what could be better about your pre-flight experience',
+        subtitle:
+            'Select what could be better about your pre-flight experience',
         type: FeedbackType.negative,
         options: [
           FeedbackOption(id: 'checkin_process', text: 'Check-in process'),
           FeedbackOption(id: 'security_wait', text: 'Security line wait time'),
           FeedbackOption(id: 'boarding_process', text: 'Boarding process'),
-          FeedbackOption(id: 'airport_facilities', text: 'Airport Facilities and Shops'),
-          FeedbackOption(id: 'smooth_experience', text: 'Smooth Airport experience'),
+          FeedbackOption(
+              id: 'airport_facilities', text: 'Airport Facilities and Shops'),
+          FeedbackOption(
+              id: 'smooth_experience', text: 'Smooth Airport experience'),
           FeedbackOption(id: 'airline_lounge', text: 'Airline Lounge'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
     ],
@@ -49,7 +57,8 @@ class StageQuestionService {
           FeedbackOption(id: 'entertainment', text: 'In-flight entertainment'),
           FeedbackOption(id: 'wifi', text: 'Wi-Fi'),
           FeedbackOption(id: 'food_beverage', text: 'Food and beverage'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
       StageQuestion(
@@ -64,7 +73,8 @@ class StageQuestionService {
           FeedbackOption(id: 'entertainment', text: 'In-flight entertainment'),
           FeedbackOption(id: 'wifi', text: 'Wi-Fi'),
           FeedbackOption(id: 'food_beverage', text: 'Food and beverage'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
     ],
@@ -75,14 +85,20 @@ class StageQuestionService {
         subtitle: 'Select what you liked about your overall journey',
         type: FeedbackType.positive,
         options: [
-          FeedbackOption(id: 'friendly_service', text: 'Friendly and helpful service'),
-          FeedbackOption(id: 'smooth_flight', text: 'Smooth and trouble-free flight'),
+          FeedbackOption(
+              id: 'friendly_service', text: 'Friendly and helpful service'),
+          FeedbackOption(
+              id: 'smooth_flight', text: 'Smooth and trouble-free flight'),
           FeedbackOption(id: 'onboard_comfort', text: 'Onboard Comfort'),
           FeedbackOption(id: 'food_beverage', text: 'Food and Beverage'),
           FeedbackOption(id: 'wifi_ife', text: 'Wi-Fi and IFE'),
-          FeedbackOption(id: 'communication', text: 'Communication from airline'),
-          FeedbackOption(id: 'baggage_connection', text: 'Baggage delivery or ease of connection'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'communication', text: 'Communication from airline'),
+          FeedbackOption(
+              id: 'baggage_connection',
+              text: 'Baggage delivery or ease of connection'),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
       StageQuestion(
@@ -91,14 +107,20 @@ class StageQuestionService {
         subtitle: 'Select what could be better about your overall journey',
         type: FeedbackType.negative,
         options: [
-          FeedbackOption(id: 'friendly_service', text: 'Friendly and helpful service'),
-          FeedbackOption(id: 'stressful_flight', text: 'Stressful and uneasy flight'),
+          FeedbackOption(
+              id: 'friendly_service', text: 'Friendly and helpful service'),
+          FeedbackOption(
+              id: 'stressful_flight', text: 'Stressful and uneasy flight'),
           FeedbackOption(id: 'onboard_comfort', text: 'Onboard Comfort'),
           FeedbackOption(id: 'food_beverage', text: 'Food and Beverage'),
           FeedbackOption(id: 'wifi_ife', text: 'Wi-Fi and IFE'),
-          FeedbackOption(id: 'communication', text: 'Communication from airline'),
-          FeedbackOption(id: 'baggage_connection', text: 'Baggage delivery or ease of connection'),
-          FeedbackOption(id: 'something_else', text: 'Something else', isCustom: true),
+          FeedbackOption(
+              id: 'communication', text: 'Communication from airline'),
+          FeedbackOption(
+              id: 'baggage_connection',
+              text: 'Baggage delivery or ease of connection'),
+          FeedbackOption(
+              id: 'something_else', text: 'Something else', isCustom: true),
         ],
       ),
     ],

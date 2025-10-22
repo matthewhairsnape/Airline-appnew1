@@ -74,8 +74,8 @@ class _TimelineSectionState extends State<TimelineSection> {
                     ),
                   ),
                   Icon(
-                    widget.isExpanded 
-                        ? Icons.keyboard_arrow_up 
+                    widget.isExpanded
+                        ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
                     color: Colors.grey[600],
                     size: 24,
@@ -84,7 +84,7 @@ class _TimelineSectionState extends State<TimelineSection> {
               ),
             ),
           ),
-          
+
           // Expanded Content
           if (widget.isExpanded) ...[
             Divider(height: 1, color: Colors.grey[200]),
@@ -92,13 +92,15 @@ class _TimelineSectionState extends State<TimelineSection> {
               padding: EdgeInsets.all(20),
               child: Column(
                 children: [
-                  ...widget.events.map((event) => 
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 16),
-                      child: TimelineEventCard(event: event),
-                    ),
-                  ).toList(),
-                  
+                  ...widget.events
+                      .map(
+                        (event) => Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: TimelineEventCard(event: event),
+                        ),
+                      )
+                      .toList(),
+
                   // Feedback Button
                   SizedBox(height: 16),
                   _buildFeedbackButton(),
@@ -147,7 +149,7 @@ class _TimelineSectionState extends State<TimelineSection> {
 
   void _showFeedbackModal() {
     final feedbackData = _getFeedbackData();
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

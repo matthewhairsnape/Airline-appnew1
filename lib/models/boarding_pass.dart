@@ -17,7 +17,6 @@ class BoardingPass {
   final String visitStatus;
   final bool isReviewed;
 
-
   BoardingPass({
     this.id = '',
     this.name = '',
@@ -36,7 +35,6 @@ class BoardingPass {
     this.flightNumber = '',
     this.visitStatus = '',
     this.isReviewed = false,
-
   });
 
   BoardingPass copyWith({
@@ -57,7 +55,6 @@ class BoardingPass {
     String? flightNumber,
     String? visitStatus,
     bool? isReviewed,
-  
   }) {
     return BoardingPass(
       id: id ?? this.id,
@@ -77,7 +74,6 @@ class BoardingPass {
       flightNumber: flightNumber ?? this.flightNumber,
       visitStatus: visitStatus ?? this.visitStatus,
       isReviewed: isReviewed ?? this.isReviewed,
-   
     );
   }
 
@@ -100,7 +96,6 @@ class BoardingPass {
       flightNumber: json['flightNumber'] ?? '',
       visitStatus: json['visitStatus'] ?? '',
       isReviewed: json['isReviewed'] ?? false,
- 
     );
   }
 
@@ -123,7 +118,6 @@ class BoardingPass {
       'flightNumber': flightNumber,
       'visitStatus': visitStatus,
       'isReviewed': isReviewed,
-   
     };
   }
 }

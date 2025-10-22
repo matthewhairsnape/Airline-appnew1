@@ -7,7 +7,7 @@ import 'package:path/path.dart' as path;
 /// Service for handling image and video uploads
 class MediaService {
   static final ImagePicker _imagePicker = ImagePicker();
-  
+
   /// Pick image from gallery or camera
   static Future<String?> pickImage({bool fromCamera = false}) async {
     try {
@@ -17,30 +17,32 @@ class MediaService {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         // Save to app directory
-        final String fileName = 'feedback_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final String fileName =
+            'feedback_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final Directory appDir = await getApplicationDocumentsDirectory();
-        final String filePath = path.join(appDir.path, 'feedback_images', fileName);
-        
+        final String filePath =
+            path.join(appDir.path, 'feedback_images', fileName);
+
         // Create directory if it doesn't exist
         await Directory(path.dirname(filePath)).create(recursive: true);
-        
+
         // Copy file to app directory
         final File savedFile = await File(image.path).copy(filePath);
-        
+
         debugPrint('✅ Image saved: $filePath');
         return filePath;
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('❌ Error picking image: $e');
       return null;
     }
   }
-  
+
   /// Record video
   static Future<String?> recordVideo() async {
     try {
@@ -48,41 +50,43 @@ class MediaService {
         source: ImageSource.camera,
         maxDuration: const Duration(minutes: 2), // Limit to 2 minutes
       );
-      
+
       if (video != null) {
         // Save to app directory
-        final String fileName = 'feedback_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+        final String fileName =
+            'feedback_video_${DateTime.now().millisecondsSinceEpoch}.mp4';
         final Directory appDir = await getApplicationDocumentsDirectory();
-        final String filePath = path.join(appDir.path, 'feedback_videos', fileName);
-        
+        final String filePath =
+            path.join(appDir.path, 'feedback_videos', fileName);
+
         // Create directory if it doesn't exist
         await Directory(path.dirname(filePath)).create(recursive: true);
-        
+
         // Copy file to app directory
         final File savedFile = await File(video.path).copy(filePath);
-        
+
         debugPrint('✅ Video saved: $filePath');
         return filePath;
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('❌ Error recording video: $e');
       return null;
     }
   }
-  
+
   /// Get media file info
   static Future<Map<String, dynamic>?> getMediaInfo(String filePath) async {
     try {
       final File file = File(filePath);
       if (!await file.exists()) return null;
-      
+
       final int fileSizeBytes = await file.length();
       final DateTime lastModified = await file.lastModified();
       final String fileName = path.basename(filePath);
       final String extension = path.extension(filePath).toLowerCase();
-      
+
       return {
         'fileName': fileName,
         'filePath': filePath,
@@ -98,7 +102,7 @@ class MediaService {
       return null;
     }
   }
-  
+
   /// Delete media file
   static Future<bool> deleteMedia(String filePath) async {
     try {

@@ -207,7 +207,7 @@ class _LeaderboardFilterScreenState
     );
   }
 
-Widget _buildCategoryLeaderboards() {
+  Widget _buildCategoryLeaderboards() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -271,15 +271,17 @@ Widget _buildCategoryLeaderboards() {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-                        _buildTypeCategory(),
-                        const SizedBox(height: 17),
-                        selectedAirType == "Airport" 
-                            ? Text(
-                                "",
-                                style: AppStyles.textStyle_15_400.copyWith(color: Color(0xff38433E)),
-                              )
-                            : _buildFlyerClassLeaderboards(),
-                        const SizedBox(height: 17),              _buildCategoryLeaderboards(),
+              _buildTypeCategory(),
+              const SizedBox(height: 17),
+              selectedAirType == "Airport"
+                  ? Text(
+                      "",
+                      style: AppStyles.textStyle_15_400
+                          .copyWith(color: Color(0xff38433E)),
+                    )
+                  : _buildFlyerClassLeaderboards(),
+              const SizedBox(height: 17),
+              _buildCategoryLeaderboards(),
               const SizedBox(height: 17),
             ],
           ),
@@ -298,7 +300,7 @@ Widget _buildCategoryLeaderboards() {
                 // Save filter options and reset page to 1
                 ref.read(leaderboardFilterProvider.notifier).setFilters(
                       airType: selectedAirType,
-                      flyerClass: selectedFlyerClass ,
+                      flyerClass: selectedFlyerClass,
                       category:
                           selectedCategory.isEmpty ? null : selectedCategory,
                       continents: selectedContinents.isEmpty ||

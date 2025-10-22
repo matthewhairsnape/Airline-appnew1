@@ -38,8 +38,10 @@ class WalletSyncDialog extends ConsumerStatefulWidget {
 
 class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
   final MobileScannerController _controller = MobileScannerController();
-  final FetchFlightInforByCirium _flightInfoFetcher = FetchFlightInforByCirium();
-  final BoardingPassController _boardingPassController = BoardingPassController();
+  final FetchFlightInforByCirium _flightInfoFetcher =
+      FetchFlightInforByCirium();
+  final BoardingPassController _boardingPassController =
+      BoardingPassController();
   final ImagePicker _imagePicker = ImagePicker();
 
   Map<String, dynamic>? detailedBoardingPass;
@@ -52,7 +54,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
     setState(() => isLoading = true);
     try {
       debugPrint("rawValue 🎎 =====================> $rawValue");
-      
+
       String pnr = '';
       String departureAirport = '';
       String carrier = '';
@@ -63,7 +65,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       // Check if it's BCBP format (starts with M1 or M2)
       if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
         debugPrint("✅ Detected BCBP format");
-        
+
         // BCBP Format: M1HAIRSNAPE/MATTHEW MREHTLSCF BEGISTJU 0426 245Y022F0060
         // M1 = Format code
         // HAIRSNAPE/MATTHEW M = Passenger name (variable length)
@@ -71,39 +73,40 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         // BEGISTJU = Flight number
         // 0426 = Julian date
         // etc.
-        
+
         // Find the route information after the passenger name
         // Look for pattern: 3-letter airport + 3-letter airport + 2-letter carrier
         RegExp routePattern = RegExp(r'([A-Z]{3})([A-Z]{3})([A-Z]{2})');
         Match? routeMatch = routePattern.firstMatch(rawValue);
-        
+
         if (routeMatch != null) {
           departureAirport = routeMatch.group(1)!; // First 3 letters
-          String arrivalAirportCode = routeMatch.group(2)!; // Next 3 letters  
+          String arrivalAirportCode = routeMatch.group(2)!; // Next 3 letters
           carrier = routeMatch.group(3)!; // Last 2 letters
-          
+
           // Find flight number after the route info
           int routeEnd = routeMatch.end;
           String afterRoute = rawValue.substring(routeEnd).trim();
-          
+
           // Extract flight number (next word)
           List<String> parts = afterRoute.split(RegExp(r'\s+'));
           if (parts.isNotEmpty) {
             flightNumber = parts[0];
           }
-          
+
           // Extract Julian date (next part)
           if (parts.length > 1) {
             String julianDate = parts[1];
             if (julianDate.length >= 3) {
               final baseDate = DateTime(DateTime.now().year, 1, 0);
-              date = baseDate.add(Duration(days: int.parse(julianDate.substring(0, 3))));
+              date = baseDate
+                  .add(Duration(days: int.parse(julianDate.substring(0, 3))));
             }
           }
-          
+
           // Generate PNR from flight info
           pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
-          
+
           debugPrint("✅ Parsed BCBP boarding pass:");
           debugPrint("  Departure: $departureAirport");
           debugPrint("  Arrival: $arrivalAirportCode");
@@ -212,7 +215,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
           context, "No flight data found for the boarding pass.");
       return;
     }
-    
+
     final flightStatus = flightInfo['flightStatuses'][0];
     final airlines = flightInfo['appendix']['airlines'];
     final airports = flightInfo['appendix']['airports'];
@@ -252,43 +255,48 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
     );
 
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
-    
+
     // Start real-time flight tracking with Cirium
     final carrier = flightStatus['carrierFsCode'] ?? '';
     final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
     final flightDate = departureEntireTime;
     final departureAirportCode = departureAirport['fs'] ?? '';
-    
-    debugPrint('🪑 Starting flight tracking for wallet sync: $carrier $flightNumber');
-    final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
-      carrier: carrier,
-      flightNumber: flightNumber,
-      flightDate: flightDate,
-      departureAirport: departureAirportCode,
-      pnr: pnr,
-      existingFlightData: flightInfo,
-    );
+
+    debugPrint(
+        '🪑 Starting flight tracking for wallet sync: $carrier $flightNumber');
+    final trackingStarted =
+        await ref.read(flightTrackingProvider.notifier).trackFlight(
+              carrier: carrier,
+              flightNumber: flightNumber,
+              flightDate: flightDate,
+              departureAirport: departureAirportCode,
+              pnr: pnr,
+              existingFlightData: flightInfo,
+            );
 
     if (trackingStarted) {
       debugPrint('✈️ Flight tracking started successfully for $pnr');
     }
-    
+
     if (mounted) {
       // Get the navigator context before popping
-      final navigatorContext = Navigator.of(context, rootNavigator: true).context;
-      
+      final navigatorContext =
+          Navigator.of(context, rootNavigator: true).context;
+
       if (result) {
-        CustomSnackBar.success(context, '✅ Boarding pass from wallet loaded successfully!');
+        CustomSnackBar.success(
+            context, '✅ Boarding pass from wallet loaded successfully!');
       } else {
-        CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
+        CustomSnackBar.success(
+            context, '✅ Flight loaded! Your journey is being tracked.');
       }
-      
+
       // Close the wallet sync dialog
       Navigator.pop(context);
-      
+
       // Add a small delay to ensure the wallet dialog is fully closed
       await Future.delayed(const Duration(milliseconds: 300));
-      
+
       // Show confirmation dialog using the root navigator context
       FlightConfirmationDialog.show(
         navigatorContext,
@@ -376,16 +384,16 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               // Progress Stepper
               _buildProgressStepper(),
               const SizedBox(height: 24),
-              
+
               // Content based on current step
               _buildStepContent(),
-              
+
               const SizedBox(height: 24),
-              
+
               // Action buttons
               _buildActionButtons(),
             ],
@@ -480,7 +488,8 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
                 Expanded(
                   child: Text(
                     "Wallet opened! Take your screenshot",
-                    style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[900]),
+                    style: AppStyles.textStyle_14_600
+                        .copyWith(color: Colors.green[900]),
                   ),
                 ),
               ],
@@ -507,7 +516,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         ),
         const SizedBox(height: 8),
         Text(
-          selectedImage == null 
+          selectedImage == null
               ? "Select the boarding pass screenshot from your photos"
               : "Ready to verify! We'll scan the barcode and confirm your flight details",
           style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
@@ -529,7 +538,8 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
                 Expanded(
                   child: Text(
                     "Screenshot selected - Click Verify to continue",
-                    style: AppStyles.textStyle_14_600.copyWith(color: Colors.green[900]),
+                    style: AppStyles.textStyle_14_600
+                        .copyWith(color: Colors.green[900]),
                   ),
                 ),
               ],
@@ -539,7 +549,6 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       ],
     );
   }
-
 
   Widget _buildActionButtons() {
     if (currentStep == WalletSyncStep.openWallet) {
@@ -587,16 +596,16 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
               text: isLoading ? "Processing..." : "Verify Boarding Pass",
               onPressed: isLoading ? () {} : () => _scanSelectedImage(),
               color: Colors.black,
-              icon: isLoading 
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.check_circle, color: Colors.white),
+              icon: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.check_circle, color: Colors.white),
             ),
           ],
           const SizedBox(height: 12),
@@ -609,7 +618,8 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
             },
             child: Text(
               "← Back",
-              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+              style:
+                  AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
             ),
           ),
         ],
@@ -627,7 +637,8 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       });
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.error(context, "Could not open wallet. Please try manually.");
+        CustomSnackBar.error(
+            context, "Could not open wallet. Please try manually.");
       }
     }
   }
@@ -644,7 +655,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         source: ImageSource.gallery,
         imageQuality: 100,
       );
-      
+
       if (file != null) {
         setState(() {
           selectedImage = File(file.path);
@@ -652,7 +663,8 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       }
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.error(context, "Failed to pick image. Please try again.");
+        CustomSnackBar.error(
+            context, "Failed to pick image. Please try again.");
       }
     }
   }
@@ -662,18 +674,19 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       debugPrint("❌ No image selected for scanning");
       return;
     }
-    
+
     debugPrint("🔍 Starting to scan selected image: ${selectedImage!.path}");
     setState(() => isLoading = true);
 
     try {
       final BarcodeCapture? barcodeCapture =
           await _controller.analyzeImage(selectedImage!.path);
-      
-      debugPrint("📸 Barcode capture result: ${barcodeCapture?.barcodes.length ?? 0} barcodes found");
-      
+
+      debugPrint(
+          "📸 Barcode capture result: ${barcodeCapture?.barcodes.length ?? 0} barcodes found");
+
       final String? rawValue = barcodeCapture?.barcodes.firstOrNull?.rawValue;
-      
+
       if (rawValue != null) {
         debugPrint("✅ Barcode found, parsing: $rawValue");
         await parseIataBarcode(rawValue);

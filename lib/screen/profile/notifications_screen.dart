@@ -149,7 +149,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           notification['description'] ?? '',
-                          style: AppStyles.textStyle_14_600.copyWith(color: Colors.grey[600]),
+                          style: AppStyles.textStyle_14_600
+                              .copyWith(color: Colors.grey[600]),
                         ),
                       ),
                     ),

@@ -10,7 +10,7 @@ import 'supabase_service.dart';
 class DataFlowManager {
   static DataFlowManager? _instance;
   static DataFlowManager get instance => _instance ??= DataFlowManager._();
-  
+
   DataFlowManager._();
 
   final RealtimeDataService _realtimeService = RealtimeDataService.instance;
@@ -20,11 +20,11 @@ class DataFlowManager {
   /// Initialize the data flow manager
   Future<void> initialize() async {
     debugPrint('🔄 Initializing DataFlowManager...');
-    
+
     await _realtimeService.initialize();
     await _loadLocalData();
     await _realtimeService.syncPendingData();
-    
+
     debugPrint('✅ DataFlowManager initialized');
   }
 
@@ -65,11 +65,12 @@ class DataFlowManager {
       if (journey != null) {
         // Start real-time tracking
         await _startJourneyTracking(journey['id'], userId);
-        
+
         // Cache locally
         await _cacheJourneyLocally(journey);
-        
-        debugPrint('✅ Journey created with real-time tracking: ${journey['id']}');
+
+        debugPrint(
+            '✅ Journey created with real-time tracking: ${journey['id']}');
       }
 
       return journey;
@@ -251,27 +252,22 @@ class DataFlowManager {
   }) async {
     try {
       // Update in Supabase
-      await SupabaseService.client
-          .from('journeys')
-          .update({
-            'current_phase': newPhase,
-            'gate': gate,
-            'terminal': terminal,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', journeyId);
+      await SupabaseService.client.from('journeys').update({
+        'current_phase': newPhase,
+        'gate': gate,
+        'terminal': terminal,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', journeyId);
 
       // Add journey event
-      await SupabaseService.client
-          .from('journey_events')
-          .insert({
-            'journey_id': journeyId,
-            'event_type': 'phase_change',
-            'title': 'Phase Updated',
-            'description': 'Journey phase changed to $newPhase',
-            'event_timestamp': DateTime.now().toIso8601String(),
-            'metadata': metadata ?? {},
-          });
+      await SupabaseService.client.from('journey_events').insert({
+        'journey_id': journeyId,
+        'event_type': 'phase_change',
+        'title': 'Phase Updated',
+        'description': 'Journey phase changed to $newPhase',
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': metadata ?? {},
+      });
 
       // Send real-time update
       await _realtimeService.sendDataToSupabase(
@@ -305,12 +301,13 @@ class DataFlowManager {
   }
 
   /// Handle journey events
-  void _handleJourneyEvent(Map<String, dynamic> event, String journeyId, String userId) {
+  void _handleJourneyEvent(
+      Map<String, dynamic> event, String journeyId, String userId) {
     debugPrint('📱 Journey event received: ${event['type']}');
-    
+
     // Update local cache
     _updateLocalJourneyData(journeyId, event);
-    
+
     // Trigger UI updates if needed
     _notifyJourneyUpdate(journeyId, event);
   }
@@ -320,16 +317,17 @@ class DataFlowManager {
     if (!_localData.containsKey('journeys')) {
       _localData['journeys'] = {};
     }
-    
+
     if (!_localData['journeys'].containsKey(journeyId)) {
       _localData['journeys'][journeyId] = {
         'events': [],
         'last_updated': DateTime.now().millisecondsSinceEpoch,
       };
     }
-    
+
     _localData['journeys'][journeyId]['events'].add(event);
-    _localData['journeys'][journeyId]['last_updated'] = DateTime.now().millisecondsSinceEpoch;
+    _localData['journeys'][journeyId]['last_updated'] =
+        DateTime.now().millisecondsSinceEpoch;
   }
 
   /// Notify about journey updates
@@ -344,12 +342,12 @@ class DataFlowManager {
       final prefs = await SharedPreferences.getInstance();
       final journeys = prefs.getString('cached_journeys') ?? '{}';
       final Map<String, dynamic> cachedJourneys = json.decode(journeys);
-      
+
       cachedJourneys[journey['id']] = {
         ...journey,
         'cached_at': DateTime.now().millisecondsSinceEpoch,
       };
-      
+
       await prefs.setString('cached_journeys', json.encode(cachedJourneys));
     } catch (e) {
       debugPrint('❌ Error caching journey locally: $e');
@@ -362,12 +360,12 @@ class DataFlowManager {
       final prefs = await SharedPreferences.getInstance();
       final feedbackList = prefs.getString('cached_feedback') ?? '[]';
       final List<dynamic> cachedFeedback = json.decode(feedbackList);
-      
+
       cachedFeedback.add({
         ...feedback,
         'cached_at': DateTime.now().millisecondsSinceEpoch,
       });
-      
+
       await prefs.setString('cached_feedback', json.encode(cachedFeedback));
     } catch (e) {
       debugPrint('❌ Error caching feedback locally: $e');
@@ -378,19 +376,19 @@ class DataFlowManager {
   Future<void> _loadLocalData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Load cached journeys
       final journeys = prefs.getString('cached_journeys');
       if (journeys != null) {
         _localData['journeys'] = json.decode(journeys);
       }
-      
+
       // Load cached feedback
       final feedback = prefs.getString('cached_feedback');
       if (feedback != null) {
         _localData['feedback'] = json.decode(feedback);
       }
-      
+
       debugPrint('✅ Local data loaded');
     } catch (e) {
       debugPrint('❌ Error loading local data: $e');
@@ -404,13 +402,21 @@ class DataFlowManager {
       final analytics = await SupabaseService.client
           .from('journey_events')
           .select('event_type, event_timestamp')
-          .gte('event_timestamp', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
+          .gte(
+              'event_timestamp',
+              DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .toIso8601String());
 
       // Get feedback analytics
       final feedbackAnalytics = await SupabaseService.client
           .from('stage_feedback')
           .select('stage, overall_rating, feedback_timestamp')
-          .gte('feedback_timestamp', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
+          .gte(
+              'feedback_timestamp',
+              DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .toIso8601String());
 
       return {
         'journey_events': analytics,

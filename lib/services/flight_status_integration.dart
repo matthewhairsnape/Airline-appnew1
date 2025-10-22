@@ -34,17 +34,14 @@ class FlightStatusIntegration {
   }) async {
     try {
       // Get journey details from Supabase
-      final journeyData = await SupabaseService.client
-          .from('journeys')
-          .select('''
+      final journeyData =
+          await SupabaseService.client.from('journeys').select('''
             *,
             flight:flights (
               *,
               airline:airlines (*)
             )
-          ''')
-          .eq('id', journeyId)
-          .single();
+          ''').eq('id', journeyId).single();
 
       if (journeyData == null) {
         debugPrint('❌ Journey not found: $journeyId');
@@ -55,7 +52,8 @@ class FlightStatusIntegration {
       final airline = flight['airline'] as Map<String, dynamic>;
       final carrier = airline['iata_code'] as String;
       final flightNumber = flight['flight_number'] as String;
-      final scheduledDeparture = DateTime.parse(flight['scheduled_departure'] as String);
+      final scheduledDeparture =
+          DateTime.parse(flight['scheduled_departure'] as String);
 
       // Start monitoring
       FlightStatusMonitor.startMonitoring(
@@ -116,26 +114,21 @@ class FlightStatusIntegration {
       final currentPhase = CiriumApiService.mapStatusToPhase(currentStatus);
 
       // Update journey in Supabase
-      await SupabaseService.client
-          .from('journeys')
-          .update({
-            'current_phase': currentPhase,
-            'status': _mapPhaseToStatus(currentPhase),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', journeyId);
+      await SupabaseService.client.from('journeys').update({
+        'current_phase': currentPhase,
+        'status': _mapPhaseToStatus(currentPhase),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', journeyId);
 
       // Add journey event
-      await SupabaseService.client
-          .from('journey_events')
-          .insert({
-            'journey_id': journeyId,
-            'event_type': 'status_change',
-            'title': _getEventTitle(currentPhase),
-            'description': _getEventDescription(currentPhase, flightData),
-            'event_timestamp': DateTime.now().toIso8601String(),
-            'metadata': flightData,
-          });
+      await SupabaseService.client.from('journey_events').insert({
+        'journey_id': journeyId,
+        'event_type': 'status_change',
+        'title': _getEventTitle(currentPhase),
+        'description': _getEventDescription(currentPhase, flightData),
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': flightData,
+      });
 
       debugPrint('✅ Flight status updated: $currentPhase');
       return flightData;
@@ -209,10 +202,11 @@ class FlightStatusIntegration {
   }
 
   /// Get active monitoring count
-  static int get activeMonitoringCount => FlightStatusMonitor.activeMonitorCount;
+  static int get activeMonitoringCount =>
+      FlightStatusMonitor.activeMonitorCount;
 
   /// Check if journey is being monitored
-  static bool isJourneyMonitored(String journeyId) => 
+  static bool isJourneyMonitored(String journeyId) =>
       FlightStatusMonitor.isMonitoring(journeyId);
 
   /// Send test notification
@@ -276,11 +270,12 @@ class FlightStatusIntegration {
   }
 
   /// Helper function to get event description
-  static String _getEventDescription(String phase, Map<String, dynamic> flightData) {
+  static String _getEventDescription(
+      String phase, Map<String, dynamic> flightData) {
     final carrier = flightData['carrier'] ?? '';
     final flightNumber = flightData['flightNumber'] ?? '';
     final flight = '$carrier$flightNumber';
-    
+
     switch (phase) {
       case 'boarding':
         return 'Flight $flight is now boarding. Please proceed to the gate.';

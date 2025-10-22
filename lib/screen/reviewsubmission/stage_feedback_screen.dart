@@ -21,10 +21,11 @@ class StageFeedbackScreen extends ConsumerStatefulWidget {
   }) : super(key: key);
 
   @override
-  ConsumerState<StageFeedbackScreen> createState() => _StageFeedbackScreenState();
+  ConsumerState<StageFeedbackScreen> createState() =>
+      _StageFeedbackScreenState();
 }
 
-class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen> 
+class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
     with TickerProviderStateMixin {
   final Map<String, List<String>> _positiveSelections = {};
   final Map<String, List<String>> _negativeSelections = {};
@@ -45,12 +46,12 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       duration: Duration(milliseconds: 1500),
       vsync: this,
     );
-    
+
     _floatingController = AnimationController(
       duration: Duration(seconds: 3),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -58,7 +59,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
+
     _slideAnimation = Tween<Offset>(
       begin: Offset(0, 0.3),
       end: Offset.zero,
@@ -66,7 +67,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       parent: _animationController,
       curve: Curves.easeOutCubic,
     ));
-    
+
     _floatingAnimation = Tween<double>(
       begin: -0.02,
       end: 0.02,
@@ -74,7 +75,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       parent: _floatingController,
       curve: Curves.easeInOut,
     ));
-    
+
     _animationController.forward();
     _floatingController.repeat(reverse: true);
   }
@@ -90,14 +91,14 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
 
   void _toggleSelection(String questionId, String optionId, FeedbackType type) {
     setState(() {
-      final selections = type == FeedbackType.positive 
-          ? _positiveSelections 
+      final selections = type == FeedbackType.positive
+          ? _positiveSelections
           : _negativeSelections;
-      
+
       if (!selections.containsKey(questionId)) {
         selections[questionId] = [];
       }
-      
+
       if (selections[questionId]!.contains(optionId)) {
         selections[questionId]!.remove(optionId);
         if (selections[questionId]!.isEmpty) {
@@ -131,7 +132,8 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
             onPressed: () {
               if (_customTextController.text.isNotEmpty) {
                 setState(() {
-                  _customFeedback['${questionId}_$optionId'] = _customTextController.text;
+                  _customFeedback['${questionId}_$optionId'] =
+                      _customTextController.text;
                 });
                 _customTextController.clear();
                 Navigator.pop(context);
@@ -155,15 +157,16 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       negativeSelections: _negativeSelections,
       customFeedback: _customFeedback,
       overallRating: _overallRating,
-      additionalComments: _commentsController.text.isNotEmpty 
-          ? _commentsController.text 
-          : null,
+      additionalComments:
+          _commentsController.text.isNotEmpty ? _commentsController.text : null,
     );
 
     // Store feedback locally - will be submitted with complete review
-    ref.read(stageFeedbackProvider.notifier).addFeedback(widget.flightId, feedback);
+    ref
+        .read(stageFeedbackProvider.notifier)
+        .addFeedback(widget.flightId, feedback);
     debugPrint('✅ Stage feedback saved locally: ${feedback.stage}');
-    
+
     // Also save to Supabase if initialized
     if (SupabaseService.isInitialized) {
       final userId = ref.read(userDataProvider)?['userData']?['_id'] ?? '';
@@ -179,16 +182,17 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
       );
       debugPrint('✅ Stage feedback saved to Supabase');
     }
-    
+
     // Show success message and navigate back
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Thank you for your feedback! We\'ll include this in your final review.'),
+        content: Text(
+            'Thank you for your feedback! We\'ll include this in your final review.'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
     );
-    
+
     Navigator.pop(context);
   }
 
@@ -229,110 +233,116 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
                     return Transform.translate(
                       offset: Offset(0, _floatingAnimation.value * 10),
                       child: Container(
-                  height: 280,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Stack(
-                      children: [
-                        // Background image
-                        Positioned.fill(
-                          child: Image.asset(
-                            _getStageImage(widget.stage),
-                            fit: BoxFit.cover,
-                          ),
+                        height: 280,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 20,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
                         ),
-                        // Gradient overlay for better text readability
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withOpacity(0.3),
-                                  Colors.black.withOpacity(0.6),
-                                ],
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Stack(
+                            children: [
+                              // Background image
+                              Positioned.fill(
+                                child: Image.asset(
+                                  _getStageImage(widget.stage),
+                                  fit: BoxFit.cover,
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                        // Content overlay
-                        Positioned.fill(
-                          child: Container(
-                            padding: EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _getStageTitle(widget.stage),
-                                  style: AppStyles.textStyle_24_600.copyWith(
-                                    color: Colors.white,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
+                              // Gradient overlay for better text readability
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withOpacity(0.3),
+                                        Colors.black.withOpacity(0.6),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Content overlay
+                              Positioned.fill(
+                                child: Container(
+                                  padding: EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _getStageTitle(widget.stage),
+                                        style:
+                                            AppStyles.textStyle_24_600.copyWith(
+                                          color: Colors.white,
+                                          shadows: [
+                                            Shadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.5),
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        _getStageDescription(widget.stage),
+                                        style:
+                                            AppStyles.textStyle_16_400.copyWith(
+                                          color: Colors.white.withOpacity(0.9),
+                                          shadows: [
+                                            Shadow(
+                                              color:
+                                                  Colors.black.withOpacity(0.5),
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  _getStageDescription(widget.stage),
-                                  style: AppStyles.textStyle_16_400.copyWith(
-                                    color: Colors.white.withOpacity(0.9),
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        blurRadius: 4,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
                       ),
                     );
                   },
                 ),
               ),
             ),
-            
+
             SizedBox(height: 24),
-            
+
             // Main question
             Text(
               'How was the ${_getStageContext(widget.stage)}?',
               style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
             ),
-            
+
             SizedBox(height: 8),
-            
+
             Text(
               stageSubtitle,
-              style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+              style:
+                  AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
             ),
-            
+
             SizedBox(height: 16),
-            
+
             // Star rating
             Row(
               children: List.generate(5, (index) {
@@ -345,30 +355,34 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
                   child: Container(
                     margin: EdgeInsets.only(right: 8),
                     child: Icon(
-                      index < (_overallRating ?? 0) ? Icons.star : Icons.star_border,
-                      color: index < (_overallRating ?? 0) ? Colors.amber : Colors.grey[400],
+                      index < (_overallRating ?? 0)
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: index < (_overallRating ?? 0)
+                          ? Colors.amber
+                          : Colors.grey[400],
                       size: 32,
                     ),
                   ),
                 );
               }),
             ),
-            
+
             SizedBox(height: 32),
-            
+
             // Questions
             ...questions.map((question) => _buildQuestionSection(question)),
-            
+
             SizedBox(height: 24),
-            
+
             // Additional comments
             Text(
               'Additional comments (optional)',
               style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
             ),
-            
+
             SizedBox(height: 8),
-            
+
             TextField(
               controller: _commentsController,
               decoration: InputDecoration(
@@ -383,16 +397,16 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
               ),
               maxLines: 3,
             ),
-            
+
             SizedBox(height: 32),
-            
+
             // Submit button
             MainButton(
               text: 'Submit Feedback',
               onPressed: _canSubmit() ? () => _submitFeedback() : null,
               color: _canSubmit() ? Color(0xFF3B82F6) : Colors.grey[400]!,
             ),
-            
+
             SizedBox(height: 20),
           ],
         ),
@@ -410,23 +424,24 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
             question.title,
             style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
           ),
-          
+
           SizedBox(height: 8),
-          
+
           Text(
             question.subtitle,
             style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Bubble options
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: question.options.map((option) {
-              final isSelected = _isOptionSelected(question.id, option.id, question.type);
-              
+              final isSelected =
+                  _isOptionSelected(question.id, option.id, question.type);
+
               return GestureDetector(
                 onTap: () {
                   if (option.isCustom) {
@@ -438,12 +453,16 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected 
-                        ? (question.type == FeedbackType.positive ? Colors.green[50] : Colors.red[50])
+                    color: isSelected
+                        ? (question.type == FeedbackType.positive
+                            ? Colors.green[50]
+                            : Colors.red[50])
                         : Colors.grey[100],
                     border: Border.all(
-                      color: isSelected 
-                          ? (question.type == FeedbackType.positive ? Colors.green : Colors.red)
+                      color: isSelected
+                          ? (question.type == FeedbackType.positive
+                              ? Colors.green
+                              : Colors.red)
                           : Colors.grey[300]!,
                       width: isSelected ? 2 : 1,
                     ),
@@ -452,8 +471,10 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
                   child: Text(
                     option.text,
                     style: AppStyles.textStyle_14_500.copyWith(
-                      color: isSelected 
-                          ? (question.type == FeedbackType.positive ? Colors.green[800] : Colors.red[800])
+                      color: isSelected
+                          ? (question.type == FeedbackType.positive
+                              ? Colors.green[800]
+                              : Colors.red[800])
                           : Colors.grey[700],
                     ),
                   ),
@@ -461,7 +482,7 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
               );
             }).toList(),
           ),
-          
+
           // Show custom feedback if any
           if (_customFeedback.containsKey('${question.id}_something_else'))
             Container(
@@ -474,7 +495,8 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
               ),
               child: Text(
                 _customFeedback['${question.id}_something_else']!,
-                style: AppStyles.textStyle_14_400.copyWith(color: Colors.blue[800]),
+                style: AppStyles.textStyle_14_400
+                    .copyWith(color: Colors.blue[800]),
               ),
             ),
         ],
@@ -482,17 +504,18 @@ class _StageFeedbackScreenState extends ConsumerState<StageFeedbackScreen>
     );
   }
 
-  bool _isOptionSelected(String questionId, String optionId, FeedbackType type) {
-    final selections = type == FeedbackType.positive 
-        ? _positiveSelections 
+  bool _isOptionSelected(
+      String questionId, String optionId, FeedbackType type) {
+    final selections = type == FeedbackType.positive
+        ? _positiveSelections
         : _negativeSelections;
-    
+
     return selections[questionId]?.contains(optionId) ?? false;
   }
 
   bool _canSubmit() {
-    return _overallRating != null && 
-           (_positiveSelections.isNotEmpty || _negativeSelections.isNotEmpty);
+    return _overallRating != null &&
+        (_positiveSelections.isNotEmpty || _negativeSelections.isNotEmpty);
   }
 
   IconData _getStageIcon(FeedbackStage stage) {

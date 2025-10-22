@@ -9,8 +9,9 @@ import 'supabase_service.dart';
 /// without complex queries that might cause compilation issues
 class SimpleDataFlowService {
   static SimpleDataFlowService? _instance;
-  static SimpleDataFlowService get instance => _instance ??= SimpleDataFlowService._();
-  
+  static SimpleDataFlowService get instance =>
+      _instance ??= SimpleDataFlowService._();
+
   SimpleDataFlowService._();
 
   final Map<String, RealtimeChannel> _activeChannels = {};
@@ -19,7 +20,7 @@ class SimpleDataFlowService {
   /// Initialize the simplified data flow service
   Future<void> initialize() async {
     debugPrint('🔄 Initializing SimpleDataFlowService...');
-    
+
     // Set up global error handling
     Supabase.instance.client.realtime.onError((error) {
       debugPrint('❌ Realtime error: $error');
@@ -119,11 +120,14 @@ class SimpleDataFlowService {
   /// Get user journeys with basic real-time updates
   Stream<List<Map<String, dynamic>>> getUserJourneysStream(String userId) {
     if (_dataStreams.containsKey('user_journeys_$userId')) {
-      return _dataStreams['user_journeys_$userId']!.stream as Stream<List<Map<String, dynamic>>>;
+      return _dataStreams['user_journeys_$userId']!.stream
+          as Stream<List<Map<String, dynamic>>>;
     }
 
-    final streamController = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _dataStreams['user_journeys_$userId'] = streamController as StreamController<Map<String, dynamic>>;
+    final streamController =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
+    _dataStreams['user_journeys_$userId'] =
+        streamController as StreamController<Map<String, dynamic>>;
 
     // Subscribe to journey updates
     final userChannel = Supabase.instance.client
@@ -190,27 +194,22 @@ class SimpleDataFlowService {
   }) async {
     try {
       // Update in Supabase
-      await SupabaseService.client
-          .from('journeys')
-          .update({
-            'current_phase': newPhase,
-            'gate': gate,
-            'terminal': terminal,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', journeyId);
+      await SupabaseService.client.from('journeys').update({
+        'current_phase': newPhase,
+        'gate': gate,
+        'terminal': terminal,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', journeyId);
 
       // Add journey event
-      await SupabaseService.client
-          .from('journey_events')
-          .insert({
-            'journey_id': journeyId,
-            'event_type': 'phase_change',
-            'title': 'Phase Updated',
-            'description': 'Journey phase changed to $newPhase',
-            'event_timestamp': DateTime.now().toIso8601String(),
-            'metadata': metadata ?? {},
-          });
+      await SupabaseService.client.from('journey_events').insert({
+        'journey_id': journeyId,
+        'event_type': 'phase_change',
+        'title': 'Phase Updated',
+        'description': 'Journey phase changed to $newPhase',
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': metadata ?? {},
+      });
 
       // Send real-time update
       await _sendRealtimeUpdate('journey_events', {
@@ -271,7 +270,11 @@ class SimpleDataFlowService {
       final recentEvents = await SupabaseService.client
           .from('journey_events')
           .select('*')
-          .gte('event_timestamp', DateTime.now().subtract(const Duration(days: 7)).toIso8601String())
+          .gte(
+              'event_timestamp',
+              DateTime.now()
+                  .subtract(const Duration(days: 7))
+                  .toIso8601String())
           .order('event_timestamp', ascending: false)
           .limit(50);
 
@@ -279,7 +282,11 @@ class SimpleDataFlowService {
       final recentFeedback = await SupabaseService.client
           .from('stage_feedback')
           .select('*')
-          .gte('feedback_timestamp', DateTime.now().subtract(const Duration(days: 7)).toIso8601String())
+          .gte(
+              'feedback_timestamp',
+              DateTime.now()
+                  .subtract(const Duration(days: 7))
+                  .toIso8601String())
           .order('feedback_timestamp', ascending: false)
           .limit(50);
 
@@ -304,11 +311,13 @@ class SimpleDataFlowService {
   }
 
   /// Send real-time update
-  Future<void> _sendRealtimeUpdate(String table, Map<String, dynamic> data) async {
+  Future<void> _sendRealtimeUpdate(
+      String table, Map<String, dynamic> data) async {
     try {
       // This would typically send to a real-time channel
       // For now, we'll just log it
-      debugPrint('📡 Real-time update sent: $table - ${data['event_type'] ?? 'data'}');
+      debugPrint(
+          '📡 Real-time update sent: $table - ${data['event_type'] ?? 'data'}');
     } catch (e) {
       debugPrint('❌ Error sending real-time update: $e');
     }
@@ -339,7 +348,7 @@ class SimpleDataFlowService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(eventData);
   }
 
@@ -356,16 +365,14 @@ class SimpleDataFlowService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(dashboardData);
   }
 
   /// Fetch user journeys
   Future<List<Map<String, dynamic>>> _fetchUserJourneys(String userId) async {
     try {
-      final data = await SupabaseService.client
-          .from('journeys')
-          .select('''
+      final data = await SupabaseService.client.from('journeys').select('''
             *,
             flight:flights (
               *,
@@ -373,9 +380,7 @@ class SimpleDataFlowService {
               departure_airport:airports!flights_departure_airport_id_fkey (*),
               arrival_airport:airports!flights_arrival_airport_id_fkey (*)
             )
-          ''')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          ''').eq('user_id', userId).order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(data);
     } catch (e) {
@@ -413,11 +418,11 @@ class SimpleDataFlowService {
     for (final channel in _activeChannels.values) {
       channel.unsubscribe();
     }
-    
+
     for (final stream in _dataStreams.values) {
       stream.close();
     }
-    
+
     _activeChannels.clear();
     _dataStreams.clear();
   }

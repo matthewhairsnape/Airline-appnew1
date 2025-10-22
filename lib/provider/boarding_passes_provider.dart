@@ -23,8 +23,6 @@ class BoardingPassesNotifier extends StateNotifier<List<BoardingPass>> {
     return updatedPass;
   }
 
-
-
   bool hasFlightNumber(String flightNumber) {
     return state.any((pass) => pass.flightNumber == flightNumber);
   }

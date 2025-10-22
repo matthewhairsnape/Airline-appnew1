@@ -40,7 +40,7 @@ class AwsUploadService {
     final fileName = path.basename(file.path);
     final destination = '$folderName/$fileName';
     return 'https://placeholder-url.com/$destination';
-    
+
     // try {
     //   final fileName = path.basename(file.path);
     //   final destination = '$folderName/$fileName';

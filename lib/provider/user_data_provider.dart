@@ -25,7 +25,7 @@ class UserDataNotifier extends StateNotifier<Map<String, dynamic>?> {
       final updatedData = Map<String, dynamic>.from(state!);
       updatedData.addAll(updates);
       updatedData['updated_at'] = DateTime.now().toIso8601String();
-      
+
       setUserData(updatedData);
     }
   }

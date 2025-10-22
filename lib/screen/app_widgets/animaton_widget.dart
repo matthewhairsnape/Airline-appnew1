@@ -40,7 +40,6 @@ class _AnimationSState extends State<AnimationS> {
   ];
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       body: Center(
         child: SizedBox(

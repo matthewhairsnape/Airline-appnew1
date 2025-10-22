@@ -33,6 +33,7 @@ class FeedDataNotifier extends StateNotifier<FeedDataState> {
   }
 }
 
-final feedDataProvider = StateNotifierProvider<FeedDataNotifier, FeedDataState>((ref) {
+final feedDataProvider =
+    StateNotifierProvider<FeedDataNotifier, FeedDataState>((ref) {
   return FeedDataNotifier();
 });

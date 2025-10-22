@@ -30,7 +30,7 @@ class _LoginState extends ConsumerState<Login> {
   void initState() {
     super.initState();
     _checkExistingAuth();
-    
+
     // Listen to auth state changes
     ref.listenManual(authProvider, (previous, next) {
       next.when(
@@ -58,7 +58,8 @@ class _LoginState extends ConsumerState<Login> {
             setState(() {
               _isLoading = false;
             });
-            CustomSnackBar.error(context, 'Authentication error: ${error.toString()}');
+            CustomSnackBar.error(
+                context, 'Authentication error: ${error.toString()}');
           }
         },
       );
@@ -125,18 +126,20 @@ class _LoginState extends ConsumerState<Login> {
       if (_isSignUp) {
         debugPrint('📝 Starting sign up process...');
         await ref.read(authProvider.notifier).signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          fullName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : null,
-        );
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+              fullName: _nameController.text.trim().isNotEmpty
+                  ? _nameController.text.trim()
+                  : null,
+            );
       } else {
         debugPrint('🔐 Starting sign in process...');
         await ref.read(authProvider.notifier).signIn(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+              email: _emailController.text.trim(),
+              password: _passwordController.text,
+            );
       }
-      
+
       debugPrint('✅ Auth method completed successfully');
     } catch (e) {
       debugPrint('❌ Authentication exception: $e');
@@ -156,22 +159,25 @@ class _LoginState extends ConsumerState<Login> {
     }
 
     try {
-      await ref.read(authProvider.notifier).resetPassword(_emailController.text.trim());
+      await ref
+          .read(authProvider.notifier)
+          .resetPassword(_emailController.text.trim());
       if (mounted) {
-        CustomSnackBar.success(context, 'Password reset email sent! Check your inbox.');
+        CustomSnackBar.success(
+            context, 'Password reset email sent! Check your inbox.');
       }
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.error(context, 'Failed to send reset email. Please try again.');
+        CustomSnackBar.error(
+            context, 'Failed to send reset email. Please try again.');
       }
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    
+
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: Colors.white,
@@ -297,7 +303,7 @@ class _LoginState extends ConsumerState<Login> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Name field (only for signup)
                           if (_isSignUp) ...[
                             TextFormField(
@@ -312,7 +318,8 @@ class _LoginState extends ConsumerState<Login> {
                                 fillColor: Colors.grey[50],
                               ),
                               validator: (value) {
-                                if (_isSignUp && (value == null || value.trim().isEmpty)) {
+                                if (_isSignUp &&
+                                    (value == null || value.trim().isEmpty)) {
                                   return 'Please enter your full name';
                                 }
                                 return null;
@@ -320,7 +327,7 @@ class _LoginState extends ConsumerState<Login> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                          
+
                           // Email field
                           TextFormField(
                             controller: _emailController,
@@ -338,14 +345,15 @@ class _LoginState extends ConsumerState<Login> {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Please enter your email';
                               }
-                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
+                              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                  .hasMatch(value.trim())) {
                                 return 'Please enter a valid email';
                               }
                               return null;
                             },
                           ),
                           const SizedBox(height: 16),
-                          
+
                           // Password field
                           TextFormField(
                             controller: _passwordController,
@@ -355,7 +363,9 @@ class _LoginState extends ConsumerState<Login> {
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                  _obscurePassword
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -380,7 +390,7 @@ class _LoginState extends ConsumerState<Login> {
                             },
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Login/Signup button
                           ElevatedButton(
                             onPressed: _isLoading ? null : _handleAuth,
@@ -399,7 +409,8 @@ class _LoginState extends ConsumerState<Login> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
                                     ),
                                   )
                                 : Text(
@@ -410,7 +421,7 @@ class _LoginState extends ConsumerState<Login> {
                                   ),
                           ),
                           const SizedBox(height: 16),
-                          
+
                           // Toggle between login and signup
                           TextButton(
                             onPressed: () {
@@ -428,7 +439,7 @@ class _LoginState extends ConsumerState<Login> {
                               ),
                             ),
                           ),
-                          
+
                           // Forgot password (only for login)
                           if (!_isSignUp) ...[
                             const SizedBox(height: 8),
@@ -456,8 +467,7 @@ class _LoginState extends ConsumerState<Login> {
               : Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                    ],
+                    children: [],
                   ),
                 ),
         ],
@@ -465,4 +475,3 @@ class _LoginState extends ConsumerState<Login> {
     );
   }
 }
-

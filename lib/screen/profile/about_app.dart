@@ -6,7 +6,6 @@ import 'package:airline_app/utils/app_localizations.dart';
 
 class AboutApp extends StatelessWidget {
   const AboutApp({super.key});
- 
 
   @override
   Widget build(BuildContext context) {

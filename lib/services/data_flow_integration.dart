@@ -9,8 +9,9 @@ import 'supabase_service.dart';
 /// This is the primary interface for the app to interact with Supabase
 class DataFlowIntegration {
   static DataFlowIntegration? _instance;
-  static DataFlowIntegration get instance => _instance ??= DataFlowIntegration._();
-  
+  static DataFlowIntegration get instance =>
+      _instance ??= DataFlowIntegration._();
+
   DataFlowIntegration._();
 
   final DataFlowManager _dataFlowManager = DataFlowManager.instance;
@@ -28,13 +29,13 @@ class DataFlowIntegration {
     try {
       // Initialize Supabase
       await SupabaseService.initialize();
-      
+
       // Initialize data flow manager
       await _dataFlowManager.initialize();
-      
+
       // Initialize dashboard service
       await _dashboardService.initialize();
-      
+
       // Initialize real-time service
       await _realtimeService.initialize();
 
@@ -68,7 +69,8 @@ class DataFlowIntegration {
     String? aircraftType,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dataFlowManager.createJourneyWithTracking(
@@ -91,7 +93,8 @@ class DataFlowIntegration {
   /// Get user journeys with real-time updates
   Stream<List<Map<String, dynamic>>> getUserJourneysStream(String userId) {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dataFlowManager.getUserJourneysStream(userId);
@@ -100,7 +103,8 @@ class DataFlowIntegration {
   /// Get journey events stream
   Stream<Map<String, dynamic>> getJourneyEventsStream(String journeyId) {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dataFlowManager.getJourneyEventsStream(journeyId);
@@ -115,7 +119,8 @@ class DataFlowIntegration {
     Map<String, dynamic>? metadata,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dataFlowManager.updateJourneyPhase(
@@ -141,7 +146,8 @@ class DataFlowIntegration {
     String? additionalComments,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dataFlowManager.submitStageFeedbackWithRealtime(
@@ -170,7 +176,8 @@ class DataFlowIntegration {
     List<String>? airportImages,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dataFlowManager.submitCompleteReviewWithRealtime(
@@ -190,7 +197,8 @@ class DataFlowIntegration {
   /// Get feedback stream for a journey
   Stream<List<Map<String, dynamic>>> getFeedbackStream(String journeyId) {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dataFlowManager.getFeedbackStream(journeyId);
@@ -201,7 +209,8 @@ class DataFlowIntegration {
   /// Get flight tracking stream
   Stream<Map<String, dynamic>> getFlightTrackingStream(String flightId) {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dataFlowManager.getFlightTrackingStream(flightId);
@@ -212,7 +221,8 @@ class DataFlowIntegration {
   /// Get dashboard analytics stream
   Stream<Map<String, dynamic>> getDashboardStream() {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dataFlowManager.getDashboardStream();
@@ -221,7 +231,8 @@ class DataFlowIntegration {
   /// Get analytics stream for dashboard
   Stream<Map<String, dynamic>> getAnalyticsStream() {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dashboardService.getAnalyticsStream();
@@ -230,7 +241,8 @@ class DataFlowIntegration {
   /// Get flight tracking dashboard
   Stream<Map<String, dynamic>> getFlightTrackingDashboard() {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dashboardService.getFlightTrackingDashboard();
@@ -239,7 +251,8 @@ class DataFlowIntegration {
   /// Get alerts stream
   Stream<Map<String, dynamic>> getAlertsStream() {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return _dashboardService.getAlertsStream();
@@ -251,7 +264,8 @@ class DataFlowIntegration {
     DateTime? endDate,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dashboardService.getUserEngagementMetrics(
@@ -263,7 +277,8 @@ class DataFlowIntegration {
   /// Get operational insights
   Future<Map<String, dynamic>> getOperationalInsights() async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dashboardService.getOperationalInsights();
@@ -272,7 +287,8 @@ class DataFlowIntegration {
   /// Get data ingestion metrics
   Future<Map<String, dynamic>> getDataIngestionMetrics() async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dashboardService.getDataIngestionMetrics();
@@ -285,7 +301,8 @@ class DataFlowIntegration {
     List<String>? dataTypes,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dashboardService.exportDashboardData(
@@ -300,7 +317,8 @@ class DataFlowIntegration {
   /// Sync all pending data
   Future<bool> syncAllData() async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _dataFlowManager.syncAllData();
@@ -313,7 +331,8 @@ class DataFlowIntegration {
     String? operation,
   }) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _realtimeService.sendDataToSupabase(
@@ -326,7 +345,8 @@ class DataFlowIntegration {
   /// Get cached data for offline support
   Future<List<Map<String, dynamic>>> getCachedData(String table) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await _realtimeService.getCachedData(table);
@@ -337,13 +357,14 @@ class DataFlowIntegration {
   /// Save user data with real-time sync
   Future<bool> saveUserData(Map<String, dynamic> userData) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     try {
       // Save to Supabase
       final success = await SupabaseService.saveUserDataToSupabase(userData);
-      
+
       if (success) {
         // Send real-time update
         await _realtimeService.sendDataToSupabase(
@@ -363,7 +384,8 @@ class DataFlowIntegration {
   /// Get user profile with sync
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     if (!_isInitialized) {
-      throw Exception('DataFlowIntegration not initialized. Call initialize() first.');
+      throw Exception(
+          'DataFlowIntegration not initialized. Call initialize() first.');
     }
 
     return await SupabaseService.getUserProfile(userId);

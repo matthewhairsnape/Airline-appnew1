@@ -39,7 +39,8 @@ class StageFeedbackNotifier extends StateNotifier<Map<String, StageFeedback>> {
   }
 }
 
-final stageFeedbackProvider = StateNotifierProvider<StageFeedbackNotifier, Map<String, StageFeedback>>((ref) {
+final stageFeedbackProvider =
+    StateNotifierProvider<StageFeedbackNotifier, Map<String, StageFeedback>>(
+        (ref) {
   return StageFeedbackNotifier();
 });
-

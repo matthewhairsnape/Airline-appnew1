@@ -34,7 +34,6 @@ class QuestionFirstScreenForAirport extends ConsumerWidget {
           automaticallyImplyLeading: false,
           flexibleSpace: BuildQuestionHeaderForAirport(
             title: "What did you like about your airport experience?",
-          
           ),
         ),
         body: Column(
@@ -88,7 +87,7 @@ class QuestionFirstScreenForAirport extends ConsumerWidget {
           children: [
             Expanded(
               child: MainButton(
-                color:Colors.white,
+                color: Colors.white,
                 text: "Back",
                 onPressed: () {
                   Navigator.pop(context);
@@ -105,7 +104,7 @@ class QuestionFirstScreenForAirport extends ConsumerWidget {
             SizedBox(width: 10),
             Expanded(
               child: MainButton(
-                color:Colors.white,
+                color: Colors.white,
                 text: "Next",
                 onPressed: () {
                   Navigator.pushNamed(
