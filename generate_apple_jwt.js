@@ -11,7 +11,7 @@ const APPLE_CONFIG = {
   keyId: 'D738P9CC7G',
   
   // Your App Bundle ID - this should match what you see in the interface
-  bundleId: 'com.exp.aero.signin',
+  bundleId: 'com.samchui.airlineapp.2025',
   
   // Private key file path
   privateKeyPath: './AuthKey_D738P9CC7G.p8'

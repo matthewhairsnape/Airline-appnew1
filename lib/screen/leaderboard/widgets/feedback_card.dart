@@ -40,8 +40,14 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
   void deactivate() {
     // Pause and clear cache when widget is not visible
     for (var controller in _videoControllers.values) {
-      controller.pause();
-      controller.setVolume(0);
+      try {
+        if (controller.value.isInitialized) {
+          controller.pause();
+          controller.setVolume(0);
+        }
+      } catch (e) {
+        debugPrint('Error in deactivate for video controller: $e');
+      }
     }
     super.deactivate();
   }
@@ -52,33 +58,42 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
 
     // Re-initialize video players when feedback data changes
     if (oldWidget.singleFeedback != widget.singleFeedback) {
-      // Clean up old video controllers
-      for (var controller in _videoControllers.values) {
-        controller.pause();
-        controller.dispose();
+      // Only proceed if widget is still mounted
+      if (!mounted) return;
+      
+      // Clean up old video controllers safely
+      _disposeVideoControllers();
+      
+      // Initialize new video controllers only if still mounted
+      if (mounted) {
+        initializeVideoPlayer();
       }
-      _videoControllers.clear();
-      _videoPositions.clear();
-
-      // Initialize new video controllers
-      initializeVideoPlayer();
     }
   }
 
   @override
   void dispose() {
+    _disposeVideoControllers();
+    super.dispose();
+  }
+
+  /// Safely dispose of all video controllers
+  void _disposeVideoControllers() {
     for (var controller in _videoControllers.values) {
-      // Store position before disposing
-      _videoPositions[controller.dataSource] = controller.value.position;
-      controller.pause();
-      // Clear video buffer before disposing
-      controller.setVolume(0);
-      controller.removeListener(() {});
-      controller.dispose();
+      try {
+        // Store position before disposing
+        _videoPositions[controller.dataSource] = controller.value.position;
+        controller.pause();
+        // Clear video buffer before disposing
+        controller.setVolume(0);
+        controller.removeListener(() {});
+        controller.dispose();
+      } catch (e) {
+        debugPrint('Error disposing video controller: $e');
+      }
     }
     _videoControllers.clear();
     _videoPositions.clear(); // Clear stored positions
-    super.dispose();
   }
 
   @override
@@ -88,7 +103,7 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
   }
 
   void initializeVideoPlayer() {
-    if (widget.singleFeedback['imageUrls'] == null) return;
+    if (!mounted || widget.singleFeedback['imageUrls'] == null) return;
 
     for (var media in widget.singleFeedback['imageUrls']) {
       if (media != null &&
@@ -97,17 +112,26 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
               .toLowerCase()
               .contains(RegExp(r'\.(mp4|mov|avi|wmv)', caseSensitive: false))) {
         try {
+          // Check if controller already exists to avoid duplicates
+          if (_videoControllers.containsKey(media)) {
+            continue;
+          }
+          
           _videoControllers[media] = VideoPlayerController.networkUrl(
             Uri.parse(media), // Convert String to Uri
             videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
           )..initialize().then((_) {
-              if (mounted) {
+              if (mounted && _videoControllers.containsKey(media)) {
                 setState(() {
                   _videoControllers[media]?.setVolume(0.0);
                   _videoControllers[media]?.setLooping(true);
                   _handleVideoState();
                 });
               }
+            }).catchError((error) {
+              debugPrint('Error initializing video controller for $media: $error');
+              // Remove failed controller
+              _videoControllers.remove(media);
             });
         } catch (e) {
           debugPrint('Error creating video controller: $e');
@@ -126,13 +150,17 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
   }
 
   void _handleVideoState() {
-    if (mounted) {
-      _videoControllers.forEach((url, controller) {
-        if (!controller.value.isPlaying) {
+    if (!mounted) return;
+    
+    _videoControllers.forEach((url, controller) {
+      try {
+        if (controller.value.isInitialized && !controller.value.isPlaying) {
           controller.play();
         }
-      });
-    }
+      } catch (e) {
+        debugPrint('Error handling video state for $url: $e');
+      }
+    });
   }
 
   Widget _buildVideoPlayer(String videoUrl) {

@@ -25,12 +25,22 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
   }
 
   void _pauseAllVideos() {
+    if (!mounted) return;
+    
     _videoControllers.forEach((_, controller) {
-      controller.pause();
+      try {
+        if (controller.value.isInitialized) {
+          controller.pause();
+        }
+      } catch (e) {
+        debugPrint('Error pausing video: $e');
+      }
     });
   }
 
   Future<void> _initVideos() async {
+    if (!mounted) return;
+    
     setState(() {
       isLoading = true;
     });
@@ -40,12 +50,11 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
     final List<dynamic> mediaUrls = args?['imageUrls'] ?? [];
 
     // Clear existing controllers first
-    await Future.forEach(_videoControllers.values, (controller) async {
-      await controller.dispose();
-    });
-    _videoControllers.clear();
+    _disposeVideoControllers();
 
     for (var media in mediaUrls) {
+      if (!mounted) break; // Check if widget is still mounted
+      
       if (media
           .toString()
           .contains(RegExp(r'\.(mp4|mov|avi|wmv)', caseSensitive: false))) {
@@ -58,31 +67,48 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
           await controller.initialize();
           controller.setLooping(true);
 
-          setState(() {
-            _videoControllers[media] = controller;
-          });
+          if (mounted) {
+            setState(() {
+              _videoControllers[media] = controller;
+            });
+          } else {
+            // Widget was disposed while initializing, clean up
+            controller.dispose();
+          }
         } catch (e) {
           debugPrint('Error initializing video $media: $e');
         }
       }
     }
-    setState(() {
-      isLoading = false;
-    });
+    
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _disposeVideoControllers();
+    super.dispose();
+  }
+
+  /// Safely dispose of all video controllers
+  void _disposeVideoControllers() {
     for (var controller in _videoControllers.values) {
-      // Store position before disposing
-      _videoPositions[controller.dataSource] = controller.value.position;
-      controller.pause();
-      controller.dispose();
-      controller.setVolume(0); // Mute before disposing
+      try {
+        // Store position before disposing
+        _videoPositions[controller.dataSource] = controller.value.position;
+        controller.pause();
+        controller.setVolume(0); // Mute before disposing
+        controller.dispose();
+      } catch (e) {
+        debugPrint('Error disposing video controller: $e');
+      }
     }
     _videoControllers.clear();
     _videoPositions.clear(); // Clear stored positions
-    super.dispose();
   }
 
   Widget _buildVideoPlayer(String videoUrl) {

@@ -22,13 +22,13 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   final List<String> titleList = [
     "Unbiased Reviews",
     "Shared Flight Feedback",
-    "Real-Time Insights"
+    "Let's get started"
   ];
 
   final List<String> contentList = [
     "Explore real, verified reviews to help you make informed travel choices",
     "Your voice matters! Share your experiences and help improve air travel for everyone",
-    "Stay updated and share feedback while you're still in the moment"
+    "Real, verified reviews and live flight feedback — all in one place."
   ];
 
   @override
@@ -287,6 +287,7 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
         child: MainButton(
           text: "Next",
+          color: Colors.black,
           onPressed: () {
             _pageController.nextPage(
               duration: const Duration(milliseconds: 400),
@@ -316,6 +317,7 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
           else
             MainButton(
               text: 'Get Started',
+              color: Colors.black,
               onPressed: _continueAsGuest,
             ),
           

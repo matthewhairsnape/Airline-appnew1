@@ -81,7 +81,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(
-          'Journey Timeline',
+          'My Journey',
           style: AppStyles.textStyle_20_600.copyWith(color: Colors.black),
         ),
         centerTitle: true,
