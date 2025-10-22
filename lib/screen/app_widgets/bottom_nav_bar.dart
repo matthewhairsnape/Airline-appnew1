@@ -45,7 +45,8 @@ class _BottomNavBarState extends ConsumerState<BottomNavBar> {
         }
         break;
       case 2:
-        if (ModalRoute.of(context)?.settings.name != AppRoutes.leaderboardscreen) {
+        if (ModalRoute.of(context)?.settings.name !=
+            AppRoutes.leaderboardscreen) {
           Navigator.pushReplacementNamed(context, AppRoutes.leaderboardscreen);
         }
         break;

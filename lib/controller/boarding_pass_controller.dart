@@ -27,7 +27,8 @@ class BoardingPassController {
           final errorMessage = errorData['message'] ?? 'Unknown error';
           debugPrint('API Error: $errorMessage');
         } catch (parseError) {
-          debugPrint('Response is not JSON (likely HTML error page): ${response.body.substring(0, 100)}...');
+          debugPrint(
+              'Response is not JSON (likely HTML error page): ${response.body.substring(0, 100)}...');
         }
         return false; // Don't throw, just return false
       }

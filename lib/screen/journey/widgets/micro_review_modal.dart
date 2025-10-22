@@ -51,7 +51,7 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: EdgeInsets.all(20),
@@ -98,9 +98,9 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
               ],
             ),
           ),
-          
+
           Divider(height: 1, color: Colors.grey[200]),
-          
+
           // Content
           Expanded(
             child: SingleChildScrollView(
@@ -115,9 +115,9 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                       color: Colors.black,
                     ),
                   ),
-                  
+
                   SizedBox(height: 16),
-                  
+
                   // Star rating
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -131,11 +131,11 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                         child: Container(
                           margin: EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(
-                            index < (_selectedRating ?? 0) 
-                                ? Icons.star 
+                            index < (_selectedRating ?? 0)
+                                ? Icons.star
                                 : Icons.star_border,
-                            color: index < (_selectedRating ?? 0) 
-                                ? Colors.amber 
+                            color: index < (_selectedRating ?? 0)
+                                ? Colors.amber
                                 : Colors.grey[400],
                             size: 36,
                           ),
@@ -143,23 +143,23 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                       );
                     }),
                   ),
-                  
+
                   SizedBox(height: 8),
-                  
+
                   // Rating text
                   Center(
                     child: Text(
                       _getRatingText(_selectedRating),
                       style: AppStyles.textStyle_14_500.copyWith(
-                        color: _selectedRating != null 
-                            ? Colors.grey[700] 
+                        color: _selectedRating != null
+                            ? Colors.grey[700]
                             : Colors.grey[400],
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Quick sentiment emojis
                   Text(
                     'Quick reaction:',
@@ -167,9 +167,9 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                       color: Colors.grey[700],
                     ),
                   ),
-                  
+
                   SizedBox(height: 12),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: _sentimentEmojis.map((emoji) {
@@ -184,12 +184,14 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                         child: Container(
                           padding: EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _selectedRating == _sentimentEmojis.indexOf(emoji) + 1
+                            color: _selectedRating ==
+                                    _sentimentEmojis.indexOf(emoji) + 1
                                 ? Colors.blue[50]
                                 : Colors.grey[50],
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _selectedRating == _sentimentEmojis.indexOf(emoji) + 1
+                              color: _selectedRating ==
+                                      _sentimentEmojis.indexOf(emoji) + 1
                                   ? Colors.blue[200]!
                                   : Colors.grey[200]!,
                             ),
@@ -202,9 +204,9 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                       );
                     }).toList(),
                   ),
-                  
+
                   SizedBox(height: 24),
-                  
+
                   // Optional comment
                   Text(
                     'Add a comment (optional):',
@@ -212,9 +214,9 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                       color: Colors.grey[700],
                     ),
                   ),
-                  
+
                   SizedBox(height: 8),
-                  
+
                   TextField(
                     controller: _commentController,
                     decoration: InputDecoration(
@@ -236,7 +238,7 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
               ),
             ),
           ),
-          
+
           // Submit button
           Container(
             padding: EdgeInsets.all(20),
@@ -246,11 +248,11 @@ class _MicroReviewModalState extends State<MicroReviewModal> {
                 top: BorderSide(color: Colors.grey[200]!, width: 1),
               ),
             ),
-            child:             MainButton(
+            child: MainButton(
               text: 'Submit Feedback',
               onPressed: _selectedRating != null ? _submitFeedback : () {},
-              color: _selectedRating != null 
-                  ? Color(0xFF3B82F6) 
+              color: _selectedRating != null
+                  ? Color(0xFF3B82F6)
                   : Colors.grey[400]!,
             ),
           ),

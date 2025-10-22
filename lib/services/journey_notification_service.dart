@@ -12,7 +12,7 @@ class JourneyNotificationService {
   static Future<void> initialize() async {
     try {
       debugPrint('🔔 Initializing journey notification service...');
-      
+
       // Request permission
       final settings = await _messaging.requestPermission(
         alert: true,
@@ -20,32 +20,33 @@ class JourneyNotificationService {
         sound: true,
         provisional: false,
       );
-      
+
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('✅ Push notification permission granted');
-        
+
         // Get FCM token
         final token = await _messaging.getToken();
         if (token != null) {
           debugPrint('📱 FCM Token: $token');
           await _saveTokenToDatabase(token);
         }
-        
+
         // Listen to token refresh
         _messaging.onTokenRefresh.listen((newToken) async {
           debugPrint('🔄 FCM Token refreshed: $newToken');
           await _saveTokenToDatabase(newToken);
         });
-        
+
         // Listen to background messages
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-        
+        FirebaseMessaging.onBackgroundMessage(
+            _firebaseMessagingBackgroundHandler);
+
         // Listen to foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-        
+
         // Listen to notification taps
         FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
-        
+
         debugPrint('✅ Journey notification service initialized');
       } else {
         debugPrint('❌ Push notification permission denied');
@@ -60,14 +61,14 @@ class JourneyNotificationService {
     try {
       final session = _client.auth.currentSession;
       if (session?.user.id == null) return;
-      
+
       await _client.from('user_tokens').upsert({
         'user_id': session!.user.id,
         'fcm_token': token,
         'platform': 'mobile',
         'updated_at': DateTime.now().toIso8601String(),
       });
-      
+
       debugPrint('✅ FCM token saved to database');
     } catch (e) {
       debugPrint('❌ Error saving FCM token: $e');
@@ -85,21 +86,21 @@ class JourneyNotificationService {
   }) async {
     try {
       debugPrint('📤 Sending journey update notification: $title');
-      
+
       // Get user's FCM token
       final response = await _client
           .from('user_tokens')
           .select('fcm_token')
           .eq('user_id', userId)
           .maybeSingle();
-      
+
       if (response == null || response['fcm_token'] == null) {
         debugPrint('❌ No FCM token found for user: $userId');
         return;
       }
-      
+
       final fcmToken = response['fcm_token'] as String;
-      
+
       // Send notification via Supabase Edge Function
       await _client.functions.invoke(
         'send-push-notification',
@@ -114,7 +115,7 @@ class JourneyNotificationService {
           },
         },
       );
-      
+
       debugPrint('✅ Journey update notification sent');
     } catch (e) {
       debugPrint('❌ Error sending journey update notification: $e');
@@ -132,7 +133,7 @@ class JourneyNotificationService {
     String title;
     String body;
     String type;
-    
+
     switch (phase) {
       case FlightPhase.boarding:
         title = 'Boarding Started';
@@ -159,7 +160,7 @@ class JourneyNotificationService {
         body = 'Update for $flightInfo';
         type = 'flight_update';
     }
-    
+
     await sendJourneyUpdateNotification(
       userId: userId,
       journeyId: journeyId,
@@ -220,8 +221,9 @@ class JourneyNotificationService {
 
   /// Handle foreground messages
   static void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('📱 Received foreground message: ${message.notification?.title}');
-    
+    debugPrint(
+        '📱 Received foreground message: ${message.notification?.title}');
+
     // Show local notification or update UI
     // This could trigger a UI update or show an in-app notification
   }
@@ -229,11 +231,11 @@ class JourneyNotificationService {
   /// Handle notification taps
   static void _handleNotificationTap(RemoteMessage message) {
     debugPrint('👆 Notification tapped: ${message.notification?.title}');
-    
+
     final data = message.data;
     final type = data['type'];
     final journeyId = data['journey_id'];
-    
+
     // Navigate to appropriate screen based on notification type
     switch (type) {
       case 'journey_complete':
@@ -256,11 +258,8 @@ class JourneyNotificationService {
   /// Clear all notifications for a user
   static Future<void> clearUserNotifications(String userId) async {
     try {
-      await _client
-          .from('user_tokens')
-          .delete()
-          .eq('user_id', userId);
-      
+      await _client.from('user_tokens').delete().eq('user_id', userId);
+
       debugPrint('✅ Cleared notifications for user: $userId');
     } catch (e) {
       debugPrint('❌ Error clearing user notifications: $e');
@@ -272,7 +271,7 @@ class JourneyNotificationService {
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('📱 Background message received: ${message.notification?.title}');
-  
+
   // Handle background message processing
   // This could include updating local storage, triggering sync, etc.
 }

@@ -33,15 +33,13 @@ class TimelineEventCard extends StatelessWidget {
             ),
             child: Icon(
               event.icon,
-              color: event.isCompleted 
-                  ? Colors.black 
-                  : Colors.grey[400],
+              color: event.isCompleted ? Colors.black : Colors.grey[400],
               size: 20,
             ),
           ),
-          
+
           SizedBox(width: 12),
-          
+
           // Content
           Expanded(
             child: Column(
@@ -82,7 +80,7 @@ class TimelineEventCard extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Time
           Text(
             _formatTime(event.timestamp),
@@ -101,4 +99,3 @@ class TimelineEventCard extends StatelessWidget {
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 }
-

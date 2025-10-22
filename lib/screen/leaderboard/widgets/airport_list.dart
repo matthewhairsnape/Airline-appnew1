@@ -5,7 +5,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AirportList extends ConsumerWidget {
-  
   const AirportList({
     super.key,
     required this.airportData,
@@ -120,7 +119,8 @@ class AirportList extends ConsumerWidget {
                       '$rank. ',
                       style: AppStyles.textStyle_14_600,
                     ),
-                  ),                  Container(
+                  ),
+                  Container(
                     height: 40,
                     width: 40,
                     decoration: AppStyles.circleDecoration,

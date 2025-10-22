@@ -5,7 +5,7 @@ import '../services/push_notification_service.dart';
 class NotificationPermissionWidget extends StatefulWidget {
   final VoidCallback? onPermissionGranted;
   final VoidCallback? onPermissionDenied;
-  
+
   const NotificationPermissionWidget({
     super.key,
     this.onPermissionGranted,
@@ -13,10 +13,12 @@ class NotificationPermissionWidget extends StatefulWidget {
   });
 
   @override
-  State<NotificationPermissionWidget> createState() => _NotificationPermissionWidgetState();
+  State<NotificationPermissionWidget> createState() =>
+      _NotificationPermissionWidgetState();
 }
 
-class _NotificationPermissionWidgetState extends State<NotificationPermissionWidget> {
+class _NotificationPermissionWidgetState
+    extends State<NotificationPermissionWidget> {
   bool _isLoading = false;
   bool _isEnabled = false;
   AuthorizationStatus _status = AuthorizationStatus.notDetermined;
@@ -29,11 +31,11 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
 
   Future<void> _checkPermissionStatus() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final status = await PushNotificationService.checkPermissionStatus();
       final isEnabled = await PushNotificationService.areNotificationsEnabled();
-      
+
       setState(() {
         _status = status;
         _isEnabled = isEnabled;
@@ -47,15 +49,15 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
 
   Future<void> _requestPermissions() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final granted = await PushNotificationService.requestPermissionsAgain();
-      
+
       setState(() {
         _isEnabled = granted;
         _isLoading = false;
       });
-      
+
       if (granted) {
         widget.onPermissionGranted?.call();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +70,8 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
         widget.onPermissionDenied?.call();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('❌ Notifications denied. You can enable them in Settings.'),
+            content: Text(
+                '❌ Notifications denied. You can enable them in Settings.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -125,7 +128,9 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
             Row(
               children: [
                 Icon(
-                  _isEnabled ? Icons.notifications_active : Icons.notifications_off,
+                  _isEnabled
+                      ? Icons.notifications_active
+                      : Icons.notifications_off,
                   color: _getStatusColor(),
                 ),
                 const SizedBox(width: 8),
@@ -142,7 +147,8 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: _getStatusColor().withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -164,8 +170,8 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
                   ? 'You will receive flight status updates and important notifications.'
                   : 'Enable notifications to receive flight updates, boarding alerts, and status changes.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+                    color: Colors.grey[600],
+                  ),
             ),
             const SizedBox(height: 12),
             if (!_isEnabled)
@@ -180,7 +186,8 @@ class _NotificationPermissionWidgetState extends State<NotificationPermissionWid
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.notifications),
-                  label: Text(_isLoading ? 'Requesting...' : 'Enable Notifications'),
+                  label: Text(
+                      _isLoading ? 'Requesting...' : 'Enable Notifications'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,

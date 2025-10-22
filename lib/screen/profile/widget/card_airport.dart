@@ -51,7 +51,7 @@ class _CLeaderboardScreenState extends ConsumerState<CLeaderboardScreen> {
           });
         }
       }
-        }
+    }
   }
 
   @override

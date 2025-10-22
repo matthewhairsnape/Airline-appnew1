@@ -491,7 +491,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         if (userData == null) {
           // Create user profile if it doesn't exist
           debugPrint('🍎 Creating new user profile for Apple Sign-In');
-          
+
           final userProfile = {
             'id': response.user!.id,
             'email': email ?? response.user!.email,
