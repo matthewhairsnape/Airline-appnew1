@@ -15,15 +15,15 @@ class CustomSearchAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final Function(String) onButtonToggle;
   final String selectedFilterButton;
 
-  const CustomSearchAppBar({
-    super.key,
-    required this.searchController,
-    required this.filterType,
-    required this.onSearchChanged,
-    required this.buttonStates,
-    required this.onButtonToggle,
-    required this.selectedFilterButton,
-s  });
+  const CustomSearchAppBar(
+      {super.key,
+      required this.searchController,
+      required this.filterType,
+      required this.onSearchChanged,
+      required this.buttonStates,
+      required this.onButtonToggle,
+      required this.selectedFilterButton,
+      s});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

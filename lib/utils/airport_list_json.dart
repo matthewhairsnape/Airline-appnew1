@@ -108,7 +108,8 @@ List<Map<String, dynamic>> mainCategoryAndSubcategoryForAirport = [
       'Ease of Connection': null,
       'Ability to Relax/Work': null
     }
-  },  {
+  },
+  {
     'mainCategory': 'Cleanliness',
     'iconUrl': 'assets/icons/review_icon_ambience.svg',
     'subCategory': {

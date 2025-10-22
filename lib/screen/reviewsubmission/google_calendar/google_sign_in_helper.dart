@@ -21,7 +21,7 @@ class GoogleSignInHelper {
     // Temporarily return null - Google Calendar integration disabled
     debugPrint('Google Calendar integration temporarily disabled');
     return null;
-    
+
     // try {
     //   // Check if already signed in
     //   currentUser =

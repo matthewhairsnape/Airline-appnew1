@@ -10,21 +10,20 @@ class SupabaseService {
     }
     return _client!;
   }
-static bool get isAuthenticated =>
-    isInitialized && client.auth.currentSession?.user != null;
+
+  static bool get isAuthenticated =>
+      isInitialized && client.auth.currentSession?.user != null;
   static Future<void> initialize() async {
     // Try to get from environment variables first, then fallback to hardcoded values
-    const supabaseUrl = String.fromEnvironment(
-      'SUPABASE_URL', 
-      defaultValue: 'https://otidfywfqxyxteixpqre.supabase.co'
-    );
-    const supabaseAnonKey = String.fromEnvironment(
-      'SUPABASE_ANON_KEY', 
-      defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI'
-    );
+    const supabaseUrl = String.fromEnvironment('SUPABASE_URL',
+        defaultValue: 'https://otidfywfqxyxteixpqre.supabase.co');
+    const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY',
+        defaultValue:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90aWRmeXdmcXh5eHRlaXhwcXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzgzODMsImV4cCI6MjA3NTUxNDM4M30.o4TyfuLawwotXu9kUepuWmBF5QKVxflk7KHJSg6iJqI');
 
     if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-      debugPrint('⚠️ Supabase credentials not found. Running without Supabase integration.');
+      debugPrint(
+          '⚠️ Supabase credentials not found. Running without Supabase integration.');
       return;
     }
 
@@ -69,7 +68,10 @@ static bool get isAuthenticated =>
     }
 
     // Validate required fields
-    if (userId.isEmpty || pnr.isEmpty || carrier.isEmpty || flightNumber.isEmpty) {
+    if (userId.isEmpty ||
+        pnr.isEmpty ||
+        carrier.isEmpty ||
+        flightNumber.isEmpty) {
       debugPrint('❌ Missing required flight data');
       return null;
     }
@@ -102,16 +104,21 @@ static bool get isAuthenticated =>
       );
 
       // Create journey with or without flight reference
-      final journey = await client.from('journeys').insert({
-        'passenger_id': userId,
-        'flight_id': flightResult?['id'], // May be null if flight creation failed
-        'pnr': pnr,
-        'seat_number': seatNumber,
-        'visit_status': 'Upcoming', // Use valid check constraint value
-        'media': ciriumData, // Store Cirium data in media column
-        // Store flight info directly in journey if flight creation failed
-        'connection_time_mins': flightResult == null ? 0 : null,
-      }).select().single();
+      final journey = await client
+          .from('journeys')
+          .insert({
+            'passenger_id': userId,
+            'flight_id':
+                flightResult?['id'], // May be null if flight creation failed
+            'pnr': pnr,
+            'seat_number': seatNumber,
+            'visit_status': 'Upcoming', // Use valid check constraint value
+            'media': ciriumData, // Store Cirium data in media column
+            // Store flight info directly in journey if flight creation failed
+            'connection_time_mins': flightResult == null ? 0 : null,
+          })
+          .select()
+          .single();
 
       // Add initial event
       await client.from('journey_events').insert({
@@ -149,7 +156,7 @@ static bool get isAuthenticated =>
   }) async {
     try {
       debugPrint('🔍 Looking for airline with IATA code: $carrier');
-      
+
       // Get airline ID
       final airlineData = await client
           .from('airlines')
@@ -159,16 +166,20 @@ static bool get isAuthenticated =>
 
       if (airlineData == null) {
         debugPrint('❌ Airline $carrier not found in database');
-        
+
         // Try to create the airline if it doesn't exist
         debugPrint('🔄 Attempting to create airline: $carrier');
         try {
-          final newAirline = await client.from('airlines').insert({
-            'iata_code': carrier,
-            'name': 'Airline $carrier', // Generic name
-            'created_at': DateTime.now().toIso8601String(),
-          }).select('id').single();
-          
+          final newAirline = await client
+              .from('airlines')
+              .insert({
+                'iata_code': carrier,
+                'name': 'Airline $carrier', // Generic name
+                'created_at': DateTime.now().toIso8601String(),
+              })
+              .select('id')
+              .single();
+
           debugPrint('✅ Created new airline: ${newAirline['id']}');
           return await _createOrGetFlight(
             carrier: carrier,
@@ -183,9 +194,10 @@ static bool get isAuthenticated =>
           );
         } catch (createError) {
           debugPrint('❌ Failed to create airline: $createError');
-          
+
           // Fallback: Try to create a simplified journey without airline/airport references
-          debugPrint('🔄 Attempting fallback approach without airline/airport references');
+          debugPrint(
+              '🔄 Attempting fallback approach without airline/airport references');
           return await _createJourneyWithoutReferences(
             carrier: carrier,
             flightNumber: flightNumber,
@@ -199,8 +211,9 @@ static bool get isAuthenticated =>
           );
         }
       }
-      
-      debugPrint('✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
+
+      debugPrint(
+          '✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
 
       // Get airport IDs
       debugPrint('🔍 Looking for departure airport: $departureAirport');
@@ -218,8 +231,9 @@ static bool get isAuthenticated =>
           .maybeSingle();
 
       if (depAirportData == null || arrAirportData == null) {
-        debugPrint('❌ Airports not found: dep=$departureAirport, arr=$arrivalAirport');
-        
+        debugPrint(
+            '❌ Airports not found: dep=$departureAirport, arr=$arrivalAirport');
+
         // Try to create missing airports with basic data
         if (depAirportData == null) {
           debugPrint('🔄 Creating departure airport: $departureAirport');
@@ -233,7 +247,7 @@ static bool get isAuthenticated =>
             debugPrint('❌ Failed to create departure airport: $e');
           }
         }
-        
+
         if (arrAirportData == null) {
           debugPrint('🔄 Creating arrival airport: $arrivalAirport');
           try {
@@ -246,49 +260,53 @@ static bool get isAuthenticated =>
             debugPrint('❌ Failed to create arrival airport: $e');
           }
         }
-        
+
         // Retry the query after creating airports
         final retryDepAirport = await client
             .from('airports')
             .select('id')
             .eq('iata_code', departureAirport)
             .maybeSingle();
-            
+
         final retryArrAirport = await client
             .from('airports')
             .select('id')
             .eq('iata_code', arrivalAirport)
             .maybeSingle();
-            
+
         if (retryDepAirport == null || retryArrAirport == null) {
           debugPrint('❌ Still cannot find airports after creation attempt');
           return null;
         }
-        
+
         // Use the retry results
         final depAirportId = retryDepAirport['id'];
         final arrAirportId = retryArrAirport['id'];
-        
+
         debugPrint('✅ Using airport IDs: dep=$depAirportId, arr=$arrAirportId');
       } else {
-        debugPrint('✅ Found airports: dep=${depAirportData['name']}, arr=${arrAirportData['name']}');
+        debugPrint(
+            '✅ Found airports: dep=${depAirportData['name']}, arr=${arrAirportData['name']}');
       }
 
       // Get the final airport IDs
-      final depAirportId = depAirportData?['id'] ?? (await client
-          .from('airports')
-          .select('id')
-          .eq('iata_code', departureAirport)
-          .maybeSingle())?['id'];
-          
-      final arrAirportId = arrAirportData?['id'] ?? (await client
-          .from('airports')
-          .select('id')
-          .eq('iata_code', arrivalAirport)
-          .maybeSingle())?['id'];
+      final depAirportId = depAirportData?['id'] ??
+          (await client
+              .from('airports')
+              .select('id')
+              .eq('iata_code', departureAirport)
+              .maybeSingle())?['id'];
+
+      final arrAirportId = arrAirportData?['id'] ??
+          (await client
+              .from('airports')
+              .select('id')
+              .eq('iata_code', arrivalAirport)
+              .maybeSingle())?['id'];
 
       if (depAirportId == null || arrAirportId == null) {
-        debugPrint('❌ Could not get airport IDs: dep=$depAirportId, arr=$arrAirportId');
+        debugPrint(
+            '❌ Could not get airport IDs: dep=$depAirportId, arr=$arrAirportId');
         return null;
       }
 
@@ -303,15 +321,19 @@ static bool get isAuthenticated =>
 
       if (flightData == null) {
         // Create new flight
-        flightData = await client.from('flights').insert({
-          'flight_number': flightNumber,
-          'carrier_code': carrier,
-          'departure_airport': departureAirport,
-          'arrival_airport': arrivalAirport,
-          'aircraft_type': aircraftType,
-          'departure_time': scheduledDeparture.toIso8601String(),
-          'arrival_time': scheduledArrival.toIso8601String(),
-        }).select().single();
+        flightData = await client
+            .from('flights')
+            .insert({
+              'flight_number': flightNumber,
+              'carrier_code': carrier,
+              'departure_airport': departureAirport,
+              'arrival_airport': arrivalAirport,
+              'aircraft_type': aircraftType,
+              'departure_time': scheduledDeparture.toIso8601String(),
+              'arrival_time': scheduledArrival.toIso8601String(),
+            })
+            .select()
+            .single();
       }
 
       return flightData;
@@ -335,19 +357,26 @@ static bool get isAuthenticated =>
   }) async {
     try {
       debugPrint('🔄 Creating journey without airline/airport references');
-      
+
       // Create a simplified flight record with just the basic info
-      final flightData = await client.from('flights').insert({
-        'flight_number': flightNumber,
-        'carrier_code': carrier, // Store carrier as text instead of foreign key
-        'departure_airport': departureAirport, // Store as text instead of foreign key
-        'arrival_airport': arrivalAirport, // Store as text instead of foreign key
-        'aircraft_type': aircraftType,
-        'departure_time': scheduledDeparture.toIso8601String(),
-        'arrival_time': scheduledArrival.toIso8601String(),
-        'created_at': DateTime.now().toIso8601String(),
-      }).select('id').single();
-      
+      final flightData = await client
+          .from('flights')
+          .insert({
+            'flight_number': flightNumber,
+            'carrier_code':
+                carrier, // Store carrier as text instead of foreign key
+            'departure_airport':
+                departureAirport, // Store as text instead of foreign key
+            'arrival_airport':
+                arrivalAirport, // Store as text instead of foreign key
+            'aircraft_type': aircraftType,
+            'departure_time': scheduledDeparture.toIso8601String(),
+            'arrival_time': scheduledArrival.toIso8601String(),
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .select('id')
+          .single();
+
       debugPrint('✅ Created simplified flight: ${flightData['id']}');
       return flightData;
     } catch (e) {
@@ -414,25 +443,33 @@ static bool get isAuthenticated =>
           .maybeSingle();
 
       if (flightData == null) {
-        flightData = await client.from('flights').insert({
-          'airline_id': airlineData['id'],
-          'flight_number': flightNumber,
-          'departure_airport_id': depAirportData['id'],
-          'arrival_airport_id': arrAirportData['id'],
-          'aircraft_type': aircraftType,
-          'scheduled_departure': scheduledDeparture.toIso8601String(),
-          'scheduled_arrival': scheduledArrival.toIso8601String(),
-        }).select().single();
+        flightData = await client
+            .from('flights')
+            .insert({
+              'airline_id': airlineData['id'],
+              'flight_number': flightNumber,
+              'departure_airport_id': depAirportData['id'],
+              'arrival_airport_id': arrAirportData['id'],
+              'aircraft_type': aircraftType,
+              'scheduled_departure': scheduledDeparture.toIso8601String(),
+              'scheduled_arrival': scheduledArrival.toIso8601String(),
+            })
+            .select()
+            .single();
       }
 
       // Create journey
-      final journey = await client.from('journeys').insert({
-        'passenger_id': userId,
-        'flight_id': flightData['id'],
-        'pnr': pnr,
-        'seat_number': seatNumber,
-        'visit_status': 'Upcoming', // Use valid check constraint value
-      }).select().single();
+      final journey = await client
+          .from('journeys')
+          .insert({
+            'passenger_id': userId,
+            'flight_id': flightData['id'],
+            'pnr': pnr,
+            'seat_number': seatNumber,
+            'visit_status': 'Upcoming', // Use valid check constraint value
+          })
+          .select()
+          .single();
 
       // Add initial event
       await client.from('journey_events').insert({
@@ -466,57 +503,65 @@ static bool get isAuthenticated =>
     try {
       // Check if this is "At the Airport" feedback that should go to airport_reviews
       final normalizedStage = stage.toLowerCase().trim();
-      if (normalizedStage.contains('airport') || normalizedStage.contains('at the airport') || normalizedStage == 'pre-flight') {
+      if (normalizedStage.contains('airport') ||
+          normalizedStage.contains('at the airport') ||
+          normalizedStage == 'pre-flight') {
         debugPrint('🏢 Routing airport feedback to airport_reviews table');
-        
+
         // Get the flight ID from journey
         final journeyData = await client
             .from('journeys')
             .select('flight_id')
             .eq('id', journeyId)
             .maybeSingle();
-            
+
         if (journeyData != null && journeyData['flight_id'] != null) {
           final flightId = journeyData['flight_id'] as String;
-          
+
           // Get airport ID from flight
           final flightData = await client
               .from('flights')
               .select('departure_airport_id, arrival_airport_id')
               .eq('id', flightId)
               .maybeSingle();
-              
+
           if (flightData != null) {
-            final airportId = flightData['departure_airport_id'] ?? flightData['arrival_airport_id'];
-            
+            final airportId = flightData['departure_airport_id'] ??
+                flightData['arrival_airport_id'];
+
             if (airportId != null) {
               // Map feedback to airport review scores
-              final scores = _mapToAirportScores(positiveSelections, negativeSelections, overallRating ?? 3);
-              
+              final scores = _mapToAirportScores(
+                  positiveSelections, negativeSelections, overallRating ?? 3);
+
               await client.from('airport_reviews').upsert({
                 'journey_id': journeyId,
                 'user_id': userId,
                 'airport_id': airportId,
-                'overall_score': overallRating != null ? (overallRating / 5.0).toStringAsFixed(2) : '3.00',
+                'overall_score': overallRating != null
+                    ? (overallRating / 5.0).toStringAsFixed(2)
+                    : '3.00',
                 'cleanliness': scores['cleanliness'],
                 'facilities': scores['facilities'],
                 'staff': scores['staff'],
                 'waiting_time': scores['waiting_time'],
                 'accessibility': scores['accessibility'],
-                'comments': _createCommentFromSelections(positiveSelections, negativeSelections, additionalComments),
+                'comments': _createCommentFromSelections(
+                    positiveSelections, negativeSelections, additionalComments),
                 'would_recommend': (overallRating ?? 3) >= 4,
                 'created_at': DateTime.now().toIso8601String(),
               });
-              
+
               debugPrint('✅ Airport review submitted to Supabase: $stage');
               return;
             }
           }
         }
-        
-        debugPrint('⚠️ Could not find airport ID, falling back to stage_feedback');
+
+        debugPrint(
+            '⚠️ Could not find airport ID, falling back to stage_feedback');
       }
-      
+
       // Default to stage_feedback table
       await client.from('stage_feedback').upsert({
         'journey_id': journeyId,
@@ -552,33 +597,41 @@ static bool get isAuthenticated =>
 
     try {
       // Submit airline review
-      final airlineReview = await client.from('airline_reviews').insert({
-        'journey_id': journeyId,
-        'user_id': userId,
-        'airline_id': airlineId,
-        'comfort_rating': airlineRatings['comfort'],
-        'cleanliness_rating': airlineRatings['cleanliness'],
-        'onboard_service_rating': airlineRatings['service'],
-        'food_beverage_rating': airlineRatings['food'],
-        'entertainment_wifi_rating': airlineRatings['entertainment'],
-        'comment': airlineComment,
-        'image_urls': airlineImages,
-      }).select().single();
+      final airlineReview = await client
+          .from('airline_reviews')
+          .insert({
+            'journey_id': journeyId,
+            'user_id': userId,
+            'airline_id': airlineId,
+            'comfort_rating': airlineRatings['comfort'],
+            'cleanliness_rating': airlineRatings['cleanliness'],
+            'onboard_service_rating': airlineRatings['service'],
+            'food_beverage_rating': airlineRatings['food'],
+            'entertainment_wifi_rating': airlineRatings['entertainment'],
+            'comment': airlineComment,
+            'image_urls': airlineImages,
+          })
+          .select()
+          .single();
 
       // Submit airport review
-      final airportReview = await client.from('airport_reviews').insert({
-        'journey_id': journeyId,
-        'user_id': userId,
-        'airport_id': airportId,
-        'accessibility_rating': airportRatings['accessibility'],
-        'wait_times_rating': airportRatings['waitTimes'],
-        'helpfulness_rating': airportRatings['helpfulness'],
-        'ambience_comfort_rating': airportRatings['ambience'],
-        'food_beverage_rating': airportRatings['food'],
-        'amenities_rating': airportRatings['amenities'],
-        'comment': airportComment,
-        'image_urls': airportImages,
-      }).select().single();
+      final airportReview = await client
+          .from('airport_reviews')
+          .insert({
+            'journey_id': journeyId,
+            'user_id': userId,
+            'airport_id': airportId,
+            'accessibility_rating': airportRatings['accessibility'],
+            'wait_times_rating': airportRatings['waitTimes'],
+            'helpfulness_rating': airportRatings['helpfulness'],
+            'ambience_comfort_rating': airportRatings['ambience'],
+            'food_beverage_rating': airportRatings['food'],
+            'amenities_rating': airportRatings['amenities'],
+            'comment': airportComment,
+            'image_urls': airportImages,
+          })
+          .select()
+          .single();
 
       debugPrint('✅ Complete review submitted to Supabase');
       return {
@@ -592,13 +645,12 @@ static bool get isAuthenticated =>
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getUserJourneys(String userId) async {
+  static Future<List<Map<String, dynamic>>> getUserJourneys(
+      String userId) async {
     if (!isInitialized) return [];
 
     try {
-      final data = await client
-          .from('journeys')
-          .select('''
+      final data = await client.from('journeys').select('''
             *,
             flight:flights (
               *,
@@ -606,9 +658,7 @@ static bool get isAuthenticated =>
               departure_airport:airports!flights_departure_airport_id_fkey (*),
               arrival_airport:airports!flights_arrival_airport_id_fkey (*)
             )
-          ''')
-          .eq('passenger_id', userId)
-          .order('created_at', ascending: false);
+          ''').eq('passenger_id', userId).order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(data);
     } catch (e) {
@@ -642,11 +692,8 @@ static bool get isAuthenticated =>
     if (!isInitialized) return null;
 
     try {
-      final data = await client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final data =
+          await client.from('users').select().eq('id', userId).maybeSingle();
 
       return data;
     } catch (e) {
@@ -655,13 +702,12 @@ static bool get isAuthenticated =>
     }
   }
 
-  static Future<bool> saveUserDataToSupabase(Map<String, dynamic> userData) async {
+  static Future<bool> saveUserDataToSupabase(
+      Map<String, dynamic> userData) async {
     if (!isInitialized) return false;
 
     try {
-      await client
-          .from('users')
-          .upsert(userData);
+      await client.from('users').upsert(userData);
 
       debugPrint('✅ User data saved to Supabase');
       return true;
@@ -671,15 +717,13 @@ static bool get isAuthenticated =>
     }
   }
 
-  static Future<Map<String, dynamic>?> syncUserDataFromSupabase(String userId) async {
+  static Future<Map<String, dynamic>?> syncUserDataFromSupabase(
+      String userId) async {
     if (!isInitialized) return null;
 
     try {
-      final data = await client
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final data =
+          await client.from('users').select().eq('id', userId).maybeSingle();
 
       debugPrint('✅ User data synced from Supabase');
       return data;
@@ -714,7 +758,10 @@ static bool get isAuthenticated =>
     }
 
     // Validate required fields
-    if (userId.isEmpty || pnr.isEmpty || carrier.isEmpty || flightNumber.isEmpty) {
+    if (userId.isEmpty ||
+        pnr.isEmpty ||
+        carrier.isEmpty ||
+        flightNumber.isEmpty) {
       debugPrint('❌ Missing required flight data');
       return null;
     }
@@ -745,7 +792,7 @@ static bool get isAuthenticated =>
         iataCode: departureAirport,
         airportData: departureAirportData,
       );
-      
+
       final arrAirportId = await _getOrCreateAirportWithDetails(
         iataCode: arrivalAirport,
         airportData: arrivalAirportData,
@@ -794,7 +841,8 @@ static bool get isAuthenticated =>
         journeyData['gate'] = gate;
       }
 
-      final journey = await client.from('journeys').insert(journeyData).select().single();
+      final journey =
+          await client.from('journeys').insert(journeyData).select().single();
 
       // Add initial event
       await client.from('journey_events').insert({
@@ -810,7 +858,8 @@ static bool get isAuthenticated =>
         },
       });
 
-      debugPrint('✅ Flight data with airport details saved successfully: ${journey['id']}');
+      debugPrint(
+          '✅ Flight data with airport details saved successfully: ${journey['id']}');
       return journey;
     } catch (e) {
       debugPrint('❌ Error saving flight data with airport details: $e');
@@ -827,7 +876,8 @@ static bool get isAuthenticated =>
       // Check if airport exists
       final existingAirport = await client
           .from('airports')
-          .select('id, iata_code, icao_code, name, city, country, latitude, longitude, timezone')
+          .select(
+              'id, iata_code, icao_code, name, city, country, latitude, longitude, timezone')
           .eq('iata_code', iataCode)
           .maybeSingle();
 
@@ -843,7 +893,7 @@ static bool get isAuthenticated =>
             'longitude': airportData['longitude'],
             'timezone': airportData['timezone'],
           };
-          
+
           await client
               .from('airports')
               .update(updateData)
@@ -886,7 +936,8 @@ static bool get isAuthenticated =>
   }
 
   /// Get or create airline
-  static Future<Map<String, dynamic>?> _getOrCreateAirline(String carrier) async {
+  static Future<Map<String, dynamic>?> _getOrCreateAirline(
+      String carrier) async {
     try {
       // Check if airline exists
       final airlineData = await client
@@ -900,11 +951,15 @@ static bool get isAuthenticated =>
       }
 
       // Create new airline
-      final newAirline = await client.from('airlines').insert({
-        'iata_code': carrier,
-        'name': 'Airline $carrier',
-        'created_at': DateTime.now().toIso8601String(),
-      }).select('id, iata_code, name').single();
+      final newAirline = await client
+          .from('airlines')
+          .insert({
+            'iata_code': carrier,
+            'name': 'Airline $carrier',
+            'created_at': DateTime.now().toIso8601String(),
+          })
+          .select('id, iata_code, name')
+          .single();
 
       return newAirline;
     } catch (e) {
@@ -932,9 +987,12 @@ static bool get isAuthenticated =>
       // Detect available columns in flights table
       final availableColumns = await _detectFlightsTableColumns();
       debugPrint('🔍 Available columns: $availableColumns');
-      debugPrint('🔍 Time columns detected: scheduled_departure=${availableColumns['has_scheduled_departure']}, departure_time=${availableColumns['has_departure_time']}');
-      debugPrint('🔍 Flight data: carrier=$carrier, flightNumber=$flightNumber, departureAirport=$departureAirport, arrivalAirport=$arrivalAirport');
-      debugPrint('🔍 Airport IDs: departureAirportId=$departureAirportId, arrivalAirportId=$arrivalAirportId');
+      debugPrint(
+          '🔍 Time columns detected: scheduled_departure=${availableColumns['has_scheduled_departure']}, departure_time=${availableColumns['has_departure_time']}');
+      debugPrint(
+          '🔍 Flight data: carrier=$carrier, flightNumber=$flightNumber, departureAirport=$departureAirport, arrivalAirport=$arrivalAirport');
+      debugPrint(
+          '🔍 Airport IDs: departureAirportId=$departureAirportId, arrivalAirportId=$arrivalAirportId');
 
       // Build flight data based on available columns
       final flightInsertData = <String, dynamic>{
@@ -943,27 +1001,31 @@ static bool get isAuthenticated =>
 
       // Always include carrier_code as it's likely required
       flightInsertData['carrier_code'] = carrier;
-      
+
       // Add airline_id if available
       if (availableColumns['has_airline_id'] == true) {
         flightInsertData['airline_id'] = airlineId;
       }
 
       // Add airport info - provide both old and new columns if they exist
-      if (availableColumns['has_departure_airport_id'] == true && availableColumns['has_arrival_airport_id'] == true) {
+      if (availableColumns['has_departure_airport_id'] == true &&
+          availableColumns['has_arrival_airport_id'] == true) {
         flightInsertData['departure_airport_id'] = departureAirportId;
         flightInsertData['arrival_airport_id'] = arrivalAirportId;
       }
-      
+
       // Also provide old column names if they exist (they might be required)
-      if (availableColumns['has_departure_airport'] == true && availableColumns['has_arrival_airport'] == true) {
+      if (availableColumns['has_departure_airport'] == true &&
+          availableColumns['has_arrival_airport'] == true) {
         flightInsertData['departure_airport'] = departureAirport ?? 'UNKNOWN';
         flightInsertData['arrival_airport'] = arrivalAirport ?? 'UNKNOWN';
-        debugPrint('🔍 Adding old airport columns: departure=${departureAirport ?? 'UNKNOWN'}, arrival=${arrivalAirport ?? 'UNKNOWN'}');
+        debugPrint(
+            '🔍 Adding old airport columns: departure=${departureAirport ?? 'UNKNOWN'}, arrival=${arrivalAirport ?? 'UNKNOWN'}');
       }
 
       // Add optional columns
-      if (availableColumns['has_aircraft_type'] == true && aircraftType != null) {
+      if (availableColumns['has_aircraft_type'] == true &&
+          aircraftType != null) {
         flightInsertData['aircraft_type'] = aircraftType;
       }
       if (availableColumns['has_terminal'] == true && terminal != null) {
@@ -974,12 +1036,15 @@ static bool get isAuthenticated =>
       }
       // Add time columns - always try both old and new column names
       // This ensures we satisfy NOT NULL constraints regardless of which columns exist
-      flightInsertData['scheduled_departure'] = scheduledDeparture.toIso8601String();
+      flightInsertData['scheduled_departure'] =
+          scheduledDeparture.toIso8601String();
       flightInsertData['departure_time'] = scheduledDeparture.toIso8601String();
-      flightInsertData['scheduled_arrival'] = scheduledArrival.toIso8601String();
+      flightInsertData['scheduled_arrival'] =
+          scheduledArrival.toIso8601String();
       flightInsertData['arrival_time'] = scheduledArrival.toIso8601String();
-      
-      debugPrint('🔍 Adding time columns: scheduled_departure=${scheduledDeparture.toIso8601String()}, departure_time=${scheduledDeparture.toIso8601String()}');
+
+      debugPrint(
+          '🔍 Adding time columns: scheduled_departure=${scheduledDeparture.toIso8601String()}, departure_time=${scheduledDeparture.toIso8601String()}');
 
       // Try to find existing flight
       var flightData = await client
@@ -991,7 +1056,11 @@ static bool get isAuthenticated =>
       if (flightData == null) {
         // Create new flight
         debugPrint('🔍 Inserting flight data: $flightInsertData');
-        flightData = await client.from('flights').insert(flightInsertData).select().single();
+        flightData = await client
+            .from('flights')
+            .insert(flightInsertData)
+            .select()
+            .single();
         debugPrint('✅ Flight created successfully with available columns');
       } else {
         debugPrint('✅ Existing flight found');
@@ -1000,20 +1069,26 @@ static bool get isAuthenticated =>
       return flightData;
     } catch (e) {
       debugPrint('❌ Error creating or getting flight: $e');
-      
+
       // Ultimate fallback: create flight with required fields
       try {
         debugPrint('🔄 Attempting ultimate fallback with required fields');
         final ultimateFlightData = {
           'flight_number': flightNumber,
           'carrier_code': carrier, // This is required based on the error
-          'departure_airport': departureAirport, // Old column names might be required
+          'departure_airport':
+              departureAirport, // Old column names might be required
           'arrival_airport': arrivalAirport,
-          'departure_time': scheduledDeparture.toIso8601String(), // Time columns are required
+          'departure_time':
+              scheduledDeparture.toIso8601String(), // Time columns are required
           'arrival_time': scheduledArrival.toIso8601String(),
         };
-        
-        final flightData = await client.from('flights').insert(ultimateFlightData).select().single();
+
+        final flightData = await client
+            .from('flights')
+            .insert(ultimateFlightData)
+            .select()
+            .single();
         debugPrint('✅ Ultimate fallback flight created successfully');
         return flightData;
       } catch (ultimateError) {
@@ -1029,9 +1104,10 @@ static bool get isAuthenticated =>
       // Try to query with all possible columns to see which ones exist
       await client
           .from('flights')
-          .select('id, flight_number, carrier_code, airline_id, departure_airport_id, arrival_airport_id, departure_airport, arrival_airport, scheduled_departure, scheduled_arrival, departure_time, arrival_time, aircraft_type, terminal, gate')
+          .select(
+              'id, flight_number, carrier_code, airline_id, departure_airport_id, arrival_airport_id, departure_airport, arrival_airport, scheduled_departure, scheduled_arrival, departure_time, arrival_time, aircraft_type, terminal, gate')
           .limit(1);
-      
+
       return {
         'has_airline_id': true,
         'has_carrier_code': true,
@@ -1050,14 +1126,24 @@ static bool get isAuthenticated =>
     } catch (e) {
       // If the query fails, we'll detect columns individually
       final columns = <String, bool>{};
-      
+
       // Test each column individually
       final columnTests = [
-        'airline_id', 'carrier_code', 'departure_airport_id', 'arrival_airport_id',
-        'departure_airport', 'arrival_airport', 'scheduled_departure', 'scheduled_arrival',
-        'departure_time', 'arrival_time', 'aircraft_type', 'terminal', 'gate'
+        'airline_id',
+        'carrier_code',
+        'departure_airport_id',
+        'arrival_airport_id',
+        'departure_airport',
+        'arrival_airport',
+        'scheduled_departure',
+        'scheduled_arrival',
+        'departure_time',
+        'arrival_time',
+        'aircraft_type',
+        'terminal',
+        'gate'
       ];
-      
+
       for (final column in columnTests) {
         try {
           await client.from('flights').select(column).limit(1);
@@ -1066,7 +1152,7 @@ static bool get isAuthenticated =>
           columns[column] = false;
         }
       }
-      
+
       return columns;
     }
   }
@@ -1079,7 +1165,7 @@ static bool get isAuthenticated =>
   ) {
     // Default scores based on overall rating
     final baseScore = overallRating ?? 3;
-    
+
     return {
       'cleanliness': baseScore,
       'facilities': baseScore,
@@ -1096,7 +1182,7 @@ static bool get isAuthenticated =>
     String? additionalComments,
   ) {
     final comments = <String>[];
-    
+
     // Add positive feedback
     for (final category in positiveSelections.keys) {
       final selections = positiveSelections[category] as List<dynamic>?;
@@ -1104,7 +1190,7 @@ static bool get isAuthenticated =>
         comments.add('$category: ${selections.join(', ')}');
       }
     }
-    
+
     // Add negative feedback
     for (final category in negativeSelections.keys) {
       final selections = negativeSelections[category] as List<dynamic>?;
@@ -1112,13 +1198,12 @@ static bool get isAuthenticated =>
         comments.add('$category issues: ${selections.join(', ')}');
       }
     }
-    
+
     // Add additional comments
     if (additionalComments != null && additionalComments.isNotEmpty) {
       comments.add('Additional: $additionalComments');
     }
-    
+
     return comments.join('; ');
   }
 }
-

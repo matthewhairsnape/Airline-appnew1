@@ -87,13 +87,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       if (_barcode?.rawValue != null) {
         isProcessing = true;
         controller.stop();
-        
+
         // Show what was scanned first
         debugPrint("📱 Scanned barcode:");
         debugPrint("  Type: ${_barcode!.format}");
         debugPrint("  Raw Value: ${_barcode!.rawValue}");
         debugPrint("  Display Value: ${_barcode!.displayValue ?? 'N/A'}");
-        
+
         // Try to parse as boarding pass, but don't fail if it's not
         _tryParseBoardingPass(_barcode!.rawValue!);
       }
@@ -103,11 +103,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   void _tryParseBoardingPass(String rawValue) async {
     try {
       // Check if it looks like a boarding pass barcode
-      bool isLikelyBoardingPass = rawValue.startsWith('M1') || 
-                                 rawValue.startsWith('M2') ||
-                                 rawValue.contains(RegExp(r'[A-Z]{3}[A-Z]{3}[A-Z]{2}')) ||
-                                 rawValue.contains(RegExp(r'\d{3,4}[A-Z]\d{3}'));
-      
+      bool isLikelyBoardingPass = rawValue.startsWith('M1') ||
+          rawValue.startsWith('M2') ||
+          rawValue.contains(RegExp(r'[A-Z]{3}[A-Z]{3}[A-Z]{2}')) ||
+          rawValue.contains(RegExp(r'\d{3,4}[A-Z]\d{3}'));
+
       if (isLikelyBoardingPass) {
         debugPrint("✅ Attempting to parse as boarding pass");
         await parseIataBarcode(rawValue);
@@ -146,7 +146,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     } catch (e) {
       debugPrint("❌ Error in barcode parsing: $e");
       if (mounted) {
-        CustomSnackBar.error(context, 'Error processing barcode: ${e.toString()}');
+        CustomSnackBar.error(
+            context, 'Error processing barcode: ${e.toString()}');
         _restartScanner();
       }
     }
@@ -189,10 +190,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       // Check if it's BCBP format (starts with M1 or M2)
       if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
         debugPrint("✅ Detected BCBP format");
-        
+
         // Parse BCBP using universal algorithm that works for ALL airlines
         Map<String, String> parsedData = _parseBCBPUniversal(rawValue);
-        
+
         departureAirport = parsedData['departureAirport'] ?? '';
         arrivalAirport = parsedData['arrivalAirport'] ?? '';
         carrier = parsedData['carrier'] ?? '';
@@ -200,30 +201,36 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         seatNumber = parsedData['seatNumber'] ?? '';
         classOfService = parsedData['classOfService'] ?? 'Economy';
         pnr = parsedData['pnr'] ?? '';
-        
+
         // Parse Julian date if available with year rollover handling
-        if (parsedData['julianDate'] != null && parsedData['julianDate']!.isNotEmpty) {
+        if (parsedData['julianDate'] != null &&
+            parsedData['julianDate']!.isNotEmpty) {
           try {
             int julian = int.parse(parsedData['julianDate']!);
-            int currentJulian = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays + 1;
+            int currentJulian = DateTime.now()
+                    .difference(DateTime(DateTime.now().year, 1, 1))
+                    .inDays +
+                1;
             int year = DateTime.now().year;
-            
+
             // Handle year rollover for flights in next year
             if (julian < currentJulian - 300) {
               year += 1;
-              debugPrint("🔄 Year rollover detected: Julian day $julian < current $currentJulian, using year $year");
+              debugPrint(
+                  "🔄 Year rollover detected: Julian day $julian < current $currentJulian, using year $year");
             }
-            
+
             final baseDate = DateTime(year, 1, 1);
             date = baseDate.add(Duration(days: julian - 1));
-            
-            debugPrint("📅 Julian date conversion: $julian → ${date.toIso8601String().split('T')[0]}");
+
+            debugPrint(
+                "📅 Julian date conversion: $julian → ${date.toIso8601String().split('T')[0]}");
           } catch (e) {
             debugPrint("Error parsing Julian date: $e");
             date = DateTime.now();
           }
         }
-        
+
         debugPrint("✅ Parsed BCBP boarding pass:");
         debugPrint("  Departure: $departureAirport");
         debugPrint("  Arrival: $arrivalAirport");
@@ -279,16 +286,19 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
       // Validate flight identifiers before Cirium lookup
       if (!_isValidFlightIdentifier(carrier, flightNumber)) {
-        debugPrint("❌ Invalid flight identifier: carrier='$carrier', flight='$flightNumber'");
+        debugPrint(
+            "❌ Invalid flight identifier: carrier='$carrier', flight='$flightNumber'");
         if (mounted) {
-          CustomSnackBar.error(context, 'Invalid flight data extracted from boarding pass');
+          CustomSnackBar.error(
+              context, 'Invalid flight data extracted from boarding pass');
           _restartScanner();
           return;
         }
       }
-      
-      debugPrint("➡️ Cirium lookup: ${carrier}${flightNumber} on ${date.toIso8601String().split('T')[0]} from $departureAirport");
-      
+
+      debugPrint(
+          "➡️ Cirium lookup: ${carrier}${flightNumber} on ${date.toIso8601String().split('T')[0]} from $departureAirport");
+
       // Try the scanned date first
       Map<String, dynamic> flightInfo = await _fetchFlightInfo.fetchFlightInfo(
         carrier: carrier,
@@ -298,7 +308,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       );
 
       String responseStr = flightInfo.toString();
-      debugPrint("📦 Cirium response: ${responseStr.length > 200 ? responseStr.substring(0, 200) + '...' : responseStr}");
+      debugPrint(
+          "📦 Cirium response: ${responseStr.length > 200 ? responseStr.substring(0, 200) + '...' : responseStr}");
 
       // Check if flight data was found
       if (flightInfo['flightStatuses']?.isEmpty ?? true) {
@@ -310,16 +321,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         }
         return;
       }
-      
-      debugPrint("✅ Found flight data with ${flightInfo['flightStatuses'].length} status(es)");
 
-      await _processFetchedFlightInfo(flightInfo, pnr, classOfService, carrier, flightNumber, date, departureAirport, seatNumber);
+      debugPrint(
+          "✅ Found flight data with ${flightInfo['flightStatuses'].length} status(es)");
+
+      await _processFetchedFlightInfo(flightInfo, pnr, classOfService, carrier,
+          flightNumber, date, departureAirport, seatNumber);
     } catch (e, stackTrace) {
       debugPrint("❌ Error processing boarding pass: $e");
       debugPrint("Stack trace: $stackTrace");
       if (mounted) {
-        CustomSnackBar.error(context,
-            'Unable to process boarding pass: ${e.toString()}');
+        CustomSnackBar.error(
+            context, 'Unable to process boarding pass: ${e.toString()}');
         _restartScanner();
       }
     } finally {
@@ -350,26 +363,31 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   /// Universal BCBP parser following IATA Resolution 792 standard
   Map<String, String> _parseBCBPUniversal(String rawValue) {
     Map<String, String> result = {};
-    
+
     try {
-      debugPrint("🔍 Parsing BCBP (${rawValue.length} chars): ${rawValue.substring(0, rawValue.length > 50 ? 50 : rawValue.length)}...");
-      
+      debugPrint(
+          "🔍 Parsing BCBP (${rawValue.length} chars): ${rawValue.substring(0, rawValue.length > 50 ? 50 : rawValue.length)}...");
+
       // IATA Resolution 792 - Fixed field positions
       if (rawValue.length < 52) {
-        debugPrint("❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
+        debugPrint(
+            "❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
         return result;
       }
-      
+
       // Extract fields using exact IATA Resolution 792 offsets
       result['pnr'] = rawValue.substring(22, 29).trim();
       result['departureAirport'] = rawValue.substring(30, 33);
       result['arrivalAirport'] = rawValue.substring(33, 36);
-      result['carrier'] = rawValue.substring(36, 38); // Use first 2 chars for IATA code
-      result['flightNumber'] = rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
+      result['carrier'] =
+          rawValue.substring(36, 38); // Use first 2 chars for IATA code
+      result['flightNumber'] =
+          rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
       result['julianDate'] = rawValue.substring(44, 47).trim();
       result['classOfService'] = rawValue.substring(47, 48);
-      result['seatNumber'] = rawValue.length >= 52 ? rawValue.substring(48, 52).trim() : '';
-      
+      result['seatNumber'] =
+          rawValue.length >= 52 ? rawValue.substring(48, 52).trim() : '';
+
       // Clean up seat number (remove zero padding)
       if (result['seatNumber'] != null && result['seatNumber']!.isNotEmpty) {
         String seat = result['seatNumber']!;
@@ -382,7 +400,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
           result['seatNumber'] = '$seatNum${match.group(2)}';
         }
       }
-      
+
       // Map class codes to readable names
       switch (result['classOfService']) {
         case 'F':
@@ -402,24 +420,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         default:
           result['classOfService'] = 'Economy';
       }
-      
+
       debugPrint("✅ IATA Resolution 792 parsed:");
       debugPrint("  PNR: ${result['pnr']}");
-      debugPrint("  Route: ${result['departureAirport']} → ${result['arrivalAirport']}");
+      debugPrint(
+          "  Route: ${result['departureAirport']} → ${result['arrivalAirport']}");
       debugPrint("  Carrier: ${result['carrier']}");
       debugPrint("  Flight: ${result['flightNumber']}");
       debugPrint("  Julian Date: ${result['julianDate']}");
       debugPrint("  Class: ${result['classOfService']}");
       debugPrint("  Seat: ${result['seatNumber']}");
-      
+
       return result;
-      
     } catch (e) {
       debugPrint("❌ Error in BCBP parsing: $e");
       return result;
     }
   }
-
 
   /// Validate flight identifier before Cirium lookup
   bool _isValidFlightIdentifier(String carrier, String flightNumber) {
@@ -434,18 +451,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       // Pattern like F002A0026 or Y007A0039
       RegExp seatRegex = RegExp(r'([A-Z])(\d+)([A-F])(\d+)');
       Match? match = seatRegex.firstMatch(part);
-      
+
       if (match != null) {
         String classCode = match.group(1)!; // F or Y
-        String seatNum = match.group(2)!;   // 002 or 007
+        String seatNum = match.group(2)!; // 002 or 007
         String seatLetter = match.group(3)!; // A, B, C, etc.
-        
+
         // Clean up seat number (remove leading zeros)
         String cleanSeatNum = seatNum.replaceAll(RegExp(r'^0+'), '');
         if (cleanSeatNum.isEmpty) cleanSeatNum = '1';
-        
+
         result['seatNumber'] = '$cleanSeatNum$seatLetter';
-        
+
         // Determine class
         switch (classCode) {
           case 'F':
@@ -460,19 +477,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
             result['classOfService'] = 'Economy';
             break;
         }
-        
+
         return true;
       }
-      
+
       // Try simpler pattern like "12A" or "7A"
       RegExp simpleSeatRegex = RegExp(r'(\d+)([A-F])');
       Match? simpleMatch = simpleSeatRegex.firstMatch(part);
-      
+
       if (simpleMatch != null) {
         result['seatNumber'] = '${simpleMatch.group(1)}${simpleMatch.group(2)}';
         return true;
       }
-      
     } catch (e) {
       debugPrint("Error extracting seat: $e");
     }
@@ -498,11 +514,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final flightStatus = flightInfo['flightStatuses'][0];
     final airlines = flightInfo['appendix']['airlines'] ?? [];
     final airports = flightInfo['appendix']['airports'] ?? [];
-    
+
     final airlineName = airlines.firstWhere(
-      (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
-      orElse: () => {'name': 'Unknown Airline'},
-    )['name'] ?? 'Unknown Airline';
+          (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
+          orElse: () => {'name': 'Unknown Airline'},
+        )['name'] ??
+        'Unknown Airline';
 
     final departureAirport = airports.firstWhere(
       (airport) => airport['fs'] == flightStatus['departureAirportFsCode'],
@@ -551,7 +568,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     );
 
     final result = await _boardingPassController.saveBoardingPass(newPass);
-    
+
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
       await SupabaseService.createJourney(
@@ -571,33 +588,38 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       );
       debugPrint('✅ Journey saved to Supabase');
     }
-    
+
     // Start real-time flight tracking with Cirium regardless of save result
     debugPrint('🪑 Seat number from boarding pass: $seatNumber');
-    final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
-      carrier: carrier,
-      flightNumber: flightNumber,
-      flightDate: date,
-      departureAirport: departureAirportCode,
-      pnr: pnr,
-      existingFlightData: flightInfo,
-    );
+    final trackingStarted =
+        await ref.read(flightTrackingProvider.notifier).trackFlight(
+              carrier: carrier,
+              flightNumber: flightNumber,
+              flightDate: date,
+              departureAirport: departureAirportCode,
+              pnr: pnr,
+              existingFlightData: flightInfo,
+            );
 
     if (trackingStarted) {
       debugPrint('✈️ Flight tracking started successfully for $pnr');
-      debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
+      debugPrint(
+          '📡 Real-time monitoring active - will notify at each flight phase');
     } else {
       debugPrint('⚠️ Flight tracking failed');
     }
 
     if (mounted) {
       if (result) {
-        CustomSnackBar.success(context, '✅ Boarding pass scanned! Your flight is now being tracked.');
+        CustomSnackBar.success(context,
+            '✅ Boarding pass scanned! Your flight is now being tracked.');
       } else {
-        debugPrint('⚠️ Boarding pass save failed, but continuing with tracking');
-        CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
+        debugPrint(
+            '⚠️ Boarding pass save failed, but continuing with tracking');
+        CustomSnackBar.success(
+            context, '✅ Flight loaded! Your journey is being tracked.');
       }
-      
+
       // Show confirmation dialog with flight details
       FlightConfirmationDialog.show(
         context,

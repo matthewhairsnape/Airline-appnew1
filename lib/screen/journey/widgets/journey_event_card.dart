@@ -43,16 +43,14 @@ class JourneyEventCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: event.isCompleted 
-                      ? Colors.green[100] 
-                      : Colors.grey[100],
+                  color:
+                      event.isCompleted ? Colors.green[100] : Colors.grey[100],
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
                   event.icon,
-                  color: event.isCompleted 
-                      ? Colors.green[600] 
-                      : Colors.grey[600],
+                  color:
+                      event.isCompleted ? Colors.green[600] : Colors.grey[600],
                   size: 20,
                 ),
               ),
@@ -168,4 +166,3 @@ class JourneyEventCard extends StatelessWidget {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 }
-

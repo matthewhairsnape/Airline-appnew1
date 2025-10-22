@@ -34,7 +34,7 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Listen to auth state changes
     ref.listenManual(authProvider, (previous, next) {
       next.when(
@@ -91,23 +91,24 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
 
       // Sign in with Supabase using Apple credentials
       await ref.read(authProvider.notifier).signInWithApple(
-        idToken: credential.identityToken!,
-        accessToken: credential.authorizationCode!,
-        email: credential.email,
-        fullName: credential.givenName != null && credential.familyName != null
-            ? '${credential.givenName} ${credential.familyName}'
-            : null,
-      );
+            idToken: credential.identityToken!,
+            accessToken: credential.authorizationCode!,
+            email: credential.email,
+            fullName:
+                credential.givenName != null && credential.familyName != null
+                    ? '${credential.givenName} ${credential.familyName}'
+                    : null,
+          );
 
       // Navigation will be handled by the auth provider listener
     } catch (e) {
       debugPrint('❌ Apple Sign-In failed: $e');
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        
+
         // Show error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -320,9 +321,9 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
               color: Colors.black,
               onPressed: _continueAsGuest,
             ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Continue as Guest button
           TextButton(
             onPressed: _continueAsGuest,

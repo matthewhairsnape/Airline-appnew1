@@ -60,10 +60,10 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
     if (oldWidget.singleFeedback != widget.singleFeedback) {
       // Only proceed if widget is still mounted
       if (!mounted) return;
-      
+
       // Clean up old video controllers safely
       _disposeVideoControllers();
-      
+
       // Initialize new video controllers only if still mounted
       if (mounted) {
         initializeVideoPlayer();
@@ -116,7 +116,7 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
           if (_videoControllers.containsKey(media)) {
             continue;
           }
-          
+
           _videoControllers[media] = VideoPlayerController.networkUrl(
             Uri.parse(media), // Convert String to Uri
             videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
@@ -129,7 +129,8 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
                 });
               }
             }).catchError((error) {
-              debugPrint('Error initializing video controller for $media: $error');
+              debugPrint(
+                  'Error initializing video controller for $media: $error');
               // Remove failed controller
               _videoControllers.remove(media);
             });
@@ -151,7 +152,7 @@ class _FeedbackCardState extends ConsumerState<FeedbackCard> {
 
   void _handleVideoState() {
     if (!mounted) return;
-    
+
     _videoControllers.forEach((url, controller) {
       try {
         if (controller.value.isInitialized && !controller.value.isPlaying) {

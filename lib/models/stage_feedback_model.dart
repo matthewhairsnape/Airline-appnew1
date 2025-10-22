@@ -79,13 +79,15 @@ class StageFeedback {
       timestamp: DateTime.parse(json['timestamp']),
       positiveSelections: Map<String, List<String>>.from(
         json['positiveSelections']?.map(
-          (key, value) => MapEntry(key, List<String>.from(value)),
-        ) ?? {},
+              (key, value) => MapEntry(key, List<String>.from(value)),
+            ) ??
+            {},
       ),
       negativeSelections: Map<String, List<String>>.from(
         json['negativeSelections']?.map(
-          (key, value) => MapEntry(key, List<String>.from(value)),
-        ) ?? {},
+              (key, value) => MapEntry(key, List<String>.from(value)),
+            ) ??
+            {},
       ),
       customFeedback: Map<String, String>.from(json['customFeedback'] ?? {}),
       overallRating: json['overallRating'],

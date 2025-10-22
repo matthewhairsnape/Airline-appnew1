@@ -10,7 +10,7 @@ class MainButton extends StatelessWidget {
     this.height = 56.0,
     this.isLoading = false,
     this.icon,
-    this.color=const Color(0xFF757575),
+    this.color = const Color(0xFF757575),
   });
 
   final String text;
@@ -34,10 +34,12 @@ class MainButton extends StatelessWidget {
           elevation: 0,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          side: color == Colors.white ? const BorderSide(
-            color: Colors.black87,
-            width: 1.0,
-          ) : null,
+          side: color == Colors.white
+              ? const BorderSide(
+                  color: Colors.black87,
+                  width: 1.0,
+                )
+              : null,
           padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
         child: AnimatedSwitcher(
@@ -69,12 +71,12 @@ class MainButton extends StatelessWidget {
                       icon!,
                       const SizedBox(width: 12),
                     ],
-                    Text(
-                      text,
-                      style: AppStyles.textStyle_18_600.copyWith(
-                        color: color == Colors.white ? Colors.black : Colors.white,
-                      )
-                    ),
+                    Text(text,
+                        style: AppStyles.textStyle_18_600.copyWith(
+                          color: color == Colors.white
+                              ? Colors.black
+                              : Colors.white,
+                        )),
                   ],
                 ),
         ),

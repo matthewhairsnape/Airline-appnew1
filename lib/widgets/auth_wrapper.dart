@@ -6,7 +6,7 @@ import 'package:airline_app/screen/login/skip_screen.dart';
 
 class AuthWrapper extends ConsumerWidget {
   final Widget child;
-  
+
   const AuthWrapper({
     super.key,
     required this.child,
@@ -15,7 +15,7 @@ class AuthWrapper extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    
+
     return authState.when(
       data: (user) {
         if (user != null) {
@@ -46,7 +46,7 @@ class AuthWrapper extends ConsumerWidget {
 // Widget to check if user should see onboarding
 class OnboardingWrapper extends ConsumerWidget {
   final Widget child;
-  
+
   const OnboardingWrapper({
     super.key,
     required this.child,
@@ -55,7 +55,7 @@ class OnboardingWrapper extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    
+
     return authState.when(
       data: (user) {
         if (user != null) {

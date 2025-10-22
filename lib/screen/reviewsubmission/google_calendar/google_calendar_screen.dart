@@ -200,7 +200,7 @@ class _EventCardState extends ConsumerState<EventCard> {
           context, 'No flight data found for the boarding pass.');
       return;
     }
-    
+
     final flightStatus = flightInfo['flightStatuses'][0];
     final airlines = flightInfo['appendix']['airlines'];
     final airports = flightInfo['appendix']['airports'];
@@ -240,18 +240,18 @@ class _EventCardState extends ConsumerState<EventCard> {
     );
 
     final bool result = await _boardingPassController.saveBoardingPass(newPass);
-    
+
     // Extract variables for flight tracking and Supabase
     final carrier = flightStatus['carrierFsCode'] ?? '';
     final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
     final flightDate = departureEntireTime;
     final departureAirportCode = departureAirport['fs'] ?? '';
-    
+
     // Save to Supabase if initialized
     if (SupabaseService.isInitialized) {
       // Get user ID from auth provider
-    final authState = ref.read(authProvider);
-    final userId = authState.user.value?.id ?? '';
+      final authState = ref.read(authProvider);
+      final userId = authState.user.value?.id ?? '';
       await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,
@@ -269,32 +269,37 @@ class _EventCardState extends ConsumerState<EventCard> {
       );
       debugPrint('✅ Journey saved to Supabase from calendar sync');
     }
-    
-    debugPrint('🪑 Starting flight tracking for calendar sync: $carrier $flightNumber');
-    final trackingStarted = await ref.read(flightTrackingProvider.notifier).trackFlight(
-      carrier: carrier,
-      flightNumber: flightNumber,
-      flightDate: flightDate,
-      departureAirport: departureAirportCode,
-      pnr: pnr,
-      existingFlightData: flightInfo,
-    );
+
+    debugPrint(
+        '🪑 Starting flight tracking for calendar sync: $carrier $flightNumber');
+    final trackingStarted =
+        await ref.read(flightTrackingProvider.notifier).trackFlight(
+              carrier: carrier,
+              flightNumber: flightNumber,
+              flightDate: flightDate,
+              departureAirport: departureAirportCode,
+              pnr: pnr,
+              existingFlightData: flightInfo,
+            );
 
     if (trackingStarted) {
       debugPrint('✈️ Flight tracking started successfully for $pnr');
-      debugPrint('📡 Real-time monitoring active - will notify at each flight phase');
+      debugPrint(
+          '📡 Real-time monitoring active - will notify at each flight phase');
     } else {
       debugPrint('⚠️ Flight tracking failed');
     }
-    
+
     if (mounted) {
       if (result) {
-        CustomSnackBar.success(context, '✅ Flight from calendar synced successfully!');
+        CustomSnackBar.success(
+            context, '✅ Flight from calendar synced successfully!');
       } else {
         debugPrint('⚠️ Boarding pass save failed, but continuing');
-        CustomSnackBar.success(context, '✅ Flight loaded! Your journey is being tracked.');
+        CustomSnackBar.success(
+            context, '✅ Flight loaded! Your journey is being tracked.');
       }
-      
+
       // Show confirmation dialog with flight details
       FlightConfirmationDialog.show(
         context,

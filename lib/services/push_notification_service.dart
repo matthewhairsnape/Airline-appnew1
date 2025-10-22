@@ -6,9 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'flight_notification_service.dart';
 
 class PushNotificationService {
-  static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  static final FirebaseMessaging _firebaseMessaging =
+      FirebaseMessaging.instance;
   static final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   static String? _fcmToken;
   static String? get fcmToken => _fcmToken;
 
@@ -23,25 +24,30 @@ class PushNotificationService {
       // Request permission for notifications (iOS only)
       if (Platform.isIOS) {
         final settings = await _firebaseMessaging.requestPermission(
-          alert: true,           // Show alerts/banners
-          announcement: false,   // Siri announcements
-          badge: true,           // App icon badge
-          carPlay: false,        // CarPlay notifications
-          criticalAlert: false,  // Critical alerts (requires special entitlement)
-          provisional: false,    // Provisional notifications (quiet notifications)
-          sound: true,           // Sound for notifications
+          alert: true, // Show alerts/banners
+          announcement: false, // Siri announcements
+          badge: true, // App icon badge
+          carPlay: false, // CarPlay notifications
+          criticalAlert:
+              false, // Critical alerts (requires special entitlement)
+          provisional: false, // Provisional notifications (quiet notifications)
+          sound: true, // Sound for notifications
         );
 
         if (settings.authorizationStatus == AuthorizationStatus.authorized) {
           debugPrint('✅ User granted full permission for notifications');
-        } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-          debugPrint('⚠️ User granted provisional permission for notifications');
+        } else if (settings.authorizationStatus ==
+            AuthorizationStatus.provisional) {
+          debugPrint(
+              '⚠️ User granted provisional permission for notifications');
         } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
           debugPrint('❌ User denied permission for notifications');
-        } else if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+        } else if (settings.authorizationStatus ==
+            AuthorizationStatus.notDetermined) {
           debugPrint('❓ User has not yet responded to permission request');
         } else {
-          debugPrint('❌ Unknown permission status: ${settings.authorizationStatus}');
+          debugPrint(
+              '❌ Unknown permission status: ${settings.authorizationStatus}');
         }
 
         // Log detailed permission settings
@@ -66,7 +72,8 @@ class PushNotificationService {
       });
 
       // Handle background messages
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+          _firebaseMessagingBackgroundHandler);
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -75,11 +82,11 @@ class PushNotificationService {
       FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
       // Handle notification tap when app is terminated
-      final RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
+      final RemoteMessage? initialMessage =
+          await _firebaseMessaging.getInitialMessage();
       if (initialMessage != null) {
         _handleNotificationTap(initialMessage);
       }
-
     } catch (e) {
       debugPrint('Error initializing push notifications: $e');
     }
@@ -112,12 +119,12 @@ class PushNotificationService {
   /// Save FCM token to Supabase for the current user
   static Future<void> saveTokenForUser(String userId) async {
     debugPrint('🔔 Starting FCM token save process for user: $userId');
-    
+
     if (_fcmToken == null) {
       debugPrint('🔔 FCM token not cached, getting new token...');
       await _getFCMToken();
     }
-    
+
     if (_fcmToken != null) {
       debugPrint('🔔 FCM token obtained: ${_fcmToken!.substring(0, 20)}...');
       await _saveTokenToSupabase(_fcmToken!, userId: userId);
@@ -127,21 +134,22 @@ class PushNotificationService {
   }
 
   /// Save FCM token to Supabase
-  static Future<void> _saveTokenToSupabase(String token, {String? userId}) async {
+  static Future<void> _saveTokenToSupabase(String token,
+      {String? userId}) async {
     try {
       debugPrint('🔔 Attempting to save FCM token to Supabase...');
-      
+
       if (userId != null) {
         // Update specific user's FCM token
         final result = await _supabase
             .from('users')
             .update({
-              'fcm_token': token, 
+              'fcm_token': token,
               'updated_at': DateTime.now().toIso8601String()
             })
             .eq('id', userId)
             .select();
-            
+
         debugPrint('✅ FCM token saved successfully for user: $userId');
         debugPrint('🔔 Database response: $result');
       } else {
@@ -151,13 +159,14 @@ class PushNotificationService {
           final result = await _supabase
               .from('users')
               .update({
-                'fcm_token': token, 
+                'fcm_token': token,
                 'updated_at': DateTime.now().toIso8601String()
               })
               .eq('id', user.id)
               .select();
-              
-          debugPrint('✅ FCM token saved successfully for current user: ${user.id}');
+
+          debugPrint(
+              '✅ FCM token saved successfully for current user: ${user.id}');
           debugPrint('🔔 Database response: $result');
         } else {
           debugPrint('❌ No current user found for FCM token save');
@@ -177,7 +186,7 @@ class PushNotificationService {
       debugPrint('Message notification: ${message.notification?.title}');
       debugPrint('Message body: ${message.notification?.body}');
     }
-    
+
     // Show a local notification for foreground messages
     if (message.notification != null) {
       _showForegroundNotification(message);
@@ -192,7 +201,7 @@ class PushNotificationService {
 
       final flightNotificationService = FlightNotificationService();
       await flightNotificationService.initialize();
-      
+
       await flightNotificationService.sendCustomNotification(
         title: notification.title ?? 'Notification',
         message: notification.body ?? '',
@@ -211,7 +220,7 @@ class PushNotificationService {
       debugPrint('Notification tapped: ${message.messageId}');
       debugPrint('Message data: ${message.data}');
     }
-    
+
     // Handle navigation based on notification data
     // You can add navigation logic here based on the message data
   }
@@ -257,7 +266,7 @@ class PushNotificationService {
       }
 
       final fcmToken = userData['fcm_token'] as String;
-      
+
       // Send notification via Supabase Edge Function
       await _supabase.functions.invoke(
         'send-push-notification',
@@ -295,9 +304,8 @@ class PushNotificationService {
         return;
       }
 
-      final tokens = usersData
-          .map((user) => user['fcm_token'] as String)
-          .toList();
+      final tokens =
+          usersData.map((user) => user['fcm_token'] as String).toList();
 
       // Send notification via Supabase Edge Function
       await _supabase.functions.invoke(
@@ -347,7 +355,8 @@ class PushNotificationService {
       final settings = await _firebaseMessaging.getNotificationSettings();
       return settings.authorizationStatus;
     }
-    return AuthorizationStatus.authorized; // Android doesn't require explicit permission
+    return AuthorizationStatus
+        .authorized; // Android doesn't require explicit permission
   }
 
   /// Request notification permissions again (useful if user initially denied)
@@ -363,8 +372,9 @@ class PushNotificationService {
         sound: true,
       );
 
-      final isGranted = settings.authorizationStatus == AuthorizationStatus.authorized;
-      
+      final isGranted =
+          settings.authorizationStatus == AuthorizationStatus.authorized;
+
       if (isGranted) {
         debugPrint('✅ User granted permission for notifications on retry');
         // Get FCM token again
@@ -372,7 +382,7 @@ class PushNotificationService {
       } else {
         debugPrint('❌ User still denied permission for notifications');
       }
-      
+
       return isGranted;
     }
     return true; // Android doesn't require explicit permission

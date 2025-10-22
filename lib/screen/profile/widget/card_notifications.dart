@@ -54,7 +54,7 @@ class _CardNotificationsState extends ConsumerState<CardNotifications> {
 
               // Use the auth provider to sign out
               await ref.read(authProvider.notifier).signOut();
-              
+
               // The AuthWrapper will automatically redirect to login screen
             });
       },

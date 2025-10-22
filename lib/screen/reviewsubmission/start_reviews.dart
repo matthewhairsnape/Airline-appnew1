@@ -180,12 +180,13 @@ class StartReviews extends StatelessWidget {
                 Navigator.pop(context);
                 showWalletSyncDialog(context);
               },
-              icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+              icon:
+                  const Icon(Icons.account_balance_wallet, color: Colors.white),
             ),
             const SizedBox(height: 12),
             MainButton(
-              text: AppLocalizations.of(context)
-                  .translate('Scan Boarding Pass'),
+              text:
+                  AppLocalizations.of(context).translate('Scan Boarding Pass'),
               color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);

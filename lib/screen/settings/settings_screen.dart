@@ -52,26 +52,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Close confirmation dialog
-                
+
                 try {
                   print('🔄 Starting sign out process...');
-                  
+
                   // Store the navigator before sign out
                   final navigator = Navigator.of(context);
-                  
+
                   // Sign out from auth provider first
                   await ref.read(authProvider.notifier).signOut();
                   print('✅ Auth provider sign out completed');
-                  
+
                   // Add a small delay to ensure sign out completes
                   await Future.delayed(const Duration(milliseconds: 500));
                   print('⏱️ Delay completed, attempting navigation...');
-                  
+
                   // Navigate using the stored navigator
                   print('🎯 Navigating to skip screen...');
                   navigator.pushReplacementNamed(AppRoutes.skipscreen);
                   print('✅ Navigation completed');
-                  
                 } catch (e) {
                   print('❌ Sign out error: $e');
                   // Show error if sign out fails
@@ -108,7 +107,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildLanguageButton(AppLocalizations.of(context).translate('English'), 'en'),
+              _buildLanguageButton(
+                  AppLocalizations.of(context).translate('English'), 'en'),
               _buildLanguageButton('中文', 'zh'),
               _buildLanguageButton('Español', 'es'),
             ],
@@ -124,7 +124,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context, ref, child) {
         final currentLocale = ref.watch(localeProvider);
         final selectedLanguage = ref.watch(selectedLanguageProvider);
-        final isSelected = currentLocale.languageCode == code || selectedLanguage == code;
+        final isSelected =
+            currentLocale.languageCode == code || selectedLanguage == code;
 
         return ElevatedButton(
           onPressed: () async {
@@ -132,11 +133,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // Save to SharedPreferences first
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('selectedLanguageSym', code);
-              
+
               // Update both providers
               ref.read(selectedLanguageProvider.notifier).changeLanguage(code);
               ref.read(localeProvider.notifier).state = Locale(code);
-              
+
               // Show loading dialog
               if (context.mounted) {
                 showDialog(
@@ -152,7 +153,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.blue),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -167,16 +169,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                   },
                 );
-                
+
                 // Wait a moment for the dialog to show
                 await Future.delayed(const Duration(milliseconds: 500));
-                
+
                 // Force app restart by navigating to skip screen
                 Navigator.pushNamedAndRemoveUntil(
-                  context, 
-                  AppRoutes.skipscreen,
-                  (route) => false
-                );
+                    context, AppRoutes.skipscreen, (route) => false);
               }
             } catch (e) {
               // Show error feedback
@@ -192,7 +191,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected ? AppStyles.mainColor : Colors.grey[200],
+            backgroundColor:
+                isSelected ? AppStyles.mainColor : Colors.grey[200],
             foregroundColor: isSelected ? Colors.white : Colors.black,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -215,7 +215,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context, ref, child) {
         final authState = ref.watch(authProvider);
         final user = authState.user.value;
-        
+
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -235,9 +235,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    user?.displayName?.isNotEmpty == true 
+                    user?.displayName?.isNotEmpty == true
                         ? user!.displayName![0].toUpperCase()
-                        : user?.email?.isNotEmpty == true 
+                        : user?.email?.isNotEmpty == true
                             ? user!.email![0].toUpperCase()
                             : 'U',
                     style: AppStyles.textStyle_24_600.copyWith(
@@ -247,7 +247,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(width: 16),
-              
+
               // User Info
               Expanded(
                 child: Column(
@@ -301,8 +301,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
@@ -372,7 +382,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // User Profile Section
               _buildUserProfileSection(),
               const SizedBox(height: 24),
-              
+
               // App Settings Section - Hidden for now
               // _buildSectionHeader(AppLocalizations.of(context).translate('App Settings')),
               // _buildSettingsItem(
@@ -384,9 +394,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // ),
               // if (showLanguageButtons) _buildLanguageButtons(),
               // const SizedBox(height: 8),
-              
+
               // Information Section
-              _buildSectionHeader(AppLocalizations.of(context).translate('Information')),
+              _buildSectionHeader(
+                  AppLocalizations.of(context).translate('Information')),
               _buildSettingsItem(
                 context: context,
                 title: AppLocalizations.of(context).translate('About the app'),
@@ -394,8 +405,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               _buildSettingsItem(
                 context: context,
-                title: AppLocalizations.of(context).translate('Terms of Service'),
-                onTap: () => Navigator.pushNamed(context, AppRoutes.termsofservice),
+                title:
+                    AppLocalizations.of(context).translate('Terms of Service'),
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.termsofservice),
               ),
               _buildSettingsItem(
                 context: context,
@@ -403,9 +416,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () => Navigator.pushNamed(context, AppRoutes.helpFaqs),
               ),
               const SizedBox(height: 8),
-              
+
               // Account Section
-              _buildSectionHeader(AppLocalizations.of(context).translate('Account')),
+              _buildSectionHeader(
+                  AppLocalizations.of(context).translate('Account')),
               _buildSettingsItem(
                 context: context,
                 title: AppLocalizations.of(context).translate('Sign Out'),
