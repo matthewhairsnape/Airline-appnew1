@@ -50,10 +50,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
-                await ref.read(authProvider.notifier).signOut();
+                Navigator.of(context).pop(); // Close confirmation dialog
+                
+                // Show loading indicator
                 if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, AppRoutes.skipscreen);
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                
+                try {
+                  await ref.read(authProvider.notifier).signOut();
+                  
+                  // Close loading dialog and navigate
+                  if (context.mounted) {
+                    Navigator.of(context).pop(); // Close loading dialog
+                    Navigator.pushNamedAndRemoveUntil(
+                      context, 
+                      AppRoutes.skipscreen, 
+                      (route) => false
+                    );
+                  }
+                } catch (e) {
+                  // Close loading dialog and show error
+                  if (context.mounted) {
+                    Navigator.of(context).pop(); // Close loading dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Sign out failed: $e'),
+                        duration: const Duration(seconds: 3),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
               child: Text(
@@ -72,12 +105,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildLanguageButtons() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      child: Column(
         children: [
-          _buildLanguageButton('English', 'en'),
-          _buildLanguageButton('中文', 'zh'),
-          _buildLanguageButton('Español', 'es'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildLanguageButton('English', 'en'),
+              _buildLanguageButton('中文', 'zh'),
+              _buildLanguageButton('Español', 'es'),
+            ],
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -91,9 +130,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         return ElevatedButton(
           onPressed: () async {
-            ref.read(localeProvider.notifier).state = Locale(code);
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('selectedLanguageSym', code);
+            try {
+              // Save to SharedPreferences first
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('selectedLanguageSym', code);
+              
+              // Update the locale provider
+              ref.read(localeProvider.notifier).state = Locale(code);
+              
+              // Show success feedback
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Language changed to $label. Restart app to see changes.'),
+                    duration: const Duration(seconds: 3),
+                    backgroundColor: Colors.green,
+                    action: SnackBarAction(
+                      label: 'Restart',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        // Force app restart by navigating to skip screen
+                        Navigator.pushNamedAndRemoveUntil(
+                          context, 
+                          AppRoutes.skipscreen, 
+                          (route) => false
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }
+            } catch (e) {
+              // Show error feedback
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to change language: $e'),
+                    duration: const Duration(seconds: 3),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: isSelected ? AppStyles.mainColor : Colors.grey[200],
@@ -112,6 +190,103 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
+  }
+
+  Widget _buildUserProfileSection() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final authState = ref.watch(authProvider);
+        final user = authState.user.value;
+        
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              // Profile Avatar
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppStyles.mainColor,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Center(
+                  child: Text(
+                    user?.displayName?.isNotEmpty == true 
+                        ? user!.displayName![0].toUpperCase()
+                        : user?.email?.isNotEmpty == true 
+                            ? user!.email![0].toUpperCase()
+                            : 'U',
+                    style: AppStyles.textStyle_24_600.copyWith(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              
+              // User Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user?.displayName ?? 'User',
+                      style: AppStyles.textStyle_18_600.copyWith(
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user?.email ?? 'No email',
+                      style: AppStyles.textStyle_14_400.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Member since ${user?.createdAt != null ? _formatDate(user!.createdAt!) : 'Unknown'}',
+                      style: AppStyles.textStyle_12_400.copyWith(
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 16),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: AppStyles.textStyle_14_600.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 
   Widget _buildSettingsItem({
@@ -176,6 +351,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
           child: Column(
             children: [
+              // User Profile Section
+              _buildUserProfileSection(),
+              const SizedBox(height: 24),
+              
+              // App Settings Section
+              _buildSectionHeader('App Settings'),
+              _buildSettingsItem(
+                context: context,
+                title: 'App Language',
+                onTap: () => setState(() {
+                  showLanguageButtons = !showLanguageButtons;
+                }),
+              ),
+              if (showLanguageButtons) _buildLanguageButtons(),
+              const SizedBox(height: 8),
+              
+              // Information Section
+              _buildSectionHeader('Information'),
               _buildSettingsItem(
                 context: context,
                 title: 'About the app',
@@ -188,13 +381,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               _buildSettingsItem(
                 context: context,
-                title: 'App Language',
-                onTap: () => setState(() {
-                  showLanguageButtons = !showLanguageButtons;
-                }),
+                title: 'Help & FAQ',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.helpFaqs),
               ),
-              if (showLanguageButtons) _buildLanguageButtons(),
               const SizedBox(height: 8),
+              
+              // Account Section
+              _buildSectionHeader('Account'),
               _buildSettingsItem(
                 context: context,
                 title: 'Sign Out',
