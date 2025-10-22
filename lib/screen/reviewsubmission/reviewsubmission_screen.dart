@@ -43,8 +43,8 @@ class _ReviewsubmissionScreenState
       final userId = ref.read(userDataProvider)?['userData']['_id'];
       // Only fetch boarding passes if user is logged in
       if (userId != null && userId.toString().isNotEmpty) {
-        final boardingPasses = await _boardingPassController
-            .getBoardingPasses(userId.toString());
+        final boardingPasses =
+            await _boardingPassController.getBoardingPasses(userId.toString());
         if (mounted) {
           ref.read(boardingPassesProvider.notifier).setData(boardingPasses);
         }
@@ -147,7 +147,8 @@ class _ReviewsubmissionScreenState
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            AppLocalizations.of(context).translate('Choose Sync Option'),
+                            AppLocalizations.of(context)
+                                .translate('Choose Sync Option'),
                             style: AppStyles.textStyle_24_600,
                             textAlign: TextAlign.center,
                           ),
@@ -159,7 +160,8 @@ class _ReviewsubmissionScreenState
                               Navigator.pop(context);
                               showWalletSyncDialog(context);
                             },
-                            icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+                            icon: const Icon(Icons.account_balance_wallet,
+                                color: Colors.white),
                           ),
                           const SizedBox(height: 12),
                           MainButton(
@@ -173,14 +175,16 @@ class _ReviewsubmissionScreenState
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+                            icon: const Icon(Icons.qr_code_scanner,
+                                color: Colors.white),
                           ),
                         ],
                       ),
                     ),
                   );
                 },
-              );            },
+              );
+            },
           ),
         ),
       ),

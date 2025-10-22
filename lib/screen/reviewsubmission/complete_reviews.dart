@@ -26,124 +26,127 @@ class CompleteReviews extends ConsumerWidget {
         }
       },
       child: Scaffold(
-          appBar: AppbarWidget(title: "Review Completed"),
-          body: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.grey.shade100, Colors.white],
-              ),
+        appBar: AppbarWidget(title: "Review Completed"),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.grey.shade100, Colors.white],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Center(
-                  child: Container(
-                    width: screenSize.width,
-                    height: screenSize.height * 0.42,
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(25),
-                          spreadRadius: 5,
-                          blurRadius: 15,
-                        ),
-                      ],
-                      image: const DecorationImage(
-                        image: AssetImage("assets/images/attendant.jpg"),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Center(
+                child: Container(
+                  width: screenSize.width,
+                  height: screenSize.height * 0.42,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withAlpha(25),
-                        spreadRadius: 2,
-                        blurRadius: 10,
+                        color: Colors.black.withAlpha(25),
+                        spreadRadius: 5,
+                        blurRadius: 15,
                       ),
                     ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text("Thank You for Your Feedback!",
-                          style: AppStyles.textStyle_24_600.copyWith(
-                            color: Colors.black,
-                          )),
-                      const SizedBox(height: 10),
-                      Text(
-                        "Your valuable insights help us create better travel experiences for everyone",
-                        style: AppStyles.textStyle_16_600.copyWith(
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildScoreCard(
-                            "Airline Score",
-                            (airlineScore ?? 0).toStringAsFixed(1),
-                            Icons.flight,
-                          ),
-                          _buildScoreCard(
-                            "Airport Score",
-                            (airportScore ?? 0).toStringAsFixed(1),
-                            Icons.airplane_ticket,
-                          ),
-                        ],
-                      ),
-                    ],
+                    image: const DecorationImage(
+                      image: AssetImage("assets/images/attendant.jpg"),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          bottomNavigationBar: BottomButtonBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _shareReview(context, airlineScore, airportScore),
-                      icon: Icon(Icons.share, color: Color(0xFF3B82F6)),
-                      label: Text('Share', style: TextStyle(color: Color(0xFF3B82F6))),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: Color(0xFF3B82F6)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: MainButton(
-                      text: "Home",
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        AppRoutes.leaderboardscreen,
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ),
+              const SizedBox(height: 30),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withAlpha(25),
+                      spreadRadius: 2,
+                      blurRadius: 10,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text("Thank You for Your Feedback!",
+                        style: AppStyles.textStyle_24_600.copyWith(
+                          color: Colors.black,
+                        )),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Your valuable insights help us create better travel experiences for everyone",
+                      style: AppStyles.textStyle_16_600.copyWith(
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildScoreCard(
+                          "Airline Score",
+                          (airlineScore ?? 0).toStringAsFixed(1),
+                          Icons.flight,
+                        ),
+                        _buildScoreCard(
+                          "Airport Score",
+                          (airportScore ?? 0).toStringAsFixed(1),
+                          Icons.airplane_ticket,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+        ),
+        bottomNavigationBar: BottomButtonBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _shareReview(context, airlineScore, airportScore),
+                  icon: Icon(Icons.share, color: Color(0xFF3B82F6)),
+                  label:
+                      Text('Share', style: TextStyle(color: Color(0xFF3B82F6))),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(color: Color(0xFF3B82F6)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: MainButton(
+                  text: "Home",
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.leaderboardscreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  void _shareReview(BuildContext context, String airlineScore, String airportScore) {
+  void _shareReview(
+      BuildContext context, String airlineScore, String airportScore) {
     final shareText = '''
 🎉 Just shared my flight experience on Exp.Aero!
 

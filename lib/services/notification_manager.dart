@@ -8,7 +8,8 @@ class NotificationManager {
   factory NotificationManager() => _instance;
   NotificationManager._internal();
 
-  final FlightNotificationService _flightNotificationService = FlightNotificationService();
+  final FlightNotificationService _flightNotificationService =
+      FlightNotificationService();
 
   /// Initialize notification services
   Future<void> initialize() async {

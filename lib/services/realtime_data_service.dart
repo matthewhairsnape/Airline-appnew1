@@ -8,8 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Handles all data flow between Flutter app and Supabase
 class RealtimeDataService {
   static RealtimeDataService? _instance;
-  static RealtimeDataService get instance => _instance ??= RealtimeDataService._();
-  
+  static RealtimeDataService get instance =>
+      _instance ??= RealtimeDataService._();
+
   RealtimeDataService._();
 
   final Map<String, RealtimeChannel> _activeChannels = {};
@@ -19,7 +20,7 @@ class RealtimeDataService {
   /// Initialize real-time data service
   Future<void> initialize() async {
     debugPrint('🔄 Initializing RealtimeDataService...');
-    
+
     // Set up global error handling
     Supabase.instance.client.realtime.onError((error) {
       debugPrint('❌ Realtime error: $error');
@@ -30,7 +31,7 @@ class RealtimeDataService {
       debugPrint('📡 Realtime connected');
       _resubscribeToAllChannels();
     });
-    
+
     Supabase.instance.client.realtime.onDisconnect((_) {
       debugPrint('📡 Realtime disconnected');
     });
@@ -85,8 +86,10 @@ class RealtimeDataService {
 
   /// Subscribe to user's all journeys
   Stream<List<Map<String, dynamic>>> subscribeToUserJourneys(String userId) {
-    final streamController = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _dataStreams['user_journeys_$userId'] = streamController as StreamController<dynamic>;
+    final streamController =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
+    _dataStreams['user_journeys_$userId'] =
+        streamController as StreamController<dynamic>;
 
     final userChannel = Supabase.instance.client
         .channel('user_journeys_$userId')
@@ -100,7 +103,11 @@ class RealtimeDataService {
             value: userId,
           ),
           callback: (payload) {
-            _handleUserJourneysUpdate(userId, payload, streamController as StreamController<List<Map<String, dynamic>>>);
+            _handleUserJourneysUpdate(
+                userId,
+                payload,
+                streamController
+                    as StreamController<List<Map<String, dynamic>>>);
           },
         )
         .subscribe();
@@ -143,8 +150,10 @@ class RealtimeDataService {
 
   /// Subscribe to feedback updates
   Stream<List<Map<String, dynamic>>> subscribeToFeedback(String journeyId) {
-    final streamController = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _dataStreams['feedback_$journeyId'] = streamController as StreamController<dynamic>;
+    final streamController =
+        StreamController<List<Map<String, dynamic>>>.broadcast();
+    _dataStreams['feedback_$journeyId'] =
+        streamController as StreamController<dynamic>;
 
     final feedbackChannel = Supabase.instance.client
         .channel('feedback_$journeyId')
@@ -158,7 +167,11 @@ class RealtimeDataService {
             value: journeyId,
           ),
           callback: (payload) {
-            _handleFeedbackUpdate(journeyId, payload, streamController as StreamController<List<Map<String, dynamic>>>);
+            _handleFeedbackUpdate(
+                journeyId,
+                payload,
+                streamController
+                    as StreamController<List<Map<String, dynamic>>>);
           },
         )
         .subscribe();
@@ -253,11 +266,11 @@ class RealtimeDataService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final pendingData = prefs.getString('pending_supabase_data');
-      
+
       if (pendingData != null) {
-        final List<Map<String, dynamic>> pending = 
+        final List<Map<String, dynamic>> pending =
             List<Map<String, dynamic>>.from(json.decode(pendingData));
-        
+
         for (final item in pending) {
           await sendDataToSupabase(
             table: item['table'],
@@ -265,7 +278,7 @@ class RealtimeDataService {
             operation: item['operation'],
           );
         }
-        
+
         // Clear pending data after successful sync
         await prefs.remove('pending_supabase_data');
         debugPrint('✅ Pending data synced successfully');
@@ -284,7 +297,7 @@ class RealtimeDataService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedData = prefs.getString('cached_$table');
-      
+
       if (cachedData != null) {
         final data = List<Map<String, dynamic>>.from(json.decode(cachedData));
         _localCache[table] = data;
@@ -293,19 +306,20 @@ class RealtimeDataService {
     } catch (e) {
       debugPrint('❌ Error getting cached data: $e');
     }
-    
+
     return [];
   }
 
   /// Update local cache
-  Future<void> _cacheDataLocally(String table, Map<String, dynamic> data) async {
+  Future<void> _cacheDataLocally(
+      String table, Map<String, dynamic> data) async {
     try {
       if (!_localCache.containsKey(table)) {
         _localCache[table] = [];
       }
-      
+
       _localCache[table]!.add(data);
-      
+
       // Persist to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('cached_$table', json.encode(_localCache[table]));
@@ -315,23 +329,24 @@ class RealtimeDataService {
   }
 
   /// Store data for retry when connection is restored
-  Future<void> _storeForRetry(String table, Map<String, dynamic> data, String? operation) async {
+  Future<void> _storeForRetry(
+      String table, Map<String, dynamic> data, String? operation) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final existingData = prefs.getString('pending_supabase_data');
-      
+
       List<Map<String, dynamic>> pending = [];
       if (existingData != null) {
         pending = List<Map<String, dynamic>>.from(json.decode(existingData));
       }
-      
+
       pending.add({
         'table': table,
         'data': data,
         'operation': operation,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
-      
+
       await prefs.setString('pending_supabase_data', json.encode(pending));
     } catch (e) {
       debugPrint('❌ Error storing data for retry: $e');
@@ -351,7 +366,7 @@ class RealtimeDataService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(eventData);
     _cacheDataLocally('journey_events', eventData);
   }
@@ -369,7 +384,7 @@ class RealtimeDataService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(journeyData);
     _cacheDataLocally('journeys', journeyData);
   }
@@ -399,7 +414,7 @@ class RealtimeDataService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(flightData);
     _cacheDataLocally('flights', flightData);
   }
@@ -428,16 +443,14 @@ class RealtimeDataService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(dashboardData);
   }
 
   /// Fetch user journeys
   Future<List<Map<String, dynamic>>> _fetchUserJourneys(String userId) async {
     try {
-      final data = await Supabase.instance.client
-          .from('journeys')
-          .select('''
+      final data = await Supabase.instance.client.from('journeys').select('''
             *,
             flight:flights (
               *,
@@ -445,9 +458,7 @@ class RealtimeDataService {
               departure_airport:airports!flights_departure_airport_id_fkey (*),
               arrival_airport:airports!flights_arrival_airport_id_fkey (*)
             )
-          ''')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          ''').eq('user_id', userId).order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(data);
     } catch (e) {
@@ -457,7 +468,8 @@ class RealtimeDataService {
   }
 
   /// Fetch journey feedback
-  Future<List<Map<String, dynamic>>> _fetchJourneyFeedback(String journeyId) async {
+  Future<List<Map<String, dynamic>>> _fetchJourneyFeedback(
+      String journeyId) async {
     try {
       final data = await Supabase.instance.client
           .from('stage_feedback')
@@ -486,7 +498,7 @@ class RealtimeDataService {
       _activeChannels[channelId]!.unsubscribe();
       _activeChannels.remove(channelId);
     }
-    
+
     if (_dataStreams.containsKey(channelId)) {
       _dataStreams[channelId]!.close();
       _dataStreams.remove(channelId);
@@ -498,11 +510,11 @@ class RealtimeDataService {
     for (final channel in _activeChannels.values) {
       channel.unsubscribe();
     }
-    
+
     for (final stream in _dataStreams.values) {
       stream.close();
     }
-    
+
     _activeChannels.clear();
     _dataStreams.clear();
     _localCache.clear();

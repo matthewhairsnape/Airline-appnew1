@@ -4,17 +4,19 @@ import '../services/notification_manager.dart';
 /// Production-ready notification settings widget
 class NotificationSettingsWidget extends StatefulWidget {
   final VoidCallback? onPermissionChanged;
-  
+
   const NotificationSettingsWidget({
     super.key,
     this.onPermissionChanged,
   });
 
   @override
-  State<NotificationSettingsWidget> createState() => _NotificationSettingsWidgetState();
+  State<NotificationSettingsWidget> createState() =>
+      _NotificationSettingsWidgetState();
 }
 
-class _NotificationSettingsWidgetState extends State<NotificationSettingsWidget> {
+class _NotificationSettingsWidgetState
+    extends State<NotificationSettingsWidget> {
   final NotificationManager _notificationManager = NotificationManager();
   bool _isLoading = false;
   bool _isEnabled = false;
@@ -27,7 +29,7 @@ class _NotificationSettingsWidgetState extends State<NotificationSettingsWidget>
 
   Future<void> _checkNotificationStatus() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final isEnabled = await _notificationManager.areNotificationsEnabled();
       setState(() {
@@ -46,19 +48,20 @@ class _NotificationSettingsWidgetState extends State<NotificationSettingsWidget>
     } else {
       // Notifications are disabled, request permission
       setState(() => _isLoading = true);
-      
+
       try {
         final granted = await _notificationManager.requestPermissions();
         setState(() {
           _isEnabled = granted;
           _isLoading = false;
         });
-        
+
         if (granted) {
           widget.onPermissionChanged?.call();
           _showSuccessMessage('Notifications enabled successfully!');
         } else {
-          _showErrorMessage('Failed to enable notifications. Please check your settings.');
+          _showErrorMessage(
+              'Failed to enable notifications. Please check your settings.');
         }
       } catch (e) {
         setState(() => _isLoading = false);
@@ -113,20 +116,20 @@ class _NotificationSettingsWidgetState extends State<NotificationSettingsWidget>
         ),
         title: const Text('Push Notifications'),
         subtitle: Text(
-          _isEnabled 
-            ? 'Receive flight updates and important notifications'
-            : 'Enable to receive flight updates and important notifications',
+          _isEnabled
+              ? 'Receive flight updates and important notifications'
+              : 'Enable to receive flight updates and important notifications',
         ),
         trailing: _isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Switch(
-              value: _isEnabled,
-              onChanged: (_) => _toggleNotifications(),
-            ),
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Switch(
+                value: _isEnabled,
+                onChanged: (_) => _toggleNotifications(),
+              ),
         onTap: _isLoading ? null : _toggleNotifications,
       ),
     );

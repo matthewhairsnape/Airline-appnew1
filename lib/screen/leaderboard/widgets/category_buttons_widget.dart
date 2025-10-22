@@ -154,9 +154,7 @@ class _CategoryButtonsWidgetState extends State<CategoryButtonsWidget> {
                           : buildCategoryRow(
                               'assets/icons/review_icon_entertainment.svg',
                               'Amenities and Facilities',
-                              response['amenities']
-                                      .toStringAsFixed(1) ??
-                                  '0'),
+                              response['amenities'].toStringAsFixed(1) ?? '0'),
                     ],
                   ),
                 ],

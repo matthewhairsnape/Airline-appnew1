@@ -22,16 +22,17 @@ class MyJourneyScreen extends ConsumerStatefulWidget {
   ConsumerState<MyJourneyScreen> createState() => _MyJourneyScreenState();
 }
 
-class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTickerProviderStateMixin {
+class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
+    with SingleTickerProviderStateMixin {
   Map<String, bool> _expandedSections = {
     'At the Airport': true,
     'During the Flight': false,
     'Overall Experience': false,
   };
-  
+
   late TabController _tabController;
   int _selectedTabIndex = 0;
-  
+
   // Feedback status tracking
   Map<String, Map<String, bool>> _feedbackStatus = {};
   Map<String, Map<String, Map<String, dynamic>?>> _existingFeedback = {};
@@ -45,7 +46,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         _selectedTabIndex = _tabController.index;
       });
     });
-    
+
     // Sync journeys from database when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncJourneysFromDatabase();
@@ -63,15 +64,21 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
     final flightTrackingState = ref.watch(flightTrackingProvider);
     final allFlights = flightTrackingState.getAllFlights();
     final activeFlights = flightTrackingState.trackedFlights.values.toList();
-    final completedFlights = flightTrackingState.completedFlights.values.toList();
-    
+    final completedFlights =
+        flightTrackingState.completedFlights.values.toList();
+
     debugPrint('🎯 Journey Screen: allFlights count: ${allFlights.length}');
-    debugPrint('🎯 Journey Screen: activeFlights count: ${activeFlights.length}');
-    debugPrint('🎯 Journey Screen: completedFlights count: ${completedFlights.length}');
+    debugPrint(
+        '🎯 Journey Screen: activeFlights count: ${activeFlights.length}');
+    debugPrint(
+        '🎯 Journey Screen: completedFlights count: ${completedFlights.length}');
     if (allFlights.isNotEmpty) {
-      debugPrint('🎯 Journey Screen: First flight PNR: ${allFlights.first.pnr}');
-      debugPrint('🎯 Journey Screen: First flight carrier: ${allFlights.first.carrier}');
-      debugPrint('🎯 Journey Screen: First flight number: ${allFlights.first.flightNumber}');
+      debugPrint(
+          '🎯 Journey Screen: First flight PNR: ${allFlights.first.pnr}');
+      debugPrint(
+          '🎯 Journey Screen: First flight carrier: ${allFlights.first.carrier}');
+      debugPrint(
+          '🎯 Journey Screen: First flight number: ${allFlights.first.flightNumber}');
     }
 
     return Scaffold(
@@ -129,12 +136,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         children: [
           // Active Journeys Tab
           activeFlights.isEmpty
-              ? _buildEmptyState('No Active Journeys', 'Connect your flight to start tracking your journey')
+              ? _buildEmptyState('No Active Journeys',
+                  'Connect your flight to start tracking your journey')
               : _buildJourneyList(activeFlights),
-          
+
           // Completed Journeys Tab
           completedFlights.isEmpty
-              ? _buildEmptyState('No Completed Journeys', 'Your completed journeys will appear here')
+              ? _buildEmptyState('No Completed Journeys',
+                  'Your completed journeys will appear here')
               : _buildCompletedJourneyList(completedFlights),
         ],
       ),
@@ -156,12 +165,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             SizedBox(height: 24),
             Text(
               title,
-              style: AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
+              style:
+                  AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
             ),
             SizedBox(height: 12),
             Text(
               subtitle,
-              style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
+              style:
+                  AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             if (title.contains('Active')) ...[
@@ -179,7 +190,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                 ),
                 child: Text(
                   'Connect Flight',
-                  style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                  style:
+                      AppStyles.textStyle_16_600.copyWith(color: Colors.white),
                 ),
               ),
             ],
@@ -192,7 +204,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   Widget _buildJourneyList(List<FlightTrackingModel> flights) {
     return SingleChildScrollView(
       child: Column(
-        children: flights.map((flight) => _buildJourneyTimeline(flight)).toList(),
+        children:
+            flights.map((flight) => _buildJourneyTimeline(flight)).toList(),
       ),
     );
   }
@@ -200,16 +213,24 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   Widget _buildCompletedJourneyList(List<FlightTrackingModel> flights) {
     return SingleChildScrollView(
       child: Column(
-        children: flights.map((flight) => _buildCompletedJourneyCard(flight)).toList(),
+        children: flights
+            .map((flight) => _buildCompletedJourneyCard(flight))
+            .toList(),
       ),
     );
   }
 
   Widget _buildCompletedJourneyCard(FlightTrackingModel flight) {
     final journeyId = flight.journeyId;
-    final feedbackPercentage = journeyId != null ? getFeedbackCompletionPercentage(journeyId) : 0;
-    final hasAnyFeedback = journeyId != null ? _feedbackStatus[journeyId]?.values.any((hasFeedback) => hasFeedback) ?? false : false;
-    
+    final feedbackPercentage =
+        journeyId != null ? getFeedbackCompletionPercentage(journeyId) : 0;
+    final hasAnyFeedback = journeyId != null
+        ? _feedbackStatus[journeyId]
+                ?.values
+                .any((hasFeedback) => hasFeedback) ??
+            false
+        : false;
+
     return Container(
       margin: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -250,17 +271,20 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                     children: [
                       Text(
                         '${flight.carrier}${flight.flightNumber}',
-                        style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+                        style: AppStyles.textStyle_18_600
+                            .copyWith(color: Colors.black),
                       ),
                       SizedBox(height: 4),
                       Text(
                         '${flight.departureAirport} → ${flight.arrivalAirport}',
-                        style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.grey[600]),
                       ),
                       SizedBox(height: 4),
                       Text(
                         'PNR: ${flight.pnr}',
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[500]),
                       ),
                       if (hasAnyFeedback) ...[
                         SizedBox(height: 8),
@@ -274,7 +298,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                             SizedBox(width: 4),
                             Text(
                               'Feedback: $feedbackPercentage% Complete',
-                              style: AppStyles.textStyle_12_500.copyWith(color: Colors.blue),
+                              style: AppStyles.textStyle_12_500
+                                  .copyWith(color: Colors.blue),
                             ),
                           ],
                         ),
@@ -290,13 +315,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                   ),
                   child: Text(
                     'Completed',
-                    style: AppStyles.textStyle_12_600.copyWith(color: Colors.green),
+                    style: AppStyles.textStyle_12_600
+                        .copyWith(color: Colors.green),
                   ),
                 ),
               ],
             ),
           ),
-          
+
           // Flight Details
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
@@ -308,16 +334,19 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                     children: [
                       Text(
                         'Departure',
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[500]),
                       ),
                       SizedBox(height: 4),
                       Text(
                         _formatDateTime(flight.departureTime),
-                        style: AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                        style: AppStyles.textStyle_14_600
+                            .copyWith(color: Colors.black),
                       ),
                       Text(
                         flight.departureAirport,
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -333,16 +362,19 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                     children: [
                       Text(
                         'Arrival',
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[500]),
                       ),
                       SizedBox(height: 4),
                       Text(
                         _formatDateTime(flight.arrivalTime),
-                        style: AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                        style: AppStyles.textStyle_14_600
+                            .copyWith(color: Colors.black),
                       ),
                       Text(
                         flight.arrivalAirport,
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -350,9 +382,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               ],
             ),
           ),
-          
+
           SizedBox(height: 20),
-          
+
           // Action Buttons
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
@@ -371,7 +403,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                     ),
                     child: Text(
                       'View Details',
-                      style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+                      style: AppStyles.textStyle_14_500
+                          .copyWith(color: Colors.grey[700]),
                     ),
                   ),
                 ),
@@ -386,21 +419,23 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: hasAnyFeedback ? Colors.blue : Colors.black,
+                      backgroundColor:
+                          hasAnyFeedback ? Colors.blue : Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: Text(
                       hasAnyFeedback ? 'Manage Feedback' : 'Rate Experience',
-                      style: AppStyles.textStyle_14_600.copyWith(color: Colors.white),
+                      style: AppStyles.textStyle_14_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          
+
           SizedBox(height: 20),
         ],
       ),
@@ -413,7 +448,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         children: [
           // Flight Status Card
           FlightStatusCard(flight: flight),
-          
+
           // Timeline Sections
           TimelineSection(
             title: 'At the Airport',
@@ -423,7 +458,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             onToggle: () => _toggleSection('At the Airport'),
             flight: flight,
           ),
-          
+
           TimelineSection(
             title: 'During the Flight',
             icon: Icons.flight,
@@ -432,7 +467,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             onToggle: () => _toggleSection('During the Flight'),
             flight: flight,
           ),
-          
+
           TimelineSection(
             title: 'Overall Experience',
             icon: Icons.star,
@@ -441,9 +476,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             onToggle: () => _toggleSection('Overall Experience'),
             flight: flight,
           ),
-          
+
           SizedBox(height: 32),
-          
+
           // Complete Journey Button
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
@@ -466,13 +501,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                   SizedBox(width: 12),
                   Text(
                     'Complete Journey',
-                    style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                    style: AppStyles.textStyle_16_600
+                        .copyWith(color: Colors.white),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           SizedBox(height: 100), // Space for bottom padding
         ],
       ),
@@ -491,13 +527,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
 
   List<TimelineEvent> _getPreFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     // Trip Added
     events.add(TimelineEvent(
       id: 'trip_added',
       title: 'Trip Added',
       description: 'Boarding pass scanned successfully',
-      timestamp: flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 2)),
+      timestamp:
+          flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 2)),
       icon: Icons.phone_android,
       isCompleted: true,
     ));
@@ -511,7 +548,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         description: '',
       ),
     );
-    
+
     if (gateChangeEvent.eventType.isNotEmpty) {
       events.add(TimelineEvent(
         id: 'gate_change',
@@ -530,7 +567,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
         id: 'boarding_started',
         title: 'Boarding',
         description: 'Now boarding at Gate D18',
-        timestamp: flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 1)),
+        timestamp: flight.phaseStartTime ??
+            DateTime.now().subtract(Duration(hours: 1)),
         icon: Icons.flight_takeoff,
         location: 'Gate D18',
         isCompleted: flight.currentPhase.index > FlightPhase.boarding.index,
@@ -542,7 +580,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
 
   List<TimelineEvent> _getInFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.inFlight.index) {
       events.add(TimelineEvent(
         id: 'inflight_experience',
@@ -560,7 +598,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
 
   List<TimelineEvent> _getPostFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.landed.index) {
       events.add(TimelineEvent(
         id: 'postflight_experience',
@@ -593,15 +631,16 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildDetailRow('Flight', '${flight.carrier}${flight.flightNumber}'),
-            _buildDetailRow('Route', '${flight.departureAirport} → ${flight.arrivalAirport}'),
+            _buildDetailRow(
+                'Flight', '${flight.carrier}${flight.flightNumber}'),
+            _buildDetailRow('Route',
+                '${flight.departureAirport} → ${flight.arrivalAirport}'),
             _buildDetailRow('PNR', flight.pnr),
             _buildDetailRow('Departure', _formatDateTime(flight.departureTime)),
             _buildDetailRow('Arrival', _formatDateTime(flight.arrivalTime)),
             if (flight.seatNumber != null)
               _buildDetailRow('Seat', flight.seatNumber!),
-            if (flight.gate != null)
-              _buildDetailRow('Gate', flight.gate!),
+            if (flight.gate != null) _buildDetailRow('Gate', flight.gate!),
             if (flight.terminal != null)
               _buildDetailRow('Terminal', flight.terminal!),
             _buildDetailRow('Status', 'Completed'),
@@ -627,7 +666,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             width: 80,
             child: Text(
               '$label:',
-              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+              style:
+                  AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
             ),
           ),
           Expanded(
@@ -668,7 +708,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
 
   void _showFeedbackManagement(FlightTrackingModel flight) {
     if (flight.journeyId == null) return;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -692,7 +732,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 24),
-            
+
             // Pre-flight feedback
             _buildFeedbackStageCard(
               flight,
@@ -702,9 +742,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               Icons.assignment,
               Colors.blue,
             ),
-            
+
             SizedBox(height: 12),
-            
+
             // In-flight feedback
             _buildFeedbackStageCard(
               flight,
@@ -714,9 +754,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               Icons.flight,
               Colors.orange,
             ),
-            
+
             SizedBox(height: 12),
-            
+
             // Post-flight feedback
             _buildFeedbackStageCard(
               flight,
@@ -726,9 +766,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               Icons.star,
               Colors.purple,
             ),
-            
+
             SizedBox(height: 12),
-            
+
             // Airline review
             _buildFeedbackStageCard(
               flight,
@@ -738,9 +778,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               Icons.airplanemode_active,
               Colors.green,
             ),
-            
+
             SizedBox(height: 12),
-            
+
             // Airport review
             _buildFeedbackStageCard(
               flight,
@@ -750,9 +790,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
               Icons.location_city,
               Colors.teal,
             ),
-            
+
             SizedBox(height: 24),
-            
+
             // Overall completion status
             Container(
               padding: EdgeInsets.all(16),
@@ -767,7 +807,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                   Expanded(
                     child: Text(
                       'Feedback Completion: ${getFeedbackCompletionPercentage(flight.journeyId!)}%',
-                      style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[700]),
+                      style: AppStyles.textStyle_14_500
+                          .copyWith(color: Colors.grey[700]),
                     ),
                   ),
                 ],
@@ -779,10 +820,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
     );
   }
 
-  Widget _buildFeedbackStageCard(FlightTrackingModel flight, String title, String stage, String journeyId, IconData icon, Color color) {
+  Widget _buildFeedbackStageCard(FlightTrackingModel flight, String title,
+      String stage, String journeyId, IconData icon, Color color) {
     final hasFeedback = hasFeedbackForStage(journeyId, stage);
     final existingFeedback = getExistingFeedbackForStage(journeyId, stage);
-    
+
     return Container(
       decoration: BoxDecoration(
         color: hasFeedback ? color.withOpacity(0.1) : Colors.grey[50],
@@ -830,7 +872,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
     );
   }
 
-  void _showFeedbackForStage(FlightTrackingModel flight, String stage, Map<String, dynamic>? existingFeedback) {
+  void _showFeedbackForStage(FlightTrackingModel flight, String stage,
+      Map<String, dynamic>? existingFeedback) {
     if (stage == 'airline_review') {
       // Navigate to airline review screen
       Navigator.pushNamed(
@@ -868,7 +911,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
             // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Feedback ${existingFeedback != null ? 'updated' : 'submitted'} successfully!'),
+                content: Text(
+                    'Feedback ${existingFeedback != null ? 'updated' : 'submitted'} successfully!'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -892,11 +936,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
       debugPrint('🔄 Syncing journeys for user: $userId');
 
       // Sync journeys from database
-      await ref.read(flightTrackingProvider.notifier).syncJourneysFromDatabase(userId);
-      
+      await ref
+          .read(flightTrackingProvider.notifier)
+          .syncJourneysFromDatabase(userId);
+
       // Load feedback status for completed flights
       await _loadFeedbackStatusForCompletedFlights();
-      
+
       debugPrint('✅ Journey sync completed');
     } catch (e) {
       debugPrint('❌ Error syncing journeys from database: $e');
@@ -907,8 +953,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   Future<void> _loadFeedbackStatusForCompletedFlights() async {
     try {
       final flightTrackingState = ref.read(flightTrackingProvider);
-      final completedFlights = flightTrackingState.completedFlights.values.toList();
-      
+      final completedFlights =
+          flightTrackingState.completedFlights.values.toList();
+
       for (final flight in completedFlights) {
         if (flight.journeyId != null) {
           await _loadFeedbackStatusForFlight(flight.journeyId!);
@@ -923,13 +970,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   Future<void> _loadFeedbackStatusForFlight(String journeyId) async {
     try {
       // Check feedback status
-      final feedbackStatus = await FeedbackCheckingService.checkFeedbackStatus(journeyId);
+      final feedbackStatus =
+          await FeedbackCheckingService.checkFeedbackStatus(journeyId);
       _feedbackStatus[journeyId] = feedbackStatus;
-      
+
       // Load existing feedback for all stages
-      final allFeedback = await FeedbackCheckingService.getAllFeedbackForJourney(journeyId);
+      final allFeedback =
+          await FeedbackCheckingService.getAllFeedbackForJourney(journeyId);
       _existingFeedback[journeyId] = allFeedback;
-      
+
       if (mounted) {
         setState(() {});
       }
@@ -944,7 +993,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   }
 
   /// Get existing feedback for a specific flight and stage
-  Map<String, dynamic>? getExistingFeedbackForStage(String journeyId, String stage) {
+  Map<String, dynamic>? getExistingFeedbackForStage(
+      String journeyId, String stage) {
     return _existingFeedback[journeyId]?[stage];
   }
 
@@ -952,10 +1002,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
   int getFeedbackCompletionPercentage(String journeyId) {
     final status = _feedbackStatus[journeyId];
     if (status == null) return 0;
-    
-    final completedStages = status.values.where((hasFeedback) => hasFeedback).length;
+
+    final completedStages =
+        status.values.where((hasFeedback) => hasFeedback).length;
     final totalStages = status.length;
-    
+
     return ((completedStages / totalStages) * 100).round();
   }
 
@@ -991,12 +1042,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> with SingleTi
                 Navigator.pop(context);
                 showWalletSyncDialog(context);
               },
-              icon: const Icon(Icons.account_balance_wallet, color: Colors.white),
+              icon:
+                  const Icon(Icons.account_balance_wallet, color: Colors.white),
             ),
             const SizedBox(height: 12),
             MainButton(
-              text: AppLocalizations.of(context)
-                  .translate('Scan Boarding Pass'),
+              text:
+                  AppLocalizations.of(context).translate('Scan Boarding Pass'),
               color: Colors.black,
               onPressed: () {
                 Navigator.pop(context);

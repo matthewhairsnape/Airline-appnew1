@@ -15,14 +15,15 @@ class ComprehensiveFeedbackModal extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ComprehensiveFeedbackModal> createState() => _ComprehensiveFeedbackModalState();
+  State<ComprehensiveFeedbackModal> createState() =>
+      _ComprehensiveFeedbackModalState();
 }
 
 class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     with TickerProviderStateMixin {
   late TabController _tabController;
   int _overallRating = 0;
-  
+
   // Feedback selections for each category
   Map<String, Set<String>> _preFlightLikes = {};
   Map<String, Set<String>> _preFlightDislikes = {};
@@ -66,7 +67,7 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
@@ -79,7 +80,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                 Expanded(
                   child: Text(
                     'Share Your Experience',
-                    style: AppStyles.textStyle_20_600.copyWith(color: Colors.black),
+                    style: AppStyles.textStyle_20_600
+                        .copyWith(color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -87,14 +89,14 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
               ],
             ),
           ),
-          
+
           SizedBox(height: 24),
-          
+
           // Overall Rating Section
           _buildOverallRatingSection(),
-          
+
           SizedBox(height: 24),
-          
+
           // Tab Bar
           Container(
             margin: EdgeInsets.symmetric(horizontal: 24),
@@ -118,9 +120,9 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
               ],
             ),
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Tab Content
           Expanded(
             child: TabBarView(
@@ -132,7 +134,7 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
               ],
             ),
           ),
-          
+
           // Submit Button
           Padding(
             padding: EdgeInsets.all(24),
@@ -186,7 +188,9 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                   margin: EdgeInsets.symmetric(horizontal: 4),
                   child: Icon(
                     index < _overallRating ? Icons.star : Icons.star_border,
-                    color: index < _overallRating ? Colors.amber : Colors.grey[400],
+                    color: index < _overallRating
+                        ? Colors.amber
+                        : Colors.grey[400],
                     size: 32,
                   ),
                 ),
@@ -306,24 +310,27 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
           spacing: 8,
           runSpacing: 8,
           children: options.map((option) {
-            final isSelected = selections.values.any((set) => set.contains(option));
+            final isSelected =
+                selections.values.any((set) => set.contains(option));
             return GestureDetector(
               onTap: () {
                 setState(() {
                   // Find which category this option belongs to
                   String category = '';
-                  if (options == _getPreFlightLikes() || options == _getPreFlightDislikes()) {
+                  if (options == _getPreFlightLikes() ||
+                      options == _getPreFlightDislikes()) {
                     category = _getPreFlightCategory(option);
-                  } else if (options == _getInFlightLikes() || options == _getInFlightDislikes()) {
+                  } else if (options == _getInFlightLikes() ||
+                      options == _getInFlightDislikes()) {
                     category = _getInFlightCategory(option);
                   } else {
                     category = _getPostFlightCategory(option);
                   }
-                  
+
                   if (selections[category] == null) {
                     selections[category] = <String>{};
                   }
-                  
+
                   if (isSelected) {
                     selections[category]!.remove(option);
                   } else {
@@ -345,7 +352,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                   option,
                   style: AppStyles.textStyle_14_500.copyWith(
                     color: isSelected ? color : Colors.black,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ),
@@ -374,7 +382,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
       final journeyId = widget.flight.pnr; // Using PNR as journey ID
       final seat = widget.flight.seatNumber ?? 'Unknown';
 
-      debugPrint('📝 Submitting feedback for user: $userId, flight: $flightId, journey: $journeyId');
+      debugPrint(
+          '📝 Submitting feedback for user: $userId, flight: $flightId, journey: $journeyId');
 
       // Submit feedback for each phase to the correct table
       final phases = [
@@ -427,10 +436,10 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
       if (allSuccess) {
         // Close the feedback modal
         Navigator.pop(context);
-        
+
         // Show success confirmation
         _showSuccessDialog();
-        
+
         // Call the callback
         widget.onSubmitted?.call();
       } else {
@@ -470,27 +479,29 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                     size: 50,
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // Title
                 Text(
                   'Feedback Submitted!',
-                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  style:
+                      AppStyles.textStyle_24_600.copyWith(color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 12),
-                
+
                 // Description
                 Text(
                   'Thank you! Your feedback has been recorded and sent to the airline.',
-                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_16_400
+                      .copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 32),
-                
+
                 // Done Button
                 SizedBox(
                   width: double.infinity,
@@ -509,7 +520,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                     ),
                     child: Text(
                       'Done',
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
@@ -548,27 +560,29 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                     size: 50,
                   ),
                 ),
-                
+
                 SizedBox(height: 24),
-                
+
                 // Title
                 Text(
                   'Error',
-                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  style:
+                      AppStyles.textStyle_24_600.copyWith(color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 12),
-                
+
                 // Description
                 Text(
                   message,
-                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  style: AppStyles.textStyle_16_400
+                      .copyWith(color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 SizedBox(height: 32),
-                
+
                 // OK Button
                 SizedBox(
                   width: double.infinity,
@@ -584,7 +598,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                     ),
                     child: Text(
                       'OK',
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
@@ -598,12 +613,18 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
 
   String _getRatingText(int rating) {
     switch (rating) {
-      case 1: return 'Poor';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Very Good';
-      case 5: return 'Excellent';
-      default: return 'Rate your experience';
+      case 1:
+        return 'Poor';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Very Good';
+      case 5:
+        return 'Excellent';
+      default:
+        return 'Rate your experience';
     }
   }
 

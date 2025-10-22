@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'package:airline_app/screen/feed/feed_filter_screen.dart';
 import 'package:airline_app/screen/feed/feed_screen.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_filter_screen.dart';
@@ -46,55 +45,47 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Get saved language before initializing rest of the app
   final prefs = await SharedPreferences.getInstance();
   final String languageCode = prefs.getString('selectedLanguageSym') ?? 'en';
 
-  // Init Firebase, Supabase, other services with defensive error handling
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('✅ Firebase initialized');
-  } catch (e, st) {
-    debugPrint('❌ Firebase init failed: $e\n$st');
-    // You can choose to proceed or exit; here we proceed but log the error.
+  } catch (e) {
+    // Firebase initialization failed
   }
 
   try {
-    await SupabaseService.initialize(); // uses String.fromEnvironment defaults
-    debugPrint('✅ SupabaseService.initialize completed');
-  } catch (e, st) {
-    debugPrint('❌ Supabase init failed: $e\n$st');
-    // If Supabase is critical for the app, consider showing an error UI instead of proceeding.
+    await SupabaseService.initialize();
+  } catch (e) {
+    // Supabase initialization failed
   }
 
   try {
     await SimpleDataFlowService.instance.initialize();
-    debugPrint('✅ SimpleDataFlowService initialized');
-  } catch (e, st) {
-    debugPrint('❌ SimpleDataFlowService init failed: $e\n$st');
+  } catch (e) {
+    // Data flow service initialization failed
   }
 
   try {
     await NotificationManager().initialize();
-    debugPrint('✅ NotificationManager initialized');
-  } catch (e, st) {
-    debugPrint('❌ NotificationManager init failed: $e\n$st');
+  } catch (e) {
+    // Notification manager initialization failed
   }
 
   try {
     await JourneyNotificationService.initialize();
-    debugPrint('✅ JourneyNotificationService initialized');
-  } catch (e, st) {
-    debugPrint('❌ JourneyNotificationService init failed: $e\n$st');
+  } catch (e) {
+    // Journey notification service initialization failed
   }
 
   runApp(
     ProviderScope(
       overrides: [
         localeProvider.overrideWith((ref) => Locale(languageCode)),
-        selectedLanguageProvider.overrideWith((ref) => SelectedLanguageProvider()..changeLanguage(languageCode)),
+        selectedLanguageProvider.overrideWith(
+            (ref) => SelectedLanguageProvider()..changeLanguage(languageCode)),
       ],
       child: const MyApp(),
     ),
@@ -133,7 +124,8 @@ class MyApp extends ConsumerWidget {
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.white,
         ),
-        bottomSheetTheme: const BottomSheetThemeData(backgroundColor: Colors.white),
+        bottomSheetTheme:
+            const BottomSheetThemeData(backgroundColor: Colors.white),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: true,
         pageTransitionsTheme: const PageTransitionsTheme(
@@ -145,13 +137,11 @@ class MyApp extends ConsumerWidget {
       ),
       initialRoute: AppRoutes.skipscreen,
       routes: {
-        // Public routes (no authentication required)
         AppRoutes.loginscreen: (context) => const Login(),
         AppRoutes.skipscreen: (context) => const SkipScreen(),
-        
-        // Routes without authentication (bypassing AuthWrapper)
         AppRoutes.startreviews: (context) => const StartReviews(),
-        AppRoutes.reviewsubmissionscreen: (context) => const ReviewsubmissionScreen(),
+        AppRoutes.reviewsubmissionscreen: (context) =>
+            const ReviewsubmissionScreen(),
         AppRoutes.feedscreen: (context) => const FeedScreen(),
         AppRoutes.feedfilterscreen: (context) => const FeedFilterScreen(),
         AppRoutes.leaderboardscreen: (context) => const LeaderboardScreen(),
@@ -159,15 +149,24 @@ class MyApp extends ConsumerWidget {
         AppRoutes.mediafullscreen: (context) => const MediaFullScreen(),
         AppRoutes.profilescreen: (context) => const ProfileScreen(),
         AppRoutes.filterscreen: (context) => const LeaderboardFilterScreen(),
-        AppRoutes.cardnotificationscreen: (context) => const NotificationsScreen(),
-        AppRoutes.questionfirstscreenforairline: (context) => const QuestionFirstScreenForAirline(),
-        AppRoutes.detailfirstscreenforairline: (context) => const DetailFirstScreenForAirline(),
-        AppRoutes.questionsecondscreenforairline: (context) => const QuestionSecondScreenForAirline(),
-        AppRoutes.detailsecondscreenforairline: (context) => const DetailSecondScreenForAirline(),
-        AppRoutes.questionfirstscreenforairport: (context) => const QuestionFirstScreenForAirport(),
-        AppRoutes.detailfirstscreenforairport: (context) => const DetailFirstScreenForAirport(),
-        AppRoutes.questionsecondscreenforairport: (context) => const QuestionSecondScreenForAirport(),
-        AppRoutes.detailsecondscreenforairport: (context) => const DetailSecondScreenForAirport(),
+        AppRoutes.cardnotificationscreen: (context) =>
+            const NotificationsScreen(),
+        AppRoutes.questionfirstscreenforairline: (context) =>
+            const QuestionFirstScreenForAirline(),
+        AppRoutes.detailfirstscreenforairline: (context) =>
+            const DetailFirstScreenForAirline(),
+        AppRoutes.questionsecondscreenforairline: (context) =>
+            const QuestionSecondScreenForAirline(),
+        AppRoutes.detailsecondscreenforairline: (context) =>
+            const DetailSecondScreenForAirline(),
+        AppRoutes.questionfirstscreenforairport: (context) =>
+            const QuestionFirstScreenForAirport(),
+        AppRoutes.detailfirstscreenforairport: (context) =>
+            const DetailFirstScreenForAirport(),
+        AppRoutes.questionsecondscreenforairport: (context) =>
+            const QuestionSecondScreenForAirport(),
+        AppRoutes.detailsecondscreenforairport: (context) =>
+            const DetailSecondScreenForAirport(),
         AppRoutes.submitscreen: (context) => const SubmitScreen(),
         AppRoutes.completereviews: (context) => const CompleteReviews(),
         AppRoutes.eidtprofilescreen: (context) => const EditProfileScreen(),
@@ -184,7 +183,7 @@ class MyApp extends ConsumerWidget {
 }
 
 class CustomPageTransitionBuilder extends PageTransitionsBuilder {
-  const CustomPageTransitionBuilder(); // <- add this
+  const CustomPageTransitionBuilder();
   @override
   Widget buildTransitions<T>(
     PageRoute<T> route,

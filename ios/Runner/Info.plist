@@ -93,7 +93,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>background-fetch</string>
+		<string>fetch</string>
 	</array>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>

@@ -98,9 +98,10 @@ class FlightNotificationService {
           );
     } else if (Platform.isAndroid) {
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
-          _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      
+          _flutterLocalNotificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin>();
+
       await androidImplementation?.requestNotificationsPermission();
     }
   }
@@ -122,7 +123,8 @@ class FlightNotificationService {
     }
 
     final FlightPhase phase = flight.currentPhase;
-    final FeedbackStage stage = StageQuestionService.getStageFromFlightPhase(phase);
+    final FeedbackStage stage =
+        StageQuestionService.getStageFromFlightPhase(phase);
 
     // Only notify for specific stages
     if (!StageQuestionService.shouldNotifyForStage(stage)) {
@@ -151,7 +153,8 @@ class FlightNotificationService {
         AndroidNotificationDetails(
       'flight_tracking',
       'Flight Tracking',
-      channelDescription: 'Notifications for flight status and feedback requests',
+      channelDescription:
+          'Notifications for flight status and feedback requests',
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
@@ -218,4 +221,3 @@ class FlightNotificationService {
     return await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
   }
 }
-

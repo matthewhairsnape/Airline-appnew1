@@ -12,7 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Provider for managing flight tracking state
-final flightTrackingServiceProvider = Provider<CiriumFlightTrackingService>((ref) {
+final flightTrackingServiceProvider =
+    Provider<CiriumFlightTrackingService>((ref) {
   return CiriumFlightTrackingService();
 });
 
@@ -75,7 +76,8 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
 
   /// Handle flight phase update
   void _handleFlightUpdate(FlightTrackingModel flight) {
-    debugPrint('🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase}');
+    debugPrint(
+        '🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase}');
 
     // Send push notification for phase change
     _sendPhaseChangeNotification(flight);
@@ -83,9 +85,11 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
     // Check if flight is completed
     if (flight.currentPhase == FlightPhase.completed) {
       // Move to completed flights
-      final updatedTrackedFlights = Map<String, FlightTrackingModel>.from(state.trackedFlights);
-      final updatedCompletedFlights = Map<String, FlightTrackingModel>.from(state.completedFlights);
-      
+      final updatedTrackedFlights =
+          Map<String, FlightTrackingModel>.from(state.trackedFlights);
+      final updatedCompletedFlights =
+          Map<String, FlightTrackingModel>.from(state.completedFlights);
+
       updatedTrackedFlights.remove(flight.pnr);
       updatedCompletedFlights[flight.pnr] = flight;
 
@@ -100,7 +104,8 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       debugPrint('✅ Flight completed and moved to history: ${flight.pnr}');
     } else {
       // Update active flight
-      final updatedFlights = Map<String, FlightTrackingModel>.from(state.trackedFlights);
+      final updatedFlights =
+          Map<String, FlightTrackingModel>.from(state.trackedFlights);
       updatedFlights[flight.pnr] = flight;
 
       state = state.copyWith(trackedFlights: updatedFlights);
@@ -168,7 +173,8 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
         return false;
       }
 
-      final updatedFlights = Map<String, FlightTrackingModel>.from(state.trackedFlights);
+      final updatedFlights =
+          Map<String, FlightTrackingModel>.from(state.trackedFlights);
       updatedFlights[pnr] = flight;
 
       state = state.copyWith(
@@ -193,7 +199,8 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
   void stopTrackingFlight(String pnr) {
     trackingService.stopTracking(pnr);
 
-    final updatedFlights = Map<String, FlightTrackingModel>.from(state.trackedFlights);
+    final updatedFlights =
+        Map<String, FlightTrackingModel>.from(state.trackedFlights);
     updatedFlights.remove(pnr);
 
     state = state.copyWith(trackedFlights: updatedFlights);
@@ -244,11 +251,12 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final completedFlightsJson = prefs.getString('completed_flights');
-      
+
       if (completedFlightsJson != null) {
-        final Map<String, dynamic> completedFlightsMap = json.decode(completedFlightsJson);
+        final Map<String, dynamic> completedFlightsMap =
+            json.decode(completedFlightsJson);
         final Map<String, FlightTrackingModel> completedFlights = {};
-        
+
         completedFlightsMap.forEach((pnr, flightJson) {
           try {
             completedFlights[pnr] = FlightTrackingModel.fromJson(flightJson);
@@ -256,9 +264,10 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
             debugPrint('❌ Error loading completed flight $pnr: $e');
           }
         });
-        
+
         state = state.copyWith(completedFlights: completedFlights);
-        debugPrint('📚 Loaded ${completedFlights.length} completed flights from storage');
+        debugPrint(
+            '📚 Loaded ${completedFlights.length} completed flights from storage');
       }
     } catch (e) {
       debugPrint('❌ Error loading completed flights: $e');
@@ -269,9 +278,10 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
   Future<void> syncJourneysFromDatabase(String userId) async {
     try {
       debugPrint('🔄 Syncing journeys from database for user: $userId');
-      
-      final databaseFlights = await JourneyDatabaseService.syncUserJourneys(userId);
-      
+
+      final databaseFlights =
+          await JourneyDatabaseService.syncUserJourneys(userId);
+
       if (databaseFlights.isEmpty) {
         debugPrint('📭 No journeys found in database for user: $userId');
         return;
@@ -280,7 +290,7 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       // Separate active and completed flights
       final Map<String, FlightTrackingModel> activeFlights = {};
       final Map<String, FlightTrackingModel> completedFlights = {};
-      
+
       for (final flight in databaseFlights) {
         if (flight.currentPhase == FlightPhase.completed) {
           completedFlights[flight.pnr] = flight;
@@ -300,24 +310,28 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
         _saveCompletedFlights(completedFlights);
       }
 
-      debugPrint('✅ Synced ${activeFlights.length} active and ${completedFlights.length} completed flights from database');
+      debugPrint(
+          '✅ Synced ${activeFlights.length} active and ${completedFlights.length} completed flights from database');
     } catch (e) {
       debugPrint('❌ Error syncing journeys from database: $e');
     }
   }
 
   /// Save completed flights to persistent storage
-  Future<void> _saveCompletedFlights(Map<String, FlightTrackingModel> completedFlights) async {
+  Future<void> _saveCompletedFlights(
+      Map<String, FlightTrackingModel> completedFlights) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final Map<String, dynamic> completedFlightsMap = {};
-      
+
       completedFlights.forEach((pnr, flight) {
         completedFlightsMap[pnr] = flight.toJson();
       });
-      
-      await prefs.setString('completed_flights', json.encode(completedFlightsMap));
-      debugPrint('💾 Saved ${completedFlights.length} completed flights to storage');
+
+      await prefs.setString(
+          'completed_flights', json.encode(completedFlightsMap));
+      debugPrint(
+          '💾 Saved ${completedFlights.length} completed flights to storage');
     } catch (e) {
       debugPrint('❌ Error saving completed flights: $e');
     }
@@ -342,4 +356,3 @@ final flightTrackingProvider =
   final notificationService = ref.watch(notificationServiceProvider);
   return FlightTrackingNotifier(trackingService, notificationService);
 });
-

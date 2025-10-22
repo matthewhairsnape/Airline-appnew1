@@ -313,47 +313,52 @@ class _DetailAirportState extends ConsumerState<DetailAirport> {
                   ],
                 ),
               ),
-              isLoading 
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: LoadingWidget(),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: airlineReviewLists.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final singleReview = entry.value;
-                    final reviewer = singleReview['reviewer'];
+              isLoading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: LoadingWidget(),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: airlineReviewLists.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final singleReview = entry.value;
+                        final reviewer = singleReview['reviewer'];
 
-                    if (reviewer != null) {
-                      return Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                            child: FeedbackCard(
-                              thumbnailHeight: 189,
-                              singleFeedback: singleReview,
-                            ),
-                          ),
-                          if (index != airlineReviewLists.length - 1)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                              child: Column(
-                                children: [
-                                  SizedBox(height: 16),
-                                  Divider(thickness: 1, color: Colors.grey.shade300),
-                                  SizedBox(height: 24)
-                                ],
+                        if (reviewer != null) {
+                          return Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0),
+                                child: FeedbackCard(
+                                  thumbnailHeight: 189,
+                                  singleFeedback: singleReview,
+                                ),
                               ),
-                            ),
-                        ],
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  }).toList(),
-                )            ]),
+                              if (index != airlineReviewLists.length - 1)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24.0),
+                                  child: Column(
+                                    children: [
+                                      SizedBox(height: 16),
+                                      Divider(
+                                          thickness: 1,
+                                          color: Colors.grey.shade300),
+                                      SizedBox(height: 24)
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }).toList(),
+                    )
+            ]),
           )
         ],
       ),

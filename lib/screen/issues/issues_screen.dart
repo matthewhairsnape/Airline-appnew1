@@ -61,7 +61,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
 
   Widget _buildIssuesContent() {
     final leaderboardState = ref.watch(leaderboardProvider);
-    
+
     if (leaderboardState.isLoading) {
       return const Center(
         child: LoadingWidget(),
@@ -158,7 +158,8 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: issue['phaseColor'],
                               borderRadius: BorderRadius.circular(6),
@@ -179,9 +180,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Airline Name and Seat Number
                       Row(
                         children: [
@@ -191,7 +192,8 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                               color: Colors.grey.shade600,
                             ),
                           ),
-                          if (issue['seat'] != null && issue['seat'] != 'N/A') ...[
+                          if (issue['seat'] != null &&
+                              issue['seat'] != 'N/A') ...[
                             Text(
                               ' • Seat ${issue['seat']}',
                               style: AppStyles.textStyle_14_400.copyWith(
@@ -202,24 +204,26 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                           ],
                         ],
                       ),
-                      
+
                       const SizedBox(height: 8),
-                      
-                    const SizedBox(height: 12),
-                    
-                    // Likes Bubble (tappable)
-                    GestureDetector(
-                      onTap: () => _showFeedbackDetails(context, issue, 'likes'),
-                      child: _buildCompactLikes(issue['likes'] ?? []),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Dislikes Bubble (tappable)
-                    GestureDetector(
-                      onTap: () => _showFeedbackDetails(context, issue, 'dislikes'),
-                      child: _buildCompactDislikes(issue['dislikes'] ?? []),
-                    ),
+
+                      const SizedBox(height: 12),
+
+                      // Likes Bubble (tappable)
+                      GestureDetector(
+                        onTap: () =>
+                            _showFeedbackDetails(context, issue, 'likes'),
+                        child: _buildCompactLikes(issue['likes'] ?? []),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Dislikes Bubble (tappable)
+                      GestureDetector(
+                        onTap: () =>
+                            _showFeedbackDetails(context, issue, 'dislikes'),
+                        child: _buildCompactDislikes(issue['dislikes'] ?? []),
+                      ),
                     ],
                   ),
                 ),
@@ -257,7 +261,8 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                   return Center(
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
                           : null,
                       strokeWidth: 2,
                     ),
@@ -367,7 +372,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
   /// Format timestamp for display
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null) return 'Just now';
-    
+
     DateTime dateTime;
     if (timestamp is DateTime) {
       dateTime = timestamp;
@@ -380,10 +385,10 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
     } else {
       return 'Just now';
     }
-    
+
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
@@ -396,10 +401,12 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
   }
 
   /// Show feedback details modal
-  void _showFeedbackDetails(BuildContext context, Map<String, dynamic> issue, String type) {
-    final feedbackList = type == 'likes' ? (issue['likes'] ?? []) : (issue['dislikes'] ?? []);
+  void _showFeedbackDetails(
+      BuildContext context, Map<String, dynamic> issue, String type) {
+    final feedbackList =
+        type == 'likes' ? (issue['likes'] ?? []) : (issue['dislikes'] ?? []);
     final isLikes = type == 'likes';
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -425,7 +432,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Header
             Padding(
               padding: const EdgeInsets.all(20),
@@ -436,7 +443,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                     children: [
                       Icon(
                         isLikes ? Icons.thumb_up : Icons.thumb_down,
-                        color: isLikes ? Colors.green.shade600 : Colors.red.shade600,
+                        color: isLikes
+                            ? Colors.green.shade600
+                            : Colors.red.shade600,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
@@ -478,9 +487,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                 ],
               ),
             ),
-            
+
             Divider(height: 1, color: Colors.grey.shade200),
-            
+
             // Feedback List
             Expanded(
               child: feedbackList.isEmpty
@@ -489,7 +498,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            isLikes ? Icons.thumb_up_outlined : Icons.thumb_down_outlined,
+                            isLikes
+                                ? Icons.thumb_up_outlined
+                                : Icons.thumb_down_outlined,
                             size: 48,
                             color: Colors.grey.shade400,
                           ),
@@ -512,10 +523,14 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isLikes ? Colors.green.shade50 : Colors.red.shade50,
+                            color: isLikes
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isLikes ? Colors.green.shade200 : Colors.red.shade200,
+                              color: isLikes
+                                  ? Colors.green.shade200
+                                  : Colors.red.shade200,
                               width: 1,
                             ),
                           ),
@@ -524,7 +539,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: isLikes ? Colors.green.shade100 : Colors.red.shade100,
+                                  color: isLikes
+                                      ? Colors.green.shade100
+                                      : Colors.red.shade100,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -539,14 +556,16 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                                   children: [
                                     Text(
                                       feedback['text'] ?? '',
-                                      style: AppStyles.textStyle_16_600.copyWith(
+                                      style:
+                                          AppStyles.textStyle_16_600.copyWith(
                                         color: Colors.black,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${feedback['count'] ?? 0} passengers mentioned this',
-                                      style: AppStyles.textStyle_14_400.copyWith(
+                                      style:
+                                          AppStyles.textStyle_14_400.copyWith(
                                         color: Colors.grey.shade600,
                                       ),
                                     ),

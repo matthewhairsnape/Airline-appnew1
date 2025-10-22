@@ -7,10 +7,11 @@ import 'dart:async';
 class DashboardService {
   static DashboardService? _instance;
   static DashboardService get instance => _instance ??= DashboardService._();
-  
+
   DashboardService._();
 
-  final Map<String, StreamController<Map<String, dynamic>>> _dashboardStreams = {};
+  final Map<String, StreamController<Map<String, dynamic>>> _dashboardStreams =
+      {};
   final Map<String, RealtimeChannel> _dashboardChannels = {};
 
   /// Initialize dashboard service
@@ -35,31 +36,36 @@ class DashboardService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'journey_events',
-          callback: (payload) => _handleAnalyticsUpdate('journey_events', payload, streamController),
+          callback: (payload) => _handleAnalyticsUpdate(
+              'journey_events', payload, streamController),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'stage_feedback',
-          callback: (payload) => _handleAnalyticsUpdate('stage_feedback', payload, streamController),
+          callback: (payload) => _handleAnalyticsUpdate(
+              'stage_feedback', payload, streamController),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'airline_reviews',
-          callback: (payload) => _handleAnalyticsUpdate('airline_reviews', payload, streamController),
+          callback: (payload) => _handleAnalyticsUpdate(
+              'airline_reviews', payload, streamController),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'airport_reviews',
-          callback: (payload) => _handleAnalyticsUpdate('airport_reviews', payload, streamController),
+          callback: (payload) => _handleAnalyticsUpdate(
+              'airport_reviews', payload, streamController),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'journeys',
-          callback: (payload) => _handleAnalyticsUpdate('journeys', payload, streamController),
+          callback: (payload) =>
+              _handleAnalyticsUpdate('journeys', payload, streamController),
         )
         .subscribe();
 
@@ -84,7 +90,8 @@ class DashboardService {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'flights',
-          callback: (payload) => _handleFlightTrackingUpdate(payload, streamController),
+          callback: (payload) =>
+              _handleFlightTrackingUpdate(payload, streamController),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -95,7 +102,8 @@ class DashboardService {
             column: 'event_type',
             value: 'phase_change',
           ),
-          callback: (payload) => _handleFlightTrackingUpdate(payload, streamController),
+          callback: (payload) =>
+              _handleFlightTrackingUpdate(payload, streamController),
         )
         .subscribe();
 
@@ -110,7 +118,8 @@ class DashboardService {
     DateTime? endDate,
   }) async {
     try {
-      final start = startDate ?? DateTime.now().subtract(const Duration(days: 30));
+      final start =
+          startDate ?? DateTime.now().subtract(const Duration(days: 30));
       final end = endDate ?? DateTime.now();
 
       // Get user activity metrics
@@ -162,19 +171,31 @@ class DashboardService {
       final phaseFeedback = await Supabase.instance.client
           .from('stage_feedback')
           .select('stage, overall_rating, feedback_timestamp')
-          .gte('feedback_timestamp', DateTime.now().subtract(const Duration(days: 7)).toIso8601String());
+          .gte(
+              'feedback_timestamp',
+              DateTime.now()
+                  .subtract(const Duration(days: 7))
+                  .toIso8601String());
 
       // Get airline performance metrics
       final airlinePerformance = await Supabase.instance.client
           .from('airline_reviews')
           .select('airline_id, overall_score, created_at')
-          .gte('created_at', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
+          .gte(
+              'created_at',
+              DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .toIso8601String());
 
       // Get airport performance metrics
       final airportPerformance = await Supabase.instance.client
           .from('airport_reviews')
           .select('airport_id, overall_score, created_at')
-          .gte('created_at', DateTime.now().subtract(const Duration(days: 30)).toIso8601String());
+          .gte(
+              'created_at',
+              DateTime.now()
+                  .subtract(const Duration(days: 30))
+                  .toIso8601String());
 
       return {
         'flight_status_distribution': flightStatus,
@@ -207,7 +228,8 @@ class DashboardService {
           table: 'journey_events',
           callback: (payload) {
             final eventType = payload.newRecord?['event_type'] ?? '';
-            if (['delay', 'cancellation', 'gate_change', 'terminal_change'].contains(eventType)) {
+            if (['delay', 'cancellation', 'gate_change', 'terminal_change']
+                .contains(eventType)) {
               _handleAlertUpdate(payload, streamController);
             }
           },
@@ -269,8 +291,12 @@ class DashboardService {
           'daily': dailyData.isNotEmpty ? dailyData.first['event_count'] : 0,
         },
         'feedback': {
-          'hourly': hourlyFeedback.isNotEmpty ? hourlyFeedback.first['feedback_count'] : 0,
-          'daily': dailyFeedback.isNotEmpty ? dailyFeedback.first['feedback_count'] : 0,
+          'hourly': hourlyFeedback.isNotEmpty
+              ? hourlyFeedback.first['feedback_count']
+              : 0,
+          'daily': dailyFeedback.isNotEmpty
+              ? dailyFeedback.first['feedback_count']
+              : 0,
         },
         'timestamp': now.toIso8601String(),
       };
@@ -293,7 +319,7 @@ class DashboardService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(analyticsData);
   }
 
@@ -309,7 +335,7 @@ class DashboardService {
       'data': payload.newRecord ?? payload.oldRecord,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     controller.add(trackingData);
   }
 
@@ -326,7 +352,7 @@ class DashboardService {
       'timestamp': DateTime.now().toIso8601String(),
       'priority': _getAlertPriority(payload.table, payload.newRecord),
     };
-    
+
     controller.add(alertData);
   }
 
@@ -337,13 +363,14 @@ class DashboardService {
       if (rating != null && rating < 2) return 'high';
       if (rating != null && rating < 3) return 'medium';
     }
-    
+
     if (table == 'journey_events' && data != null) {
       final eventType = data['event_type'];
       if (['delay', 'cancellation'].contains(eventType)) return 'high';
-      if (['gate_change', 'terminal_change'].contains(eventType)) return 'medium';
+      if (['gate_change', 'terminal_change'].contains(eventType))
+        return 'medium';
     }
-    
+
     return 'low';
   }
 
@@ -354,7 +381,8 @@ class DashboardService {
     List<String>? dataTypes,
   }) async {
     try {
-      final start = startDate ?? DateTime.now().subtract(const Duration(days: 7));
+      final start =
+          startDate ?? DateTime.now().subtract(const Duration(days: 7));
       final end = endDate ?? DateTime.now();
       final types = dataTypes ?? ['journeys', 'events', 'feedback', 'reviews'];
 
@@ -417,11 +445,11 @@ class DashboardService {
     for (final stream in _dashboardStreams.values) {
       stream.close();
     }
-    
+
     for (final channel in _dashboardChannels.values) {
       channel.unsubscribe();
     }
-    
+
     _dashboardStreams.clear();
     _dashboardChannels.clear();
   }

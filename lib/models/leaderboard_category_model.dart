@@ -38,36 +38,73 @@ class LeaderboardCategoryService {
   static const List<LeaderboardCategory> categories = [
     LeaderboardCategory(
       tab: "Wi-Fi Experience",
-      description: "Measures satisfaction with inflight internet quality and connectivity.",
-      sourceTags: ["Good Wi-Fi", "Poor Wi-Fi", "Wi-Fi connectivity", "Wi-Fi and IFE"],
+      description:
+          "Measures satisfaction with inflight internet quality and connectivity.",
+      sourceTags: [
+        "Good Wi-Fi",
+        "Poor Wi-Fi",
+        "Wi-Fi connectivity",
+        "Wi-Fi and IFE"
+      ],
       formula: "(likes - dislikes) / total_feedback",
       icon: "wifi",
     ),
     LeaderboardCategory(
       tab: "Crew Friendliness",
-      description: "Evaluates the helpfulness and service quality of the cabin crew.",
-      sourceTags: ["Crew helpful", "Friendly service", "Unfriendly crew", "Cabin crew", "Friendly and helpful service"],
+      description:
+          "Evaluates the helpfulness and service quality of the cabin crew.",
+      sourceTags: [
+        "Crew helpful",
+        "Friendly service",
+        "Unfriendly crew",
+        "Cabin crew",
+        "Friendly and helpful service"
+      ],
       formula: "(likes - dislikes) / total_feedback",
       icon: "people",
     ),
     LeaderboardCategory(
       tab: "Seat Comfort",
-      description: "Assesses passenger comfort and cabin conditions during the flight.",
-      sourceTags: ["Comfortable seat", "Uncomfortable seat", "Clean cabin", "Seat comfort", "Cabin cleanliness", "Onboard Comfort"],
+      description:
+          "Assesses passenger comfort and cabin conditions during the flight.",
+      sourceTags: [
+        "Comfortable seat",
+        "Uncomfortable seat",
+        "Clean cabin",
+        "Seat comfort",
+        "Cabin cleanliness",
+        "Onboard Comfort"
+      ],
       formula: "(likes - dislikes) / total_feedback",
       icon: "chair",
     ),
     LeaderboardCategory(
       tab: "Food & Beverage",
       description: "Tracks satisfaction with meals and drinks onboard.",
-      sourceTags: ["Good food", "Cold meal", "Poor quality beverage", "Food and beverage", "Food and Beverage"],
+      sourceTags: [
+        "Good food",
+        "Cold meal",
+        "Poor quality beverage",
+        "Food and beverage",
+        "Food and Beverage"
+      ],
       formula: "(likes - dislikes) / total_feedback",
       icon: "restaurant",
     ),
     LeaderboardCategory(
       tab: "Operations & Timeliness",
-      description: "Reflects the smoothness of boarding, baggage handling, and punctuality.",
-      sourceTags: ["Smooth boarding", "Delayed boarding", "Gate chaos", "Baggage delay", "Check-in process", "Security line wait time", "Boarding process", "Baggage delivery or ease of connection"],
+      description:
+          "Reflects the smoothness of boarding, baggage handling, and punctuality.",
+      sourceTags: [
+        "Smooth boarding",
+        "Delayed boarding",
+        "Gate chaos",
+        "Baggage delay",
+        "Check-in process",
+        "Security line wait time",
+        "Boarding process",
+        "Baggage delivery or ease of connection"
+      ],
       formula: "(likes - dislikes) / total_feedback",
       icon: "schedule",
     ),
@@ -94,4 +131,3 @@ class LeaderboardCategoryService {
     return category?.icon ?? "star";
   }
 }
-

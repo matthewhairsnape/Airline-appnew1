@@ -14,7 +14,7 @@ class FlightTrackingModel {
   final Map<String, dynamic> ciriumData;
   final List<FlightEvent> events;
   final bool isVerified;
-  
+
   // Additional flight details
   final String? seatNumber;
   final String? terminal;
@@ -189,7 +189,6 @@ class FlightEvent {
   }
 }
 
-
 /// Model for stage-specific feedback responses
 class StageFeedback {
   final String id;
@@ -237,4 +236,3 @@ class StageFeedback {
     };
   }
 }
-

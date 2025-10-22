@@ -26,7 +26,8 @@ class AviationInfoState {
       airlineData: airlineData ?? this.airlineData,
       departureData: departureData ?? this.departureData,
       arrivalData: arrivalData ?? this.arrivalData,
-      selectedClassOfTravel: selectedClassOfTravel ?? this.selectedClassOfTravel,
+      selectedClassOfTravel:
+          selectedClassOfTravel ?? this.selectedClassOfTravel,
       index: index ?? this.index,
     );
   }

@@ -17,14 +17,15 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   bool isExpanded = false;
-  
+
   // Get categories from the service
-  List<LeaderboardCategory> get categories => LeaderboardCategoryService.getAllCategories();
+  List<LeaderboardCategory> get categories =>
+      LeaderboardCategoryService.getAllCategories();
 
   @override
   void initState() {
     super.initState();
-    
+
     // Load leaderboard data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(leaderboardProvider.notifier).loadLeaderboard();
@@ -67,20 +68,25 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   final int index = entry.key;
                   final LeaderboardCategory category = entry.value;
                   final leaderboardState = ref.watch(leaderboardProvider);
-                  final bool isSelected = category.tab == leaderboardState.selectedCategory;
-                  
+                  final bool isSelected =
+                      category.tab == leaderboardState.selectedCategory;
+
                   return GestureDetector(
                     onTap: () {
-                      ref.read(leaderboardProvider.notifier).changeCategory(category.tab);
+                      ref
+                          .read(leaderboardProvider.notifier)
+                          .changeCategory(category.tab);
                     },
                     child: Container(
                       margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.black : Colors.white,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isSelected ? Colors.black : Colors.grey.shade300,
+                          color:
+                              isSelected ? Colors.black : Colors.grey.shade300,
                           width: 1,
                         ),
                       ),
@@ -89,14 +95,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         children: [
                           Icon(
                             _getIconForCategory(category.icon),
-                            color: isSelected ? Colors.white : Colors.grey.shade600,
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.grey.shade600,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             category.tab,
                             style: AppStyles.textStyle_14_600.copyWith(
-                              color: isSelected ? Colors.white : Colors.grey.shade600,
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey.shade600,
                             ),
                           ),
                         ],
@@ -107,7 +117,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               ),
             ),
           ),
-          
+
           // Subtitle
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -127,9 +137,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               },
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Airlines List
           Expanded(
             child: _buildLeaderboardContent(),
@@ -139,16 +149,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
   }
 
-
   Widget _buildLeaderboardContent() {
     final leaderboardState = ref.watch(leaderboardProvider);
-    
+
     if (leaderboardState.isLoading) {
       return const Center(
         child: LoadingWidget(),
       );
     }
-    
+
     if (leaderboardState.error != null) {
       return Center(
         child: Column(
@@ -186,8 +195,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       );
     }
 
-    final displayedAirlines = isExpanded 
-        ? leaderboardState.airlines 
+    final displayedAirlines = isExpanded
+        ? leaderboardState.airlines
         : leaderboardState.airlines.take(5).toList();
 
     return Column(
@@ -199,7 +208,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             itemBuilder: (context, index) {
               final airline = displayedAirlines[index];
               final rank = index + 1;
-              
+
               // Get medal for top 3
               String? medalEmoji;
               if (rank == 1) {
@@ -265,7 +274,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           if (airline['movement'] != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: airline['movement'] == 'up'
                                     ? Colors.green.withOpacity(0.1)
@@ -325,7 +335,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.black,
                     borderRadius: BorderRadius.circular(8),
@@ -357,12 +368,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             child: Center(
               child: GestureDetector(
                 onTap: () {
-      setState(() {
+                  setState(() {
                     isExpanded = false;
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(8),
@@ -391,7 +403,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       ],
     );
   }
-
 
   /// Build compact likes widget
   Widget _buildCompactLikes(List<Map<String, dynamic>> likes) {
@@ -534,7 +545,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   return Center(
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
                           : null,
                       strokeWidth: 2,
                     ),
@@ -558,10 +570,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   /// Show feedback details modal
-  void _showFeedbackDetails(BuildContext context, Map<String, dynamic> issue, String type) {
-    final feedbackList = type == 'likes' ? (issue['likes'] ?? []) : (issue['dislikes'] ?? []);
+  void _showFeedbackDetails(
+      BuildContext context, Map<String, dynamic> issue, String type) {
+    final feedbackList =
+        type == 'likes' ? (issue['likes'] ?? []) : (issue['dislikes'] ?? []);
     final isLikes = type == 'likes';
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -587,7 +601,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Header
             Padding(
               padding: const EdgeInsets.all(20),
@@ -598,7 +612,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     children: [
                       Icon(
                         isLikes ? Icons.thumb_up : Icons.thumb_down,
-                        color: isLikes ? Colors.green.shade600 : Colors.red.shade600,
+                        color: isLikes
+                            ? Colors.green.shade600
+                            : Colors.red.shade600,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
@@ -620,9 +636,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                 ],
               ),
             ),
-            
+
             Divider(height: 1, color: Colors.grey.shade200),
-            
+
             // Feedback List
             Expanded(
               child: feedbackList.isEmpty
@@ -631,7 +647,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            isLikes ? Icons.thumb_up_outlined : Icons.thumb_down_outlined,
+                            isLikes
+                                ? Icons.thumb_up_outlined
+                                : Icons.thumb_down_outlined,
                             size: 48,
                             color: Colors.grey.shade400,
                           ),
@@ -654,10 +672,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: isLikes ? Colors.green.shade50 : Colors.red.shade50,
+                            color: isLikes
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isLikes ? Colors.green.shade200 : Colors.red.shade200,
+                              color: isLikes
+                                  ? Colors.green.shade200
+                                  : Colors.red.shade200,
                               width: 1,
                             ),
                           ),
@@ -666,7 +688,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: isLikes ? Colors.green.shade100 : Colors.red.shade100,
+                                  color: isLikes
+                                      ? Colors.green.shade100
+                                      : Colors.red.shade100,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -681,14 +705,16 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                                   children: [
                                     Text(
                                       feedback['text'] ?? '',
-                                      style: AppStyles.textStyle_16_600.copyWith(
+                                      style:
+                                          AppStyles.textStyle_16_600.copyWith(
                                         color: Colors.black,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       '${feedback['count'] ?? 0} passengers mentioned this',
-                                      style: AppStyles.textStyle_14_400.copyWith(
+                                      style:
+                                          AppStyles.textStyle_14_400.copyWith(
                                         color: Colors.grey.shade600,
                                       ),
                                     ),

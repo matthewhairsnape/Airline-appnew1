@@ -44,7 +44,9 @@ class CustomSnackBar {
       action: SnackBarAction(
         label: 'OK',
         textColor: Colors.white,
-        onPressed: () {Navigator.of(context).pop();},
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
       ),
     );
   }

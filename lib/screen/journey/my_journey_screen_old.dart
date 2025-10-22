@@ -31,7 +31,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     final flightTrackingState = ref.watch(flightTrackingProvider);
     final allFlights = flightTrackingState.getAllFlights();
     final activeFlights = flightTrackingState.trackedFlights.values.toList();
-    final completedFlights = flightTrackingState.completedFlights.values.toList();
+    final completedFlights =
+        flightTrackingState.completedFlights.values.toList();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -59,9 +60,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       body: allFlights.isEmpty
           ? _buildEmptyState()
           : _buildJourneyTimeline(allFlights.first),
-      bottomNavigationBar: allFlights.isNotEmpty 
-          ? _buildFeedbackButton(allFlights.first)
-          : null,
+      bottomNavigationBar:
+          allFlights.isNotEmpty ? _buildFeedbackButton(allFlights.first) : null,
     );
   }
 
@@ -80,13 +80,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             SizedBox(height: 24),
             Text(
               'No Active Flights',
-              style: AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
+              style:
+                  AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
             ),
             SizedBox(height: 12),
             Text(
               'Scan your boarding pass to start tracking your journey and provide real-time feedback.',
               textAlign: TextAlign.center,
-              style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
+              style:
+                  AppStyles.textStyle_16_400.copyWith(color: Colors.grey[500]),
             ),
             SizedBox(height: 32),
             MainButton(
@@ -106,7 +108,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     );
   }
 
-  Widget _buildJourneyContent(List<FlightTrackingModel> activeFlights, List<FlightTrackingModel> completedFlights) {
+  Widget _buildJourneyContent(List<FlightTrackingModel> activeFlights,
+      List<FlightTrackingModel> completedFlights) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -116,15 +119,17 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
           if (activeFlights.isNotEmpty) ...[
             _buildSectionHeader('Active Flights', activeFlights.length),
             SizedBox(height: 16),
-            ...activeFlights.map((flight) => _buildFlightCard(flight, isActive: true)),
+            ...activeFlights
+                .map((flight) => _buildFlightCard(flight, isActive: true)),
             SizedBox(height: 24),
           ],
-          
+
           // Completed flights section
           if (completedFlights.isNotEmpty) ...[
             _buildSectionHeader('Flight History', completedFlights.length),
             SizedBox(height: 16),
-            ...completedFlights.map((flight) => _buildFlightCard(flight, isActive: false)),
+            ...completedFlights
+                .map((flight) => _buildFlightCard(flight, isActive: false)),
           ],
         ],
       ),
@@ -154,9 +159,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     );
   }
 
-  Widget _buildFlightCard(FlightTrackingModel flight, {required bool isActive}) {
-    final hasStageFeedback = ref.watch(stageFeedbackProvider.notifier).hasFeedback(flight.flightId);
-    
+  Widget _buildFlightCard(FlightTrackingModel flight,
+      {required bool isActive}) {
+    final hasStageFeedback =
+        ref.watch(stageFeedbackProvider.notifier).hasFeedback(flight.flightId);
+
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       child: Column(
@@ -164,16 +171,19 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         children: [
           // Flight summary header
           _buildFlightSummary(flight, isActive: isActive),
-          
+
           SizedBox(height: 16),
-          
+
           // Journey sections
-          _buildJourneySection('Pre Flight', _getPreFlightEvents(flight), isActive: isActive),
+          _buildJourneySection('Pre Flight', _getPreFlightEvents(flight),
+              isActive: isActive),
           SizedBox(height: 12),
-          _buildJourneySection('In Flight', _getInFlightEvents(flight), isActive: isActive),
+          _buildJourneySection('In Flight', _getInFlightEvents(flight),
+              isActive: isActive),
           SizedBox(height: 12),
-          _buildJourneySection('Post Flight', _getPostFlightEvents(flight), isActive: isActive),
-          
+          _buildJourneySection('Post Flight', _getPostFlightEvents(flight),
+              isActive: isActive),
+
           // Show "Complete Review" button for completed flights
           if (!isActive && flight.currentPhase == FlightPhase.completed) ...[
             SizedBox(height: 20),
@@ -195,7 +205,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.rate_review, color: Color(0xFF3B82F6), size: 24),
+                      Icon(Icons.rate_review,
+                          color: Color(0xFF3B82F6), size: 24),
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -203,14 +214,16 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                           children: [
                             Text(
                               'Share Your Experience',
-                              style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                              style: AppStyles.textStyle_16_600
+                                  .copyWith(color: Colors.black),
                             ),
                             SizedBox(height: 4),
                             Text(
-                              hasStageFeedback 
+                              hasStageFeedback
                                   ? 'Complete your review with photos and detailed ratings'
                                   : 'Tell us about your journey and help other travelers',
-                              style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+                              style: AppStyles.textStyle_14_400
+                                  .copyWith(color: Colors.grey[600]),
                             ),
                           ],
                         ),
@@ -231,7 +244,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       ),
     );
   }
-  
+
   void _navigateToCompleteReview(FlightTrackingModel flight) {
     // Navigate to review submission with flight data
     Navigator.pushNamed(
@@ -245,7 +258,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     );
   }
 
-  Widget _buildFlightSummary(FlightTrackingModel flight, {required bool isActive}) {
+  Widget _buildFlightSummary(FlightTrackingModel flight,
+      {required bool isActive}) {
     return Container(
       padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -278,17 +292,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isActive 
+                  color: isActive
                       ? _getPhaseColor(flight.currentPhase).withAlpha(25)
                       : Colors.grey[100],
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  isActive 
-                      ? _getPhaseText(flight.currentPhase)
-                      : 'Completed',
+                  isActive ? _getPhaseText(flight.currentPhase) : 'Completed',
                   style: AppStyles.textStyle_12_600.copyWith(
-                    color: isActive 
+                    color: isActive
                         ? _getPhaseColor(flight.currentPhase)
                         : Colors.grey[600],
                   ),
@@ -305,22 +317,26 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   children: [
                     Text(
                       'Departure',
-                      style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                      style: AppStyles.textStyle_12_500
+                          .copyWith(color: Colors.grey[600]),
                     ),
                     SizedBox(height: 4),
                     Text(
                       flight.departureAirport,
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.black),
                     ),
                     Text(
                       _formatTime(flight.departureTime),
-                      style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+                      style: AppStyles.textStyle_14_400
+                          .copyWith(color: Colors.grey[600]),
                     ),
                     if (flight.terminal != null || flight.gate != null) ...[
                       SizedBox(height: 4),
                       Text(
                         '${flight.terminal != null ? 'T${flight.terminal}' : ''}${flight.terminal != null && flight.gate != null ? ' • ' : ''}${flight.gate != null ? 'Gate ${flight.gate}' : ''}',
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.blue[600]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.blue[600]),
                       ),
                     ],
                   ],
@@ -337,22 +353,26 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   children: [
                     Text(
                       'Arrival',
-                      style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                      style: AppStyles.textStyle_12_500
+                          .copyWith(color: Colors.grey[600]),
                     ),
                     SizedBox(height: 4),
                     Text(
                       flight.arrivalAirport,
-                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                      style: AppStyles.textStyle_16_600
+                          .copyWith(color: Colors.black),
                     ),
                     Text(
                       _formatTime(flight.arrivalTime),
-                      style: AppStyles.textStyle_14_400.copyWith(color: Colors.grey[600]),
+                      style: AppStyles.textStyle_14_400
+                          .copyWith(color: Colors.grey[600]),
                     ),
                     if (flight.flightDuration != null) ...[
                       SizedBox(height: 4),
                       Text(
                         flight.flightDuration!,
-                        style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[500]),
+                        style: AppStyles.textStyle_12_500
+                            .copyWith(color: Colors.grey[500]),
                       ),
                     ],
                   ],
@@ -360,7 +380,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
               ),
             ],
           ),
-          
+
           // Additional flight details
           if (flight.aircraftType != null || flight.seatNumber != null) ...[
             SizedBox(height: 16),
@@ -371,10 +391,12 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   SizedBox(width: 4),
                   Text(
                     'Aircraft: ${flight.aircraftType}',
-                    style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                    style: AppStyles.textStyle_12_500
+                        .copyWith(color: Colors.grey[600]),
                   ),
                 ],
-                if (flight.aircraftType != null && flight.seatNumber != null) ...[
+                if (flight.aircraftType != null &&
+                    flight.seatNumber != null) ...[
                   SizedBox(width: 16),
                 ],
                 if (flight.seatNumber != null) ...[
@@ -382,7 +404,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
                   SizedBox(width: 4),
                   Text(
                     'Seat: ${flight.seatNumber}',
-                    style: AppStyles.textStyle_12_500.copyWith(color: Colors.grey[600]),
+                    style: AppStyles.textStyle_12_500
+                        .copyWith(color: Colors.grey[600]),
                   ),
                 ],
               ],
@@ -393,7 +416,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     );
   }
 
-  Widget _buildJourneySection(String title, List<JourneyEvent> events, {required bool isActive}) {
+  Widget _buildJourneySection(String title, List<JourneyEvent> events,
+      {required bool isActive}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -419,23 +443,24 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         ),
         SizedBox(height: 16),
         ...events.map((event) => JourneyEventCard(
-          event: event,
-          onFeedbackTap: isActive ? () => _showMicroReviewModal(event) : null,
-          isActive: isActive,
-        )),
+              event: event,
+              onFeedbackTap:
+                  isActive ? () => _showMicroReviewModal(event) : null,
+              isActive: isActive,
+            )),
       ],
     );
   }
 
   List<JourneyEvent> _getPreFlightEvents(FlightTrackingModel flight) {
     final events = <JourneyEvent>[];
-    
+
     // Trip Added - when boarding pass was scanned
     events.add(JourneyEvent(
       id: 'trip_added',
       title: 'Trip Added',
       description: 'Boarding pass scanned successfully',
-        timestamp: flight.phaseStartTime ?? DateTime.now(),
+      timestamp: flight.phaseStartTime ?? DateTime.now(),
       icon: Icons.credit_card,
       hasFeedback: false,
       isCompleted: true,
@@ -464,7 +489,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         description: '',
       ),
     );
-    
+
     if (gateChangeEvent.eventType.isNotEmpty) {
       events.add(JourneyEvent(
         id: 'gate_change',
@@ -496,7 +521,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
   List<JourneyEvent> _getInFlightEvents(FlightTrackingModel flight) {
     final events = <JourneyEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.inFlight.index) {
       events.add(JourneyEvent(
         id: 'inflight_experience',
@@ -515,7 +540,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
   List<JourneyEvent> _getPostFlightEvents(FlightTrackingModel flight) {
     final events = <JourneyEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.landed.index) {
       events.add(JourneyEvent(
         id: 'postflight_experience',
@@ -611,4 +636,3 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 }
-

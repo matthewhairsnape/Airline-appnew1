@@ -26,7 +26,7 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
 
   void _pauseAllVideos() {
     if (!mounted) return;
-    
+
     _videoControllers.forEach((_, controller) {
       try {
         if (controller.value.isInitialized) {
@@ -40,7 +40,7 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
 
   Future<void> _initVideos() async {
     if (!mounted) return;
-    
+
     setState(() {
       isLoading = true;
     });
@@ -54,7 +54,7 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
 
     for (var media in mediaUrls) {
       if (!mounted) break; // Check if widget is still mounted
-      
+
       if (media
           .toString()
           .contains(RegExp(r'\.(mp4|mov|avi|wmv)', caseSensitive: false))) {
@@ -80,7 +80,7 @@ class _MediaFullScreenState extends ConsumerState<MediaFullScreen> {
         }
       }
     }
-    
+
     if (mounted) {
       setState(() {
         isLoading = false;

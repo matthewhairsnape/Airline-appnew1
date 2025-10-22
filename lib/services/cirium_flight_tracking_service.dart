@@ -30,7 +30,7 @@ class CiriumFlightTrackingService {
           '🛫 Starting flight verification for $carrier$flightNumber on ${flightDate.toString()}');
 
       Map<String, dynamic> flightInfo;
-      
+
       // Use existing flight data if provided (from initial scan)
       if (existingFlightData != null) {
         debugPrint('📦 Using existing flight data from scan');
@@ -43,7 +43,7 @@ class CiriumFlightTrackingService {
           flightDate: flightDate,
           departureAirport: departureAirport,
         );
-        
+
         if (flightInfo['error'] != null) {
           debugPrint('❌ Error fetching flight data: ${flightInfo['error']}');
           return null;
@@ -61,10 +61,12 @@ class CiriumFlightTrackingService {
       // Extract additional flight details
       final airportResources = flightStatus['airportResources'];
       final flightEquipment = flightStatus['flightEquipment'];
-      
+
       // Calculate flight duration
-      final departureTime = DateTime.parse(flightStatus['departureDate']['dateLocal']);
-      final arrivalTime = DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
+      final departureTime =
+          DateTime.parse(flightStatus['departureDate']['dateLocal']);
+      final arrivalTime =
+          DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
       final duration = arrivalTime.difference(departureTime);
       final flightDuration = '${duration.inHours}h ${duration.inMinutes % 60}m';
 
@@ -92,16 +94,17 @@ class CiriumFlightTrackingService {
 
       // Store and start tracking
       _activeFlights[pnr] = flightTracking;
-      
+
       // Only start polling for current/upcoming flights (not past flights)
       final daysDifference = DateTime.now().difference(flightDate).inDays;
       if (daysDifference <= 1) {
         _startPolling(pnr);
         debugPrint('✅ Flight verified and real-time tracking started');
       } else {
-        debugPrint('✅ Flight verified (historical flight - no real-time polling needed)');
+        debugPrint(
+            '✅ Flight verified (historical flight - no real-time polling needed)');
       }
-      
+
       return flightTracking;
     } catch (e) {
       debugPrint('❌ Error in verifyAndTrackFlight: $e');
@@ -120,14 +123,16 @@ class CiriumFlightTrackingService {
       // Check if this is a past flight (more than 1 day ago)
       final daysDifference = DateTime.now().difference(flightDate).inDays;
       final isPastFlight = daysDifference > 1;
-      
+
       String url;
       if (isPastFlight) {
         // Use premium historical API for past flights (v3 has better coverage)
-        url = 'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
+        url =
+            'https://api.flightstats.com/flex/flightstatus/historical/rest/v3/json/flight/status/$carrier/$flightNumber/dep/'
             '${flightDate.year}/${flightDate.month.toString().padLeft(2, '0')}/${flightDate.day.toString().padLeft(2, '0')}'
             '?appId=$ciriumAppId&appKey=$ciriumAppKey&airport=$departureAirport&extendedOptions=useHttpErrors';
-        debugPrint('📡 Using PREMIUM HISTORICAL API for past flight (${daysDifference} days old)');
+        debugPrint(
+            '📡 Using PREMIUM HISTORICAL API for past flight (${daysDifference} days old)');
       } else {
         // Use real-time API for current/upcoming flights
         url = '$ciriumUrl/json/flight/status/$carrier/$flightNumber/dep/'
@@ -222,7 +227,7 @@ class CiriumFlightTrackingService {
           },
         ));
       }
-      
+
       // Add terminal information
       if (resources['departureTerminal'] != null) {
         events.add(FlightEvent(
@@ -238,8 +243,8 @@ class CiriumFlightTrackingService {
     if (operationalTimes['actualGateDeparture'] != null) {
       events.add(FlightEvent(
         eventType: 'DEPARTED',
-        timestamp:
-            DateTime.parse(operationalTimes['actualGateDeparture']['dateLocal']),
+        timestamp: DateTime.parse(
+            operationalTimes['actualGateDeparture']['dateLocal']),
         description: 'Flight departed from gate',
         metadata: operationalTimes['actualGateDeparture'],
       ));
@@ -258,8 +263,8 @@ class CiriumFlightTrackingService {
     if (operationalTimes['actualRunwayArrival'] != null) {
       events.add(FlightEvent(
         eventType: 'LANDING',
-        timestamp:
-            DateTime.parse(operationalTimes['actualRunwayArrival']['dateLocal']),
+        timestamp: DateTime.parse(
+            operationalTimes['actualRunwayArrival']['dateLocal']),
         description: 'Flight landed',
         metadata: operationalTimes['actualRunwayArrival'],
       ));
@@ -372,4 +377,3 @@ class CiriumFlightTrackingService {
     _activeFlights.clear();
   }
 }
-

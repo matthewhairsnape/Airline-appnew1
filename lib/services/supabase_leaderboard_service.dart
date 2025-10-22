@@ -14,10 +14,8 @@ class SupabaseLeaderboardService {
   }) async {
     try {
       debugPrint('📊 Fetching leaderboard rankings from Supabase...');
-      
-      var query = _client
-          .from('leaderboard_scores')
-          .select('''
+
+      var query = _client.from('leaderboard_scores').select('''
             id,
             airline_id,
             score_type,
@@ -29,9 +27,7 @@ class SupabaseLeaderboardService {
               icao_code,
               logo_url
             )
-          ''')
-          .order('score_value', ascending: false)
-          .limit(limit);
+          ''').order('score_value', ascending: false).limit(limit);
 
       // Commenting out filter due to API compatibility
       // if (scoreType != null && scoreType.isNotEmpty) {
@@ -39,9 +35,9 @@ class SupabaseLeaderboardService {
       // }
 
       final response = await query;
-      
+
       debugPrint('✅ Fetched ${response.length} leaderboard entries');
-      
+
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('❌ Error fetching leaderboard rankings: $e');
@@ -56,10 +52,10 @@ class SupabaseLeaderboardService {
   }) {
     try {
       debugPrint('📡 Subscribing to leaderboard real-time updates...');
-      
+
       // Build the stream query with conditional filtering
       Stream<List<Map<String, dynamic>>> stream;
-      
+
       if (scoreType != null && scoreType.isNotEmpty) {
         stream = _client
             .from('leaderboard_scores')
@@ -76,8 +72,9 @@ class SupabaseLeaderboardService {
       }
 
       return stream.asyncMap((data) async {
-        debugPrint('📊 Received ${data.length} leaderboard entries via realtime');
-        
+        debugPrint(
+            '📊 Received ${data.length} leaderboard entries via realtime');
+
         // Fetch airline details for each entry
         final enrichedData = <Map<String, dynamic>>[];
         for (final entry in data) {
@@ -87,17 +84,18 @@ class SupabaseLeaderboardService {
                 .select('id, name, iata_code, icao_code, logo_url')
                 .eq('id', entry['airline_id'])
                 .single();
-            
+
             enrichedData.add({
               ...entry,
               'airlines': airlineData,
             });
           } catch (e) {
-            debugPrint('⚠️ Error fetching airline for ${entry['airline_id']}: $e');
+            debugPrint(
+                '⚠️ Error fetching airline for ${entry['airline_id']}: $e');
             enrichedData.add(entry);
           }
         }
-        
+
         return enrichedData;
       });
     } catch (e) {
@@ -107,12 +105,13 @@ class SupabaseLeaderboardService {
   }
 
   /// Get category-specific rankings
-  static Future<List<Map<String, dynamic>>> getCategoryRankings(String category) async {
+  static Future<List<Map<String, dynamic>>> getCategoryRankings(
+      String category) async {
     try {
       debugPrint('📊 Fetching $category rankings...');
-      
+
       final scoreType = mapCategoryToScoreType(category);
-      
+
       var query = _client
           .from('leaderboard_scores')
           .select('''
@@ -133,9 +132,9 @@ class SupabaseLeaderboardService {
           .limit(10);
 
       final response = await query;
-      
+
       debugPrint('✅ Fetched ${response.length} $category rankings');
-      
+
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('❌ Error fetching $category rankings: $e');
@@ -146,8 +145,9 @@ class SupabaseLeaderboardService {
   /// Get real-time issues from realtime_feedback_view
   static Stream<List<Map<String, dynamic>>> subscribeToIssues() {
     try {
-      debugPrint('📡 Subscribing to real-time feedback from realtime_feedback_view...');
-      
+      debugPrint(
+          '📡 Subscribing to real-time feedback from realtime_feedback_view...');
+
       return _client
           .from('realtime_feedback_view')
           .stream(primaryKey: ['feedback_id'])
@@ -163,7 +163,7 @@ class SupabaseLeaderboardService {
   static Future<List<String>> getAvailableCategories() async {
     try {
       debugPrint('📊 Fetching available score categories...');
-      
+
       // Return default categories
       return ['Overall', 'Wi-Fi Experience', 'Seat Comfort', 'Food and Drink'];
     } catch (e) {
@@ -224,7 +224,7 @@ class SupabaseLeaderboardService {
     Map<String, dynamic>? movement,
   ) {
     final airline = leaderboardEntry['airlines'] as Map<String, dynamic>?;
-    
+
     return {
       'id': leaderboardEntry['airline_id'],
       'name': airline?['name'] ?? 'Unknown Airline',

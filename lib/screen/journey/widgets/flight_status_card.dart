@@ -14,7 +14,7 @@ class FlightStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = flight.currentPhase == FlightPhase.completed;
     final progress = _calculateProgress();
-    
+
     return Container(
       margin: EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -58,9 +58,9 @@ class FlightStatusCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             SizedBox(height: 24),
-            
+
             // Flight Details Row
             Row(
               children: [
@@ -86,7 +86,7 @@ class FlightStatusCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Progress and Status
                 Expanded(
                   child: Column(
@@ -119,7 +119,7 @@ class FlightStatusCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Arrival
                 Expanded(
                   child: Column(
@@ -179,10 +179,10 @@ class FlightStatusCard extends StatelessWidget {
     final now = DateTime.now();
     final totalDuration = flight.arrivalTime.difference(flight.departureTime);
     final elapsed = now.difference(flight.departureTime);
-    
+
     if (flight.currentPhase == FlightPhase.completed) return 1.0;
     if (elapsed.isNegative) return 0.0;
-    
+
     final progress = elapsed.inMilliseconds / totalDuration.inMilliseconds;
     return progress.clamp(0.0, 1.0);
   }
@@ -213,9 +213,9 @@ class FlightStatusCard extends StatelessWidget {
   String _getTimeRemaining() {
     final now = DateTime.now();
     final remaining = flight.arrivalTime.difference(now);
-    
+
     if (remaining.isNegative) return '0h 0m';
-    
+
     final hours = remaining.inHours;
     final minutes = remaining.inMinutes % 60;
     return '${hours}h ${minutes}m';
@@ -226,7 +226,7 @@ class FlightStatusCard extends StatelessWidget {
     final minute = time.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    
+
     return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
   }
 

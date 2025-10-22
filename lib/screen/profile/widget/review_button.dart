@@ -8,7 +8,8 @@ class ReviewButton extends StatelessWidget {
   final bool isLocked;
   final VoidCallback onTap;
 
-  const ReviewButton({super.key, 
+  const ReviewButton({
+    super.key,
     required this.iconUrl,
     required this.label,
     required this.isSelected,

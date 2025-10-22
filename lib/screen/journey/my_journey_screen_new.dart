@@ -31,7 +31,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
     final flightTrackingState = ref.watch(flightTrackingProvider);
     final allFlights = flightTrackingState.getAllFlights();
     final activeFlights = flightTrackingState.trackedFlights.values.toList();
-    final completedFlights = flightTrackingState.completedFlights.values.toList();
+    final completedFlights =
+        flightTrackingState.completedFlights.values.toList();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -59,9 +60,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
       body: allFlights.isEmpty
           ? _buildEmptyState()
           : _buildJourneyTimeline(allFlights.first),
-      bottomNavigationBar: allFlights.isNotEmpty 
-          ? _buildFeedbackButton(allFlights.first)
-          : null,
+      bottomNavigationBar:
+          allFlights.isNotEmpty ? _buildFeedbackButton(allFlights.first) : null,
     );
   }
 
@@ -80,12 +80,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             SizedBox(height: 24),
             Text(
               'No Active Flights',
-              style: AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
+              style:
+                  AppStyles.textStyle_24_600.copyWith(color: Colors.grey[600]),
             ),
             SizedBox(height: 12),
             Text(
               'Connect your flight to start tracking your journey',
-              style: AppStyles.textStyle_16_500.copyWith(color: Colors.grey[500]),
+              style:
+                  AppStyles.textStyle_16_500.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 32),
@@ -117,7 +119,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         children: [
           // Flight Status Card
           FlightStatusCard(flight: flight),
-          
+
           // Timeline Sections
           TimelineSection(
             title: 'Pre Flight',
@@ -126,7 +128,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             isExpanded: _expandedSections['Pre Flight']!,
             onToggle: () => _toggleSection('Pre Flight'),
           ),
-          
+
           TimelineSection(
             title: 'In Flight',
             icon: Icons.flight,
@@ -134,7 +136,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             isExpanded: _expandedSections['In Flight']!,
             onToggle: () => _toggleSection('In Flight'),
           ),
-          
+
           TimelineSection(
             title: 'Post Flight',
             icon: Icons.star,
@@ -142,7 +144,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
             isExpanded: _expandedSections['Post Flight']!,
             onToggle: () => _toggleSection('Post Flight'),
           ),
-          
+
           SizedBox(height: 100), // Space for bottom button
         ],
       ),
@@ -214,13 +216,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
   List<TimelineEvent> _getPreFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     // Trip Added
     events.add(TimelineEvent(
       id: 'trip_added',
       title: 'Trip Added',
       description: 'Boarding pass scanned successfully',
-      timestamp: flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 2)),
+      timestamp:
+          flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 2)),
       icon: Icons.phone_android,
       isCompleted: true,
     ));
@@ -234,7 +237,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         description: '',
       ),
     );
-    
+
     if (gateChangeEvent.eventType.isNotEmpty) {
       events.add(TimelineEvent(
         id: 'gate_change',
@@ -253,7 +256,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
         id: 'boarding_started',
         title: 'Boarding',
         description: 'Now boarding at Gate D18',
-        timestamp: flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 1)),
+        timestamp: flight.phaseStartTime ??
+            DateTime.now().subtract(Duration(hours: 1)),
         icon: Icons.flight_takeoff,
         location: 'Gate D18',
         isCompleted: flight.currentPhase.index > FlightPhase.boarding.index,
@@ -265,7 +269,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
   List<TimelineEvent> _getInFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.inFlight.index) {
       events.add(TimelineEvent(
         id: 'inflight_experience',
@@ -283,7 +287,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen> {
 
   List<TimelineEvent> _getPostFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
-    
+
     if (flight.currentPhase.index >= FlightPhase.landed.index) {
       events.add(TimelineEvent(
         id: 'postflight_experience',

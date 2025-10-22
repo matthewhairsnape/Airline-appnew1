@@ -43,25 +43,28 @@ class LeaderboardState {
 
 /// Provider for leaderboard state management
 class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
-  LeaderboardNotifier() : super(LeaderboardState(
-    airlines: [],
-    issues: [],
-    isLoading: true,
-    selectedCategory: LeaderboardCategoryService.getAllCategories().first.tab,
-    availableCategories: LeaderboardCategoryService.getAllTabs(),
-  ));
+  LeaderboardNotifier()
+      : super(LeaderboardState(
+          airlines: [],
+          issues: [],
+          isLoading: true,
+          selectedCategory:
+              LeaderboardCategoryService.getAllCategories().first.tab,
+          availableCategories: LeaderboardCategoryService.getAllTabs(),
+        ));
 
   /// Load initial leaderboard data
   Future<void> loadLeaderboard() async {
     try {
       state = state.copyWith(isLoading: true, error: null);
-      
+
       debugPrint('🔄 Loading leaderboard data...');
-      
+
       // Load airlines and issues in parallel
       final results = await Future.wait([
         SupabaseLeaderboardService.getCategoryRankings(
-          SupabaseLeaderboardService.mapCategoryToScoreType(state.selectedCategory),
+          SupabaseLeaderboardService.mapCategoryToScoreType(
+              state.selectedCategory),
         ),
         SupabaseLeaderboardService.subscribeToIssues().first,
       ]);
@@ -143,7 +146,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   }
 
   /// Format issues data for display from realtime_feedback_view
-  List<Map<String, dynamic>> _formatIssuesData(List<Map<String, dynamic>> feedbackData) {
+  List<Map<String, dynamic>> _formatIssuesData(
+      List<Map<String, dynamic>> feedbackData) {
     if (feedbackData.isEmpty) {
       // Return sample data for demonstration
       return _getSampleIssuesData();
@@ -152,7 +156,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
     return feedbackData.map((feedback) {
       // Extract data from realtime_feedback_view columns
       final flightNumber = feedback['flight_number'] as String? ?? 'Unknown';
-      final passengerName = feedback['passenger_name'] as String? ?? 'Anonymous';
+      final passengerName =
+          feedback['passenger_name'] as String? ?? 'Anonymous';
       final seatNumber = feedback['seat'] as String? ?? 'N/A';
       final feedbackId = feedback['feedback_id'] as String? ?? '';
 
@@ -163,7 +168,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       // Determine phase color (random for demo)
       final phases = ['Boarding', 'In-flight', 'Arrival'];
       final phase = phases[DateTime.now().millisecond % phases.length];
-      
+
       Color phaseColor;
       switch (phase.toLowerCase()) {
         case 'boarding':
@@ -238,9 +243,13 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       case 'service':
         return 'Great service';
       default:
-        return key.replaceAll('_', ' ').split(' ').map((word) => 
-          word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : ''
-        ).join(' ');
+        return key
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((word) => word.isNotEmpty
+                ? word[0].toUpperCase() + word.substring(1)
+                : '')
+            .join(' ');
     }
   }
 
@@ -292,7 +301,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   }
 
   /// Generate sample likes based on passenger and flight
-  List<Map<String, dynamic>> _generateSampleLikes(String passenger, String flight) {
+  List<Map<String, dynamic>> _generateSampleLikes(
+      String passenger, String flight) {
     final sampleLikes = [
       {'text': 'Comfortable seats', 'count': 12},
       {'text': 'Good entertainment', 'count': 5},
@@ -300,7 +310,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       {'text': 'Good Wi-Fi', 'count': 6},
       {'text': 'Smooth boarding', 'count': 10},
     ];
-    
+
     // Return 1-3 random likes
     final count = DateTime.now().millisecond % 3 + 1;
     sampleLikes.shuffle();
@@ -308,7 +318,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   }
 
   /// Generate sample dislikes based on passenger and flight
-  List<Map<String, dynamic>> _generateSampleDislikes(String passenger, String flight) {
+  List<Map<String, dynamic>> _generateSampleDislikes(
+      String passenger, String flight) {
     final sampleDislikes = [
       {'text': 'Cold meals', 'count': 8},
       {'text': 'Delayed boarding', 'count': 3},
@@ -316,7 +327,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       {'text': 'Noisy cabin', 'count': 2},
       {'text': 'Poor service', 'count': 1},
     ];
-    
+
     // Return 0-2 random dislikes
     final count = DateTime.now().millisecond % 3;
     sampleDislikes.shuffle();
@@ -340,47 +351,88 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
   /// Get airline logo URL from flight number
   String? _getAirlineLogoFromFlight(String flightNumber) {
-    if (flightNumber.startsWith('BA')) return 'https://logo.clearbit.com/britishairways.com';
-    if (flightNumber.startsWith('EK')) return 'https://logo.clearbit.com/emirates.com';
-    if (flightNumber.startsWith('SQ')) return 'https://logo.clearbit.com/singaporeair.com';
-    if (flightNumber.startsWith('QR')) return 'https://logo.clearbit.com/qatarairways.com';
-    if (flightNumber.startsWith('LH')) return 'https://logo.clearbit.com/lufthansa.com';
-    if (flightNumber.startsWith('AF')) return 'https://logo.clearbit.com/airfrance.com';
-    if (flightNumber.startsWith('KL')) return 'https://logo.clearbit.com/klm.com';
-    if (flightNumber.startsWith('UA')) return 'https://logo.clearbit.com/united.com';
-    if (flightNumber.startsWith('AA')) return 'https://logo.clearbit.com/aa.com';
-    if (flightNumber.startsWith('DL')) return 'https://logo.clearbit.com/delta.com';
-    if (flightNumber.startsWith('VS')) return 'https://logo.clearbit.com/virgin-atlantic.com';
-    if (flightNumber.startsWith('NH')) return 'https://logo.clearbit.com/ana.co.jp';
-    if (flightNumber.startsWith('TK')) return 'https://logo.clearbit.com/turkishairlines.com';
-    if (flightNumber.startsWith('KE')) return 'https://logo.clearbit.com/koreanair.com';
-    if (flightNumber.startsWith('JL')) return 'https://logo.clearbit.com/jal.co.jp';
-    if (flightNumber.startsWith('EY')) return 'https://logo.clearbit.com/etihad.com';
-    if (flightNumber.startsWith('QF')) return 'https://logo.clearbit.com/qantas.com';
-    if (flightNumber.startsWith('BR')) return 'https://logo.clearbit.com/evaair.com';
-    if (flightNumber.startsWith('UL')) return 'https://logo.clearbit.com/srilankan.com';
-    if (flightNumber.startsWith('VN')) return 'https://logo.clearbit.com/vietnamairlines.com';
-    if (flightNumber.startsWith('NZ')) return 'https://logo.clearbit.com/airnewzealand.com';
-    if (flightNumber.startsWith('GA')) return 'https://logo.clearbit.com/garuda-indonesia.com';
-    if (flightNumber.startsWith('TG')) return 'https://logo.clearbit.com/thaiairways.com';
-    if (flightNumber.startsWith('AK')) return 'https://logo.clearbit.com/airasia.com';
-    if (flightNumber.startsWith('WN')) return 'https://logo.clearbit.com/southwest.com';
-    if (flightNumber.startsWith('B6')) return 'https://logo.clearbit.com/jetblue.com';
-    if (flightNumber.startsWith('AS')) return 'https://logo.clearbit.com/alaskaair.com';
-    if (flightNumber.startsWith('AC')) return 'https://logo.clearbit.com/aircanada.com';
-    if (flightNumber.startsWith('HA')) return 'https://logo.clearbit.com/hawaiianairlines.com';
-    if (flightNumber.startsWith('IB')) return 'https://logo.clearbit.com/iberia.com';
-    if (flightNumber.startsWith('OS')) return 'https://logo.clearbit.com/austrian.com';
-    if (flightNumber.startsWith('AY')) return 'https://logo.clearbit.com/finnair.com';
-    if (flightNumber.startsWith('SK')) return 'https://logo.clearbit.com/flysas.com';
-    if (flightNumber.startsWith('WS')) return 'https://logo.clearbit.com/westjet.com';
-    if (flightNumber.startsWith('FR')) return 'https://logo.clearbit.com/ryanair.com';
-    if (flightNumber.startsWith('6E')) return 'https://logo.clearbit.com/goindigo.in';
-    if (flightNumber.startsWith('FZ')) return 'https://logo.clearbit.com/flydubai.com';
-    if (flightNumber.startsWith('W6')) return 'https://logo.clearbit.com/wizzair.com';
-    if (flightNumber.startsWith('G9')) return 'https://logo.clearbit.com/airarabia.com';
-    if (flightNumber.startsWith('TR')) return 'https://logo.clearbit.com/flyscoot.com';
-    if (flightNumber.startsWith('U2')) return 'https://logo.clearbit.com/easyjet.com';
+    if (flightNumber.startsWith('BA'))
+      return 'https://logo.clearbit.com/britishairways.com';
+    if (flightNumber.startsWith('EK'))
+      return 'https://logo.clearbit.com/emirates.com';
+    if (flightNumber.startsWith('SQ'))
+      return 'https://logo.clearbit.com/singaporeair.com';
+    if (flightNumber.startsWith('QR'))
+      return 'https://logo.clearbit.com/qatarairways.com';
+    if (flightNumber.startsWith('LH'))
+      return 'https://logo.clearbit.com/lufthansa.com';
+    if (flightNumber.startsWith('AF'))
+      return 'https://logo.clearbit.com/airfrance.com';
+    if (flightNumber.startsWith('KL'))
+      return 'https://logo.clearbit.com/klm.com';
+    if (flightNumber.startsWith('UA'))
+      return 'https://logo.clearbit.com/united.com';
+    if (flightNumber.startsWith('AA'))
+      return 'https://logo.clearbit.com/aa.com';
+    if (flightNumber.startsWith('DL'))
+      return 'https://logo.clearbit.com/delta.com';
+    if (flightNumber.startsWith('VS'))
+      return 'https://logo.clearbit.com/virgin-atlantic.com';
+    if (flightNumber.startsWith('NH'))
+      return 'https://logo.clearbit.com/ana.co.jp';
+    if (flightNumber.startsWith('TK'))
+      return 'https://logo.clearbit.com/turkishairlines.com';
+    if (flightNumber.startsWith('KE'))
+      return 'https://logo.clearbit.com/koreanair.com';
+    if (flightNumber.startsWith('JL'))
+      return 'https://logo.clearbit.com/jal.co.jp';
+    if (flightNumber.startsWith('EY'))
+      return 'https://logo.clearbit.com/etihad.com';
+    if (flightNumber.startsWith('QF'))
+      return 'https://logo.clearbit.com/qantas.com';
+    if (flightNumber.startsWith('BR'))
+      return 'https://logo.clearbit.com/evaair.com';
+    if (flightNumber.startsWith('UL'))
+      return 'https://logo.clearbit.com/srilankan.com';
+    if (flightNumber.startsWith('VN'))
+      return 'https://logo.clearbit.com/vietnamairlines.com';
+    if (flightNumber.startsWith('NZ'))
+      return 'https://logo.clearbit.com/airnewzealand.com';
+    if (flightNumber.startsWith('GA'))
+      return 'https://logo.clearbit.com/garuda-indonesia.com';
+    if (flightNumber.startsWith('TG'))
+      return 'https://logo.clearbit.com/thaiairways.com';
+    if (flightNumber.startsWith('AK'))
+      return 'https://logo.clearbit.com/airasia.com';
+    if (flightNumber.startsWith('WN'))
+      return 'https://logo.clearbit.com/southwest.com';
+    if (flightNumber.startsWith('B6'))
+      return 'https://logo.clearbit.com/jetblue.com';
+    if (flightNumber.startsWith('AS'))
+      return 'https://logo.clearbit.com/alaskaair.com';
+    if (flightNumber.startsWith('AC'))
+      return 'https://logo.clearbit.com/aircanada.com';
+    if (flightNumber.startsWith('HA'))
+      return 'https://logo.clearbit.com/hawaiianairlines.com';
+    if (flightNumber.startsWith('IB'))
+      return 'https://logo.clearbit.com/iberia.com';
+    if (flightNumber.startsWith('OS'))
+      return 'https://logo.clearbit.com/austrian.com';
+    if (flightNumber.startsWith('AY'))
+      return 'https://logo.clearbit.com/finnair.com';
+    if (flightNumber.startsWith('SK'))
+      return 'https://logo.clearbit.com/flysas.com';
+    if (flightNumber.startsWith('WS'))
+      return 'https://logo.clearbit.com/westjet.com';
+    if (flightNumber.startsWith('FR'))
+      return 'https://logo.clearbit.com/ryanair.com';
+    if (flightNumber.startsWith('6E'))
+      return 'https://logo.clearbit.com/goindigo.in';
+    if (flightNumber.startsWith('FZ'))
+      return 'https://logo.clearbit.com/flydubai.com';
+    if (flightNumber.startsWith('W6'))
+      return 'https://logo.clearbit.com/wizzair.com';
+    if (flightNumber.startsWith('G9'))
+      return 'https://logo.clearbit.com/airarabia.com';
+    if (flightNumber.startsWith('TR'))
+      return 'https://logo.clearbit.com/flyscoot.com';
+    if (flightNumber.startsWith('U2'))
+      return 'https://logo.clearbit.com/easyjet.com';
     return null; // No logo available
   }
 
@@ -396,16 +448,19 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 }
 
 /// Provider for leaderboard state
-final leaderboardProvider = StateNotifierProvider<LeaderboardNotifier, LeaderboardState>((ref) {
+final leaderboardProvider =
+    StateNotifierProvider<LeaderboardNotifier, LeaderboardState>((ref) {
   return LeaderboardNotifier();
 });
 
 /// Provider for real-time leaderboard stream
-final leaderboardStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+final leaderboardStreamProvider =
+    StreamProvider<List<Map<String, dynamic>>>((ref) {
   final selectedCategory = ref.watch(leaderboardProvider).selectedCategory;
-  
+
   return SupabaseLeaderboardService.subscribeToLeaderboardUpdates(
-    scoreType: SupabaseLeaderboardService.mapCategoryToScoreType(selectedCategory),
+    scoreType:
+        SupabaseLeaderboardService.mapCategoryToScoreType(selectedCategory),
   ).map((data) {
     return data.asMap().entries.map((entry) {
       final index = entry.key;
