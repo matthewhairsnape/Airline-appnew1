@@ -2,6 +2,8 @@ import Flutter
 import UIKit
 import OtplessSDK
 import Firebase
+import FirebaseMessaging
+import flutter_local_notifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {

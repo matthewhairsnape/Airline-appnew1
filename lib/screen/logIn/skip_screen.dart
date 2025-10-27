@@ -193,7 +193,7 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
 
   Widget _buildBottomSheet(Size screenSize) {
     return Container(
-      height: screenSize.height * 0.4,
+      height: screenSize.height * 0.45, // Slightly increased height
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
@@ -205,48 +205,55 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 28),
-            child: Column(
-              children: [
-                Container(
-                  height: 4,
-                  width: 45,
-                  decoration: BoxDecoration(
-                    color: const Color(0xff97A09C),
-                    borderRadius: BorderRadius.circular(8),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 16, left: 28, right: 28, bottom: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 4,
+                    width: 45,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff97A09C),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 22),
-                Text(
-                  titleList[selectedIndex],
-                  style: AppStyles.textStyle_24_600.copyWith(
-                    letterSpacing: 1.0,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 16),
+                  Text(
+                    titleList[selectedIndex],
+                    style: AppStyles.textStyle_24_600.copyWith(
+                      letterSpacing: 1.0,
+                      fontSize: 24, // Slightly reduced font size
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  contentList[selectedIndex],
-                  style: AppStyles.textStyle_15_400.copyWith(
-                    height: 1.6,
-                    fontSize: 17,
-                    color: Colors.black87,
-                    letterSpacing: 0.3,
+                  const SizedBox(height: 12),
+                  Text(
+                    contentList[selectedIndex],
+                    style: AppStyles.textStyle_15_400.copyWith(
+                      height: 1.5,
+                      fontSize: 15, // Slightly reduced font size
+                      color: Colors.black87,
+                      letterSpacing: 0.3,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 25),
-                _buildPageIndicator(),
-              ],
+                  const SizedBox(height: 20),
+                  _buildPageIndicator(),
+                ],
+              ),
             ),
-          ),
-          const Spacer(),
-          _buildNavigationButton(),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+              child: _buildNavigationButton(),
+            ),
+          ],
+        ),
       ),
     );
   }
