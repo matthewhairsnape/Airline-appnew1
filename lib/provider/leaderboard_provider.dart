@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:airline_app/services/supabase_leaderboard_service.dart';
+import 'package:airline_app/services/realtime_feedback_service.dart';
 import 'package:airline_app/models/leaderboard_category_model.dart';
 
 /// State for leaderboard data
@@ -60,13 +61,16 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
       debugPrint('🔄 Loading leaderboard data...');
 
+      // Initialize realtime feedback service
+      await RealtimeFeedbackService.initialize();
+
       // Load airlines and issues in parallel
       final results = await Future.wait([
         SupabaseLeaderboardService.getCategoryRankings(
           SupabaseLeaderboardService.mapCategoryToScoreType(
               state.selectedCategory),
         ),
-        SupabaseLeaderboardService.subscribeToIssues().first,
+        RealtimeFeedbackService.getCombinedFeedbackStream().first, // NEW: Use combined feedback
       ]);
 
       final airlines = results[0] as List<Map<String, dynamic>>;
@@ -83,7 +87,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         );
       }).toList();
 
-      // Format issues data
+      // Format issues data from combined feedback
       final formattedIssues = _formatIssuesData(issues);
 
       state = state.copyWith(
@@ -145,7 +149,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
     }
   }
 
-  /// Format issues data for display from realtime_feedback_view
+  /// Format issues data for display from combined feedback (airport_reviews, airline_reviews, feedback)
   List<Map<String, dynamic>> _formatIssuesData(
       List<Map<String, dynamic>> feedbackData) {
     if (feedbackData.isEmpty) {
@@ -154,35 +158,18 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
     }
 
     return feedbackData.map((feedback) {
-      // Extract data from realtime_feedback_view columns
-      final flightNumber = feedback['flight_number'] as String? ?? 'Unknown';
-      final passengerName =
-          feedback['passenger_name'] as String? ?? 'Anonymous';
+      // Extract data from the new combined feedback structure
+      final flightNumber = feedback['flight'] as String? ?? 'Unknown';
+      final passengerName = feedback['passenger'] as String? ?? 'Anonymous';
       final seatNumber = feedback['seat'] as String? ?? 'N/A';
-      final feedbackId = feedback['feedback_id'] as String? ?? '';
-
-      // Generate sample likes and dislikes based on passenger and flight
-      final likes = _generateSampleLikes(passengerName, flightNumber);
-      final dislikes = _generateSampleDislikes(passengerName, flightNumber);
-
-      // Determine phase color (random for demo)
-      final phases = ['Boarding', 'In-flight', 'Arrival'];
-      final phase = phases[DateTime.now().millisecond % phases.length];
-
-      Color phaseColor;
-      switch (phase.toLowerCase()) {
-        case 'boarding':
-          phaseColor = const Color(0xFFF5A623); // Orange
-          break;
-        case 'in-flight':
-          phaseColor = const Color(0xFF4A90E2); // Blue
-          break;
-        case 'arrival':
-          phaseColor = const Color(0xFF7ED321); // Green
-          break;
-        default:
-          phaseColor = Colors.grey;
-      }
+      final phase = feedback['phase'] as String? ?? 'Unknown';
+      final phaseColor = feedback['phaseColor'] as Color? ?? Colors.grey;
+      final airlineName = feedback['airlineName'] as String? ?? feedback['airline'] as String? ?? 'Unknown Airline';
+      final logo = feedback['logo'] as String? ?? 'assets/images/airline_logo.png';
+      final likes = feedback['likes'] as List<Map<String, dynamic>>? ?? [];
+      final dislikes = feedback['dislikes'] as List<Map<String, dynamic>>? ?? [];
+      final timestamp = feedback['timestamp'] as DateTime? ?? DateTime.now();
+      final feedbackType = feedback['feedback_type'] as String? ?? 'overall';
 
       return {
         'issue': 'Feedback Report',
@@ -191,13 +178,14 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         'phase': phase,
         'phaseColor': phaseColor,
         'reportCount': 1,
-        'timestamp': DateTime.now(),
-        'airline': _getAirlineFromFlight(flightNumber),
-        'logo': _getAirlineLogoFromFlight(flightNumber),
-        'likes': likes,
-        'dislikes': dislikes,
+        'timestamp': timestamp,
+        'airline': airlineName,
+        'logo': logo,
+        'likes': likes.isNotEmpty ? likes : _generateSampleLikes(passengerName, flightNumber),
+        'dislikes': dislikes.isNotEmpty ? dislikes : _generateSampleDislikes(passengerName, flightNumber),
         'passenger': passengerName,
         'seat': seatNumber,
+        'feedback_type': feedbackType, // Store the type for reference
       };
     }).toList();
   }

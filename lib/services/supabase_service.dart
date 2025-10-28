@@ -157,12 +157,14 @@ class SupabaseService {
     try {
       debugPrint('🔍 Looking for airline with IATA code: $carrier');
 
-      // Get airline ID
-      final airlineData = await client
+      // Get airline ID - handle duplicates by taking the first one
+      final airlineList = await client
           .from('airlines')
           .select('id, iata_code, name')
           .eq('iata_code', carrier)
-          .maybeSingle();
+          .limit(1);
+
+      final airlineData = airlineList.isNotEmpty ? airlineList.first : null;
 
       if (airlineData == null) {
         debugPrint('❌ Airline $carrier not found in database');
@@ -215,20 +217,22 @@ class SupabaseService {
       debugPrint(
           '✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
 
-      // Get airport IDs
+      // Get airport IDs - handle duplicates by taking the first one
       debugPrint('🔍 Looking for departure airport: $departureAirport');
-      final depAirportData = await client
+      final depAirportList = await client
           .from('airports')
           .select('id, iata_code, name')
           .eq('iata_code', departureAirport)
-          .maybeSingle();
+          .limit(1);
+      final depAirportData = depAirportList.isNotEmpty ? depAirportList.first : null;
 
       debugPrint('🔍 Looking for arrival airport: $arrivalAirport');
-      final arrAirportData = await client
+      final arrAirportList = await client
           .from('airports')
           .select('id, iata_code, name')
           .eq('iata_code', arrivalAirport)
-          .maybeSingle();
+          .limit(1);
+      final arrAirportData = arrAirportList.isNotEmpty ? arrAirportList.first : null;
 
       if (depAirportData == null || arrAirportData == null) {
         debugPrint(
@@ -403,30 +407,33 @@ class SupabaseService {
     if (!isInitialized) return null;
 
     try {
-      // Get airline ID
-      final airlineData = await client
+      // Get airline ID - handle duplicates by taking the first one
+      final airlineList = await client
           .from('airlines')
           .select('id')
           .eq('iata_code', carrier)
-          .maybeSingle();
+          .limit(1);
+      final airlineData = airlineList.isNotEmpty ? airlineList.first : null;
 
       if (airlineData == null) {
         debugPrint('❌ Airline $carrier not found');
         return null;
       }
 
-      // Get airport IDs
-      final depAirportData = await client
+      // Get airport IDs - handle duplicates by taking the first one
+      final depAirportList = await client
           .from('airports')
           .select('id')
           .eq('iata_code', departureAirport)
-          .maybeSingle();
+          .limit(1);
+      final depAirportData = depAirportList.isNotEmpty ? depAirportList.first : null;
 
-      final arrAirportData = await client
+      final arrAirportList = await client
           .from('airports')
           .select('id')
           .eq('iata_code', arrivalAirport)
-          .maybeSingle();
+          .limit(1);
+      final arrAirportData = arrAirportList.isNotEmpty ? arrAirportList.first : null;
 
       if (depAirportData == null || arrAirportData == null) {
         debugPrint('❌ Airports not found');
@@ -873,15 +880,16 @@ class SupabaseService {
     Map<String, dynamic>? airportData,
   }) async {
     try {
-      // Check if airport exists
-      final existingAirport = await client
+      // Check if airport exists - handle duplicates by taking the first one
+      final existingAirportList = await client
           .from('airports')
           .select(
               'id, iata_code, icao_code, name, city, country, latitude, longitude, timezone')
           .eq('iata_code', iataCode)
-          .maybeSingle();
+          .limit(1);
 
-      if (existingAirport != null) {
+      if (existingAirportList.isNotEmpty) {
+        final existingAirport = existingAirportList.first;
         // Update with new data if available
         if (airportData != null) {
           final updateData = {
@@ -899,6 +907,7 @@ class SupabaseService {
               .update(updateData)
               .eq('iata_code', iataCode);
         }
+        debugPrint('✅ Found airport: ${existingAirport['name']} (${existingAirport['iata_code']})');
         return existingAirport['id'] as String;
       }
 
@@ -928,6 +937,7 @@ class SupabaseService {
           .select()
           .single();
 
+      debugPrint('✅ Created new airport: ${newAirport['name']} (${newAirport['iata_code']})');
       return newAirport['id'] as String;
     } catch (e) {
       debugPrint('❌ Error getting or creating airport $iataCode: $e');
@@ -939,14 +949,16 @@ class SupabaseService {
   static Future<Map<String, dynamic>?> _getOrCreateAirline(
       String carrier) async {
     try {
-      // Check if airline exists
-      final airlineData = await client
+      // Check if airline exists - handle duplicates by taking the first one
+      final airlineList = await client
           .from('airlines')
           .select('id, iata_code, name')
           .eq('iata_code', carrier)
-          .maybeSingle();
+          .limit(1);
 
-      if (airlineData != null) {
+      if (airlineList.isNotEmpty) {
+        final airlineData = airlineList.first;
+        debugPrint('✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
         return airlineData;
       }
 
@@ -961,6 +973,7 @@ class SupabaseService {
           .select('id, iata_code, name')
           .single();
 
+      debugPrint('✅ Created new airline: ${newAirline['name']} (${newAirline['iata_code']})');
       return newAirline;
     } catch (e) {
       debugPrint('❌ Error getting or creating airline: $e');

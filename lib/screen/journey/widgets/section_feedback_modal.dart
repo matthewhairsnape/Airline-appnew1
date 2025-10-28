@@ -728,7 +728,7 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
 
         final userId = session!.user.id;
         final flightId = widget.flight!.flightId;
-        final journeyId = widget.flight!.pnr; // Using PNR as journey ID
+        final journeyId = widget.flight!.journeyId ?? widget.flight!.pnr; // Use journeyId if available, fallback to PNR
         final seat = widget.flight!.seatNumber ?? 'Unknown';
 
         debugPrint(
