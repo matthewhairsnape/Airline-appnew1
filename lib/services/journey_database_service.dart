@@ -60,8 +60,8 @@ class JourneyDatabaseService {
   }
 
   /// Convert database journey data to FlightTrackingModel
-  static FlightTrackingModel? convertToFlightTrackingModel(
-      Map<String, dynamic> journeyData) {
+  static Future<FlightTrackingModel?> convertToFlightTrackingModel(
+      Map<String, dynamic> journeyData) async {
     try {
       final flight = journeyData['flight'];
       if (flight == null) {
@@ -76,7 +76,7 @@ class JourneyDatabaseService {
 
       // Determine flight phase based on journey status or flight data
       FlightPhase currentPhase =
-          _determinePhaseFromJourney(journeyData, flight);
+          await _determinePhaseFromJourney(journeyData, flight);
 
       // Parse departure and arrival times
       DateTime departureTime;
@@ -141,10 +141,49 @@ class JourneyDatabaseService {
   }
 
   /// Determine flight phase from journey and flight data
-  static FlightPhase _determinePhaseFromJourney(
-      Map<String, dynamic> journey, Map<String, dynamic> flight) {
-    // Check journey status first
+  static Future<FlightPhase> _determinePhaseFromJourney(
+      Map<String, dynamic> journey, Map<String, dynamic> flight) async {
+    final journeyId = journey['id']?.toString();
+    
+    // PRIORITY 1: Check for completion event FIRST (most reliable indicator)
+    // This handles cases where table update failed but event was created
+    if (journeyId != null) {
+      try {
+        debugPrint('🔍 Checking for completion event for journey: $journeyId');
+        final completionEvent = await _client
+            .from('journey_events')
+            .select('id')
+            .eq('journey_id', journeyId)
+            .eq('event_type', 'journey_completed')
+            .limit(1)
+            .maybeSingle();
+
+        if (completionEvent != null) {
+          debugPrint('✅ Journey completion detected via event: $journeyId');
+          return FlightPhase.completed;
+        } else {
+          debugPrint('🔍 No completion event found for journey: $journeyId');
+        }
+      } catch (eventError) {
+        debugPrint('⚠️ Error checking journey events for completion: $eventError');
+      }
+    }
+
+    // PRIORITY 2: Check visit_status - if it's 'Completed', journey is completed
+    final visitStatus = journey['visit_status']?.toString();
+    if (visitStatus == 'Completed') {
+      debugPrint('✅ Journey completion detected via visit_status: ${journey['id']}');
+      return FlightPhase.completed;
+    }
+
+    // PRIORITY 3: Check journey status
     final journeyStatus = journey['status']?.toString().toLowerCase();
+    if (journeyStatus == 'completed') {
+      debugPrint('✅ Journey completion detected via status: ${journey['id']}');
+      return FlightPhase.completed;
+    }
+
+    // PRIORITY 4: Check current phase (but don't return immediately for pre_check_in)
     final currentPhase = journey['current_phase']?.toString().toLowerCase();
 
     if (currentPhase != null) {
@@ -163,22 +202,27 @@ class JourneyDatabaseService {
         case 'check_in_open':
           return FlightPhase.checkInOpen;
         case 'pre_check_in':
-          return FlightPhase.preCheckIn;
+          // Don't return immediately - might have completion event or time-based completion
+          // Continue to fallback time-based check below
+          break;
         default:
           break;
       }
     }
 
-    // Fallback: determine based on current time vs flight times
+    // Fallback: determine phase based on current time vs flight times
+    // NOTE: Do NOT automatically mark as completed - only user action can complete journeys
+    // Completion must be explicit (via event, visit_status, or status field)
     final now = DateTime.now();
     final departureTime =
         DateTime.tryParse(flight['departure_time'] ?? '') ?? now;
     final arrivalTime = DateTime.tryParse(flight['arrival_time'] ?? '') ??
         now.add(Duration(hours: 2));
 
-    if (now.isAfter(arrivalTime.add(Duration(hours: 1)))) {
-      return FlightPhase.completed;
-    } else if (now.isAfter(arrivalTime)) {
+    // Only use time-based logic for phase detection, NOT for completion
+    // Journey completion must be explicitly done by user via the complete button
+    if (now.isAfter(arrivalTime)) {
+      // Flight has landed, but still active until user explicitly completes it
       return FlightPhase.landed;
     } else if (now.isAfter(departureTime)) {
       return FlightPhase.inFlight;
@@ -337,7 +381,7 @@ class JourneyDatabaseService {
       final flightModels = <FlightTrackingModel>[];
 
       for (final journey in journeyData) {
-        final flightModel = convertToFlightTrackingModel(journey);
+        final flightModel = await convertToFlightTrackingModel(journey);
         if (flightModel != null) {
           flightModels.add(flightModel);
         }

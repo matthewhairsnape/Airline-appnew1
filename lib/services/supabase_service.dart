@@ -111,7 +111,7 @@ class SupabaseService {
             'flight_id':
                 flightResult?['id'], // May be null if flight creation failed
             'pnr': pnr,
-            'seat_number': seatNumber,
+            'seat_number': seatNumber, // Seat number is saved
             'visit_status': 'Upcoming', // Use valid check constraint value
             'media': ciriumData, // Store Cirium data in media column
             // Store flight info directly in journey if flight creation failed
@@ -470,9 +470,9 @@ class SupabaseService {
           .from('journeys')
           .insert({
             'passenger_id': userId,
-            'flight_id': flightData['id'],
+            'flight_id': flightData['id'], // Flight info is saved via flight_id relationship
             'pnr': pnr,
-            'seat_number': seatNumber,
+            'seat_number': seatNumber, // Seat number is saved
             'visit_status': 'Upcoming', // Use valid check constraint value
           })
           .select()
@@ -829,11 +829,11 @@ class SupabaseService {
       // Create journey with fallback for missing columns
       final journeyData = {
         'passenger_id': userId,
-        'flight_id': flightResult?['id'],
+        'flight_id': flightResult?['id'], // Flight info is saved via flight_id relationship
         'pnr': pnr,
-        'seat_number': seatNumber,
+        'seat_number': seatNumber, // Seat number is saved
         'visit_status': 'Upcoming',
-        'media': ciriumData,
+        'media': ciriumData, // Store Cirium data in media column (can contain flight info)
         'connection_time_mins': flightResult == null ? 0 : null,
       };
 
@@ -1218,5 +1218,160 @@ class SupabaseService {
     }
 
     return comments.join('; ');
+  }
+
+  /// Check if a journey is completed
+  /// Checks both journey table fields and journey events as fallback
+  static Future<bool> isJourneyCompleted(String journeyId) async {
+    if (!isInitialized) return false;
+    try {
+      // First, check journey table fields
+      final journey = await client
+          .from('journeys')
+          .select('current_phase, visit_status, status')
+          .eq('id', journeyId)
+          .maybeSingle();
+
+      if (journey != null) {
+        final phase = journey['current_phase']?.toString().toLowerCase();
+        final visitStatus = journey['visit_status']?.toString();
+        final status = journey['status']?.toString().toLowerCase();
+
+        // Journey is completed ONLY if visit_status is 'Completed' or status is 'completed'
+        // NOTE: 'landed' phase does NOT mean completed - user must explicitly complete
+        if (visitStatus == 'Completed' || status == 'completed') {
+          return true;
+        }
+      }
+
+      // Fallback: Check journey events for completion event
+      // This handles cases where table update failed but event was created
+      try {
+        final completionEvent = await client
+            .from('journey_events')
+            .select('id')
+            .eq('journey_id', journeyId)
+            .eq('event_type', 'journey_completed')
+            .limit(1)
+            .maybeSingle();
+
+        if (completionEvent != null) {
+          debugPrint('✅ Journey completion detected via event: $journeyId');
+          return true;
+        }
+      } catch (eventError) {
+        debugPrint('⚠️ Error checking journey events: $eventError');
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('❌ Error checking journey completion status: $e');
+      return false;
+    }
+  }
+
+  /// Mark journey as completed (landed)
+  static Future<bool> markJourneyAsCompleted({
+    required String journeyId,
+    String? flightId,
+    bool addEvent = true,
+  }) async {
+    if (!isInitialized) return false;
+    
+    // Strategy 1: Try updating all fields at once
+    try {
+      await client.from('journeys').update({
+        'current_phase': 'landed',
+        'visit_status': 'Completed',
+        'status': 'completed',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', journeyId);
+      
+      debugPrint('✅ Journey marked as completed (all fields): $journeyId');
+      
+      // Add journey event
+      if (addEvent) {
+        await _addJourneyCompletedEvent(journeyId, flightId);
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Strategy 1 failed: $e');
+      
+      // Strategy 2: Try updating only visit_status (often works even if phase update fails)
+      try {
+        await client.from('journeys').update({
+          'visit_status': 'Completed',
+          'status': 'completed',
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', journeyId);
+        
+        debugPrint('✅ Journey marked as completed (visit_status only): $journeyId');
+        
+        // Add journey event
+        if (addEvent) {
+          await _addJourneyCompletedEvent(journeyId, flightId);
+        }
+        
+        return true;
+      } catch (e2) {
+        debugPrint('⚠️ Strategy 2 failed: $e2');
+        
+        // Strategy 3: Try updating only status field
+        try {
+          await client.from('journeys').update({
+            'status': 'completed',
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', journeyId);
+          
+          debugPrint('✅ Journey marked as completed (status only): $journeyId');
+          
+          // Add journey event
+          if (addEvent) {
+            await _addJourneyCompletedEvent(journeyId, flightId);
+          }
+          
+          return true;
+        } catch (e3) {
+          debugPrint('⚠️ Strategy 3 failed: $e3');
+          
+          // Strategy 4: Just add the journey event (this marks completion in the event log)
+          if (addEvent) {
+            try {
+              await _addJourneyCompletedEvent(journeyId, flightId);
+              debugPrint('✅ Journey completion tracked via event only: $journeyId');
+              // Return true because we've at least tracked it via events
+              return true;
+            } catch (e4) {
+              debugPrint('❌ All strategies failed. Last error: $e4');
+              return false;
+            }
+          }
+          
+          debugPrint('❌ All update strategies failed');
+          return false;
+        }
+      }
+    }
+  }
+  
+  /// Helper method to add journey completed event
+  static Future<void> _addJourneyCompletedEvent(String journeyId, String? flightId) async {
+    try {
+      await client.from('journey_events').insert({
+        'journey_id': journeyId,
+        'event_type': 'journey_completed',
+        'title': 'Journey Completed',
+        'description': 'Flight has landed and journey is completed',
+        'event_timestamp': DateTime.now().toIso8601String(),
+        'metadata': {
+          'completed_by': 'system',
+          'flight_id': flightId,
+        },
+      });
+    } catch (eventError) {
+      debugPrint('⚠️ Failed to add journey event: $eventError');
+      rethrow; // Re-throw so caller knows event creation failed
+    }
   }
 }

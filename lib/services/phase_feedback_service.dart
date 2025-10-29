@@ -270,6 +270,13 @@ class PhaseFeedbackService {
         });
 
         debugPrint('✅ Airline review submitted successfully');
+
+        // Update leaderboard_scores for in-flight feedback categories
+        await _updateLeaderboardScores(
+          airlineId: airlineId,
+          overallRating: overallRating,
+          categoryScores: scores,
+        );
       } catch (insertError) {
         // Check if the error is related to leaderboard_scores RLS policy
         // This is a known issue where the trigger fails but the review should still be accepted
@@ -324,11 +331,13 @@ class PhaseFeedbackService {
       debugPrint('🔍 Journey status - phase: $currentPhase, visit_status: $visitStatus, status: $status');
 
       // If journey is not completed, try to update it first (but don't fail if it doesn't work)
-      if (currentPhase != 'completed' && visitStatus != 'Completed' && status != 'completed') {
+      // Note: Use 'landed' as phase instead of 'completed' to avoid database constraint errors
+      final isCompleted = currentPhase == 'landed' || visitStatus == 'Completed' || status == 'completed';
+      if (!isCompleted) {
         debugPrint('🔄 Journey not completed, attempting to update status...');
         try {
           await _client.from('journeys').update({
-            'current_phase': 'completed',
+            'current_phase': 'landed', // Use 'landed' instead of 'completed' to avoid schema errors
             'visit_status': 'Completed',
             'status': 'completed',
             'updated_at': DateTime.now().toIso8601String(),
@@ -563,5 +572,119 @@ class PhaseFeedbackService {
     }
 
     return tags.take(10).toList(); // Limit to 10 tags
+  }
+
+  /// Update leaderboard_scores table with in-flight feedback scores
+  static Future<void> _updateLeaderboardScores({
+    required String airlineId,
+    required int overallRating,
+    required Map<String, int> categoryScores,
+  }) async {
+    try {
+      debugPrint('📊 Updating leaderboard_scores for airline: $airlineId');
+
+      // Map of score types to their values (for in-flight feedback)
+      final scoreTypes = {
+        'overall': (overallRating / 5.0),
+        'seat_comfort': (categoryScores['seat_comfort'] ?? overallRating) / 5.0,
+        'cabin_service': (categoryScores['cabin_service'] ?? overallRating) / 5.0,
+        'food_beverage': (categoryScores['food_beverage'] ?? overallRating) / 5.0,
+        'entertainment': (categoryScores['entertainment'] ?? overallRating) / 5.0,
+      };
+
+      // Update/insert scores for each category
+      for (final entry in scoreTypes.entries) {
+        final scoreType = entry.key;
+        final newScore = entry.value;
+
+        try {
+          // Get existing leaderboard entry
+          final existing = await _client
+              .from('leaderboard_scores')
+              .select('id, review_count, raw_score, bayesian_score')
+              .eq('airline_id', airlineId)
+              .eq('score_type', scoreType)
+              .maybeSingle();
+
+          if (existing != null) {
+            // Update existing entry
+            final currentReviewCount = (existing['review_count'] as int? ?? 0) + 1;
+            final currentRawScore = (existing['raw_score'] as num? ?? 0.0).toDouble();
+            final currentReviewCountForCalc = currentReviewCount - 1;
+
+            // Calculate new raw score: weighted average
+            double newRawScore;
+            if (currentReviewCountForCalc > 0) {
+              // Weighted average: (old_avg * old_count + new_score) / new_count
+              newRawScore = ((currentRawScore * currentReviewCountForCalc) + newScore) /
+                  currentReviewCount;
+            } else {
+              newRawScore = newScore;
+            }
+
+            // Calculate Bayesian score (simple smoothing)
+            // Using formula: (v/(v+m)) * S + (m/(v+m)) * C
+            // where v = review_count, m = 30 (minimum volume), S = raw_score, C = 3.5 (global average)
+            const double minimumVolume = 30.0;
+            const double globalAverage = 3.5;
+            final v = currentReviewCount.toDouble();
+            final m = minimumVolume;
+
+            final bayesianScore = (v / (v + m)) * newRawScore +
+                (m / (v + m)) * globalAverage;
+
+            // Determine confidence level
+            String confidenceLevel = 'low';
+            if (currentReviewCount >= 51) {
+              confidenceLevel = 'high';
+            } else if (currentReviewCount >= 11) {
+              confidenceLevel = 'medium';
+            }
+
+            // Update leaderboard score
+            await _client
+                .from('leaderboard_scores')
+                .update({
+                  'score_value': bayesianScore.clamp(0.0, 5.0),
+                  'raw_score': newRawScore.clamp(0.0, 5.0),
+                  'bayesian_score': bayesianScore.clamp(0.0, 5.0),
+                  'review_count': currentReviewCount,
+                  'confidence_level': confidenceLevel,
+                  'updated_at': DateTime.now().toIso8601String(),
+                })
+                .eq('id', existing['id']);
+
+            debugPrint(
+                '✅ Updated leaderboard_scores: $scoreType = ${bayesianScore.toStringAsFixed(2)} (${currentReviewCount} reviews)');
+          } else {
+            // Insert new entry
+            final initialBayesianScore = (1.0 / 31.0) * newScore +
+                (30.0 / 31.0) * 3.5; // First review uses Bayesian smoothing
+
+            await _client.from('leaderboard_scores').insert({
+              'airline_id': airlineId,
+              'score_type': scoreType,
+              'score_value': initialBayesianScore.clamp(0.0, 5.0),
+              'raw_score': newScore.clamp(0.0, 5.0),
+              'bayesian_score': initialBayesianScore.clamp(0.0, 5.0),
+              'review_count': 1,
+              'confidence_level': 'low',
+              'phases_completed': 1, // In-flight phase completed
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+
+            debugPrint(
+                '✅ Created new leaderboard_scores entry: $scoreType = ${initialBayesianScore.toStringAsFixed(2)}');
+          }
+        } catch (categoryError) {
+          debugPrint(
+              '⚠️ Error updating leaderboard_scores for $scoreType: $categoryError');
+          // Continue with other categories even if one fails
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error updating leaderboard_scores: $e');
+      // Don't throw - leaderboard update failure shouldn't prevent review submission
+    }
   }
 }

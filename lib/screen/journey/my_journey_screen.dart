@@ -1092,16 +1092,24 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         return;
       }
 
-      // Simply update current_phase from pre_check_in to completed
+      // Mark journey as completed using helper method with fallback strategies
+      // This handles schema errors gracefully by trying multiple update strategies
       try {
         // Log the exact update we're attempting
-        debugPrint('📝 Attempting to update journey $journeyId phase to: completed');
+        debugPrint('📝 Attempting to mark journey $journeyId as completed');
         
-        await SupabaseService.client.from('journeys').update({
-          'current_phase': 'completed',
-        }).eq('id', journeyId);
+        // Use the helper method with fallback strategies to handle schema errors
+        final success = await SupabaseService.markJourneyAsCompleted(
+          journeyId: journeyId,
+          flightId: flight.flightId,
+          addEvent: true,
+        );
         
-        debugPrint('✅ Journey phase updated to completed: $journeyId');
+        if (!success) {
+          throw Exception('Failed to mark journey as completed');
+        }
+        
+        debugPrint('✅ Journey marked as completed: $journeyId');
 
         // Refresh the provider to update UI
         ref.refresh(flightTrackingProvider);
@@ -1118,34 +1126,15 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
       } catch (updateError) {
         debugPrint('❌ Failed to update journey phase: $updateError');
         
-        // If it's the schema "net" error, we'll skip the database update
-        // and just update the UI locally
-        if (updateError.toString().contains('schema "net"')) {
-          debugPrint('⚠️ Database schema issue detected. Updating local state only.');
-          
-          // Update local state even though database update failed
-          ref.refresh(flightTrackingProvider);
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Journey marked as completed (local state)'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          // For other errors, show error message
-          debugPrint('❌ Error details: ${updateError.toString()}');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to complete journey. Please try again.'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 5),
-              ),
-            );
-          }
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to complete journey. Please try again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
         }
       }
     } catch (e) {

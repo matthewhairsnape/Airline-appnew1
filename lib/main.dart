@@ -70,7 +70,9 @@ void main() async {
 
   try {
     await NotificationManager().initialize();
+    debugPrint('✅ NotificationManager initialized successfully');
   } catch (e) {
+    debugPrint('❌ NotificationManager initialization failed: $e');
     // Notification manager initialization failed
   }
 

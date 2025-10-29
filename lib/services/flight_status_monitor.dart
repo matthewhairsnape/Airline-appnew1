@@ -109,7 +109,7 @@ class FlightStatusMonitor {
 
       // Send push notification if status changed
       if (lastStatus != null) {
-        await _sendStatusNotification(userId, currentPhase, flightData);
+        await _sendStatusNotification(userId, currentPhase, flightData, journeyId);
       }
 
       // Update last known status
@@ -160,6 +160,7 @@ class FlightStatusMonitor {
     String userId,
     String phase,
     Map<String, dynamic> flightData,
+    String? journeyId,
   ) async {
     try {
       final message =
@@ -169,6 +170,7 @@ class FlightStatusMonitor {
         userId: userId,
         title: 'Flight Status Update',
         body: message,
+        journeyId: journeyId,
         data: {
           'type': 'flight_status_update',
           'phase': phase,

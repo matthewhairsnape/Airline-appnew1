@@ -4,7 +4,9 @@ import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/main.dart';
+import 'package:airline_app/services/push_notification_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -317,6 +319,183 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return '${months[date.month - 1]} ${date.year}';
   }
 
+  Future<void> _runDiagnostic(BuildContext context) async {
+    try {
+      final results = await PushNotificationService.diagnosticCheck();
+      
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Notification Diagnostic'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: results.entries.map((e) => Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text('${e.key}: ${e.value}'),
+                )).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Diagnostic failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _testPushNotification(BuildContext context) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Sending test notification...',
+                style: AppStyles.textStyle_16_600.copyWith(
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      await PushNotificationService.testPushNotification();
+      
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ Test notification sent! Check your device for the notification.',
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Failed to send test notification: $e',
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      
+      if (kDebugMode) {
+        debugPrint('❌ Error testing push notification: $e');
+      }
+    }
+  }
+
+  Future<void> _refreshFCMToken(BuildContext context) async {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Refreshing FCM token...',
+                style: AppStyles.textStyle_16_600.copyWith(
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      await PushNotificationService.refreshAndSaveToken();
+      
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '✅ FCM token refreshed and saved!',
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Failed to refresh token: $e',
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+            ),
+            duration: const Duration(seconds: 4),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      
+      if (kDebugMode) {
+        debugPrint('❌ Error refreshing FCM token: $e');
+      }
+    }
+  }
+
   Widget _buildSettingsItem({
     required BuildContext context,
     required String title,
@@ -383,17 +562,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _buildUserProfileSection(),
               const SizedBox(height: 24),
 
-              // App Settings Section - Hidden for now
-              // _buildSectionHeader(AppLocalizations.of(context).translate('App Settings')),
-              // _buildSettingsItem(
-              //   context: context,
-              //   title: AppLocalizations.of(context).translate('App Language'),
-              //   onTap: () => setState(() {
-              //     showLanguageButtons = !showLanguageButtons;
-              //   }),
-              // ),
-              // if (showLanguageButtons) _buildLanguageButtons(),
-              // const SizedBox(height: 8),
+              // App Settings Section
+              _buildSectionHeader('App Settings'),
+              _buildSettingsItem(
+                context: context,
+                title: 'Diagnostic Check',
+                onTap: () => _runDiagnostic(context),
+              ),
+              _buildSettingsItem(
+                context: context,
+                title: 'Test Push Notification',
+                onTap: () => _testPushNotification(context),
+              ),
+              _buildSettingsItem(
+                context: context,
+                title: 'Refresh FCM Token',
+                onTap: () => _refreshFCMToken(context),
+              ),
+              const SizedBox(height: 8),
 
               // Information Section
               _buildSectionHeader(

@@ -17,66 +17,160 @@ class PushNotificationService {
 
   /// Initialize Firebase and request notification permissions
   static Future<void> initialize() async {
-  try {
-    // Initialize Firebase if not already initialized
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+    try {
+      debugPrint('🔔 Initializing PushNotificationService...');
+      
+      // Initialize Firebase if not already initialized
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+        debugPrint('✅ Firebase initialized');
+      } else {
+        debugPrint('✅ Firebase already initialized');
+      }
+
+      // Initialize local notifications
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      
+      final DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      
+      final InitializationSettings initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+        iOS: initializationSettingsIOS,
+      );
+      
+      await _flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          // Handle notification tap
+          debugPrint('Notification tapped: ${response.payload}');
+          // You can add navigation logic here
+        },
+      );
+
+      // Create notification channel for Android
+      if (Platform.isAndroid) {
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'high_importance_channel',
+          'High Importance Notifications',
+          description: 'This channel is used for important notifications.',
+          importance: Importance.max,
+          playSound: true,
+        );
+
+        await _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(channel);
+      }
+
+      // Request notification permissions
+      NotificationSettings settings;
+      if (Platform.isIOS) {
+        settings = await _firebaseMessaging.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
+      } else {
+        settings = await _firebaseMessaging.getNotificationSettings();
+      }
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        debugPrint('✅ Notification permission granted');
+
+        // Get FCM token
+        await _getFCMToken();
+
+        // Save token if user is logged in
+        final user = _supabase.auth.currentUser;
+        if (user != null && _fcmToken != null) {
+          await _saveTokenToSupabase(_fcmToken!, userId: user.id);
+          debugPrint('✅ FCM token saved for user: ${user.id}');
+        }
+
+        // Listen to token refresh
+        _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+          debugPrint('🔄 FCM Token refreshed: $newToken');
+          _fcmToken = newToken;
+          final currentUser = _supabase.auth.currentUser;
+          if (currentUser != null) {
+            await _saveTokenToSupabase(_fcmToken!, userId: currentUser.id);
+          }
+        });
+
+        // Set up background message handler
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+        // Handle foreground messages
+        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+        // Handle notification taps when app is opened from terminated state
+        FirebaseMessaging.instance.getInitialMessage().then((message) {
+          if (message != null) {
+            debugPrint('App opened from terminated state via notification');
+            _handleNotificationTap(message);
+          }
+        });
+
+        // Handle notification taps when app is in background
+        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+
+        debugPrint('✅ Push notification service initialized successfully');
+      } else {
+        debugPrint('❌ Notification permission denied');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error initializing push notifications: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
     }
-
-    // Initialize local notifications
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    
-    final DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-      // onDidReceiveLocalNotification: (id, title, body, payload) async {
-      //   // Handle notification tap when app is in foreground
-      //   debugPrint('iOS Notification tapped: $title - $body');
-      // },
-    );
-    
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-    
-    await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
-        debugPrint('Notification tapped: ${response.payload}');
-        // You can add navigation logic here
-      },
-    );
-
-    // Rest of your initialization code...
-  } catch (e) {
-    debugPrint('Error initializing push notifications: $e');
   }
-}
   /// Get FCM token
   static Future<String?> _getFCMToken() async {
     try {
+      debugPrint('🔑 Attempting to get FCM token...');
+      
       if (Platform.isIOS) {
+        debugPrint('🍎 iOS detected - checking APNS token...');
         String? apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken == null) {
-          debugPrint('Waiting for APNS token...');
+          debugPrint('⏳ APNS token not ready, waiting...');
           await Future.delayed(const Duration(seconds: 3));
           apnsToken = await _firebaseMessaging.getAPNSToken();
           if (apnsToken == null) {
-            debugPrint('APNS token not available after delay.');
+            debugPrint('⚠️ APNS token not available after delay.');
             return null;
+          } else {
+            debugPrint('✅ APNS token obtained');
           }
+        } else {
+          debugPrint('✅ APNS token already available');
         }
       }
+      
       _fcmToken = await _firebaseMessaging.getToken();
-      debugPrint('FCM Token: $_fcmToken');
+      if (_fcmToken != null) {
+        final tokenPreview = _fcmToken!.length > 30 ? _fcmToken!.substring(0, 30) : _fcmToken!;
+        debugPrint('✅ FCM Token obtained: $tokenPreview...');
+        debugPrint('📋 Full FCM Token length: ${_fcmToken!.length}');
+      } else {
+        debugPrint('❌ FCM Token is null');
+      }
       return _fcmToken;
-    } catch (e) {
-      debugPrint('Error getting FCM token: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error getting FCM token: $e');
+      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -145,16 +239,40 @@ class PushNotificationService {
 
   /// Handle foreground messages
   static void _handleForegroundMessage(RemoteMessage message) {
-    if (kDebugMode) {
-      debugPrint('Received foreground message: ${message.messageId}');
-      debugPrint('Message data: ${message.data}');
-      debugPrint('Message notification: ${message.notification?.title}');
-      debugPrint('Message body: ${message.notification?.body}');
-    }
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📬 FOREGROUND NOTIFICATION RECEIVED');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('Message ID: ${message.messageId}');
+    debugPrint('Message Type: ${message.messageType}');
+    debugPrint('Sent Time: ${message.sentTime}');
+    debugPrint('From: ${message.from}');
+    debugPrint('Collapse Key: ${message.collapseKey}');
+    debugPrint('Title: ${message.notification?.title}');
+    debugPrint('Body: ${message.notification?.body}');
+    debugPrint('Data: ${message.data}');
+    debugPrint('Has Notification: ${message.notification != null}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Show a local notification for foreground messages
     if (message.notification != null) {
+      debugPrint('📤 Showing local notification for foreground message');
       _showForegroundNotification(message);
+    } else {
+      debugPrint('⚠️ Message has no notification payload, only data: ${message.data}');
+      // If no notification payload, create one from data
+      if (message.data['title'] != null && message.data['body'] != null) {
+        debugPrint('📤 Creating notification from data payload');
+        final notification = RemoteNotification(
+          title: message.data['title'],
+          body: message.data['body'],
+        );
+        final messageWithNotification = RemoteMessage(
+          messageId: message.messageId,
+          data: message.data,
+          notification: notification,
+        );
+        _showForegroundNotification(messageWithNotification);
+      }
     }
   }
 
@@ -225,13 +343,24 @@ class PushNotificationService {
 }
   /// Handle notification tap
   static void _handleNotificationTap(RemoteMessage message) {
-    if (kDebugMode) {
-      debugPrint('Notification tapped: ${message.messageId}');
-      debugPrint('Message data: ${message.data}');
-    }
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('👆 NOTIFICATION TAPPED');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('Message ID: ${message.messageId}');
+    debugPrint('Title: ${message.notification?.title}');
+    debugPrint('Body: ${message.notification?.body}');
+    debugPrint('Data: ${message.data}');
+    debugPrint('Journey ID: ${message.data['journey_id']}');
+    debugPrint('Type: ${message.data['type']}');
+    debugPrint('Phase: ${message.data['phase']}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Handle navigation based on notification data
     // You can add navigation logic here based on the message data
+    // Example:
+    // if (message.data['journey_id'] != null) {
+    //   // Navigate to journey details
+    // }
   }
 
   /// Subscribe to a topic
@@ -260,30 +389,21 @@ class PushNotificationService {
     required String title,
     required String body,
     Map<String, String>? data,
+    String? journeyId,
+    String? stage,
   }) async {
     try {
-      // Get user's FCM token from Supabase
-      final userData = await _supabase
-          .from('users')
-          .select('fcm_token')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (userData == null || userData['fcm_token'] == null) {
-        debugPrint('❌ No FCM token found for user: $userId');
-        return;
-      }
-
-      final fcmToken = userData['fcm_token'] as String;
-
       // Send notification via Supabase Edge Function
+      // The deployed function expects userId and looks up the token itself
       await _supabase.functions.invoke(
         'send-push-notification',
         body: {
-          'token': fcmToken,
+          'userId': userId,
           'title': title,
           'body': body,
           'data': data ?? {},
+          if (journeyId != null) 'journeyId': journeyId,
+          if (stage != null) 'stage': stage,
         },
       );
 
@@ -413,11 +533,229 @@ class PushNotificationService {
       debugPrint('Error clearing FCM token: $e');
     }
   }
+
+  /// Diagnostic function - checks notification setup
+  static Future<Map<String, dynamic>> diagnosticCheck() async {
+    final results = <String, dynamic>{
+      'firebaseInitialized': Firebase.apps.isNotEmpty,
+      'hasFCMToken': _fcmToken != null,
+      'notificationPermission': 'unknown',
+    };
+
+    try {
+      // Check notification permission
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      results['notificationPermission'] = settings.authorizationStatus.toString();
+
+      // Check FCM token
+      if (_fcmToken == null) {
+        await _getFCMToken();
+      }
+      results['fcmToken'] = _fcmToken != null ? '${_fcmToken!.substring(0, 20)}...' : null;
+      results['fcmTokenLength'] = _fcmToken?.length ?? 0;
+
+      // Check if user is logged in
+      final user = _supabase.auth.currentUser;
+      results['userLoggedIn'] = user != null;
+      results['userId'] = user?.id;
+
+      // Check if token is saved in database
+      if (user != null && _fcmToken != null) {
+        try {
+          final userData = await _supabase
+              .from('users')
+              .select('fcm_token')
+              .eq('id', user.id)
+              .maybeSingle();
+          results['tokenInDatabase'] = userData?['fcm_token'] != null;
+          results['databaseTokenMatch'] = userData?['fcm_token'] == _fcmToken;
+        } catch (e) {
+          results['tokenInDatabase'] = false;
+          results['databaseCheckError'] = e.toString();
+        }
+      }
+
+      results['success'] = true;
+    } catch (e) {
+      results['success'] = false;
+      results['error'] = e.toString();
+    }
+
+    // Print diagnostic results
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('🔍 NOTIFICATION DIAGNOSTIC CHECK');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    results.forEach((key, value) {
+      debugPrint('$key: $value');
+    });
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    return results;
+  }
+
+  /// Force refresh and save FCM token to database
+  static Future<void> refreshAndSaveToken() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        debugPrint('❌ No user logged in to refresh token');
+        return;
+      }
+
+      debugPrint('🔄 Force refreshing FCM token...');
+      
+      // Delete old token first (optional, but ensures fresh token)
+      try {
+        await _firebaseMessaging.deleteToken();
+        debugPrint('🗑️ Old token deleted');
+        await Future.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        debugPrint('⚠️ Error deleting old token (continuing anyway): $e');
+      }
+
+      // Get new token
+      if (Platform.isIOS) {
+        String? apnsToken = await _firebaseMessaging.getAPNSToken();
+        if (apnsToken == null) {
+          debugPrint('⏳ Waiting for APNS token...');
+          await Future.delayed(const Duration(seconds: 2));
+          apnsToken = await _firebaseMessaging.getAPNSToken();
+        }
+        if (apnsToken != null) {
+          debugPrint('✅ APNS token ready');
+        }
+      }
+
+      // Get fresh FCM token
+      final newToken = await _firebaseMessaging.getToken();
+      
+      if (newToken == null) {
+        debugPrint('❌ Failed to get new FCM token');
+        return;
+      }
+
+      _fcmToken = newToken;
+      debugPrint('✅ New FCM Token obtained: ${newToken.substring(0, 30)}...');
+      debugPrint('📋 Token length: ${newToken.length}');
+
+      // Save to database
+      await _saveTokenToSupabase(newToken, userId: user.id);
+      debugPrint('✅ FCM token refreshed and saved to database');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error refreshing FCM token: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Test push notification - sends a test notification to the current user
+  static Future<void> testPushNotification() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        debugPrint('❌ No user logged in to send test notification');
+        return;
+      }
+
+      // Get user's FCM token from database (more reliable)
+      final userData = await _supabase
+          .from('users')
+          .select('fcm_token')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      String? fcmToken;
+      if (userData != null && userData['fcm_token'] != null) {
+        fcmToken = userData['fcm_token'] as String;
+        debugPrint('✅ FCM token retrieved from database');
+      } else {
+        // Try to get from cache or generate new token
+        if (_fcmToken == null) {
+          await _getFCMToken();
+        }
+        fcmToken = _fcmToken;
+        
+        if (fcmToken != null) {
+          // Save the token to database
+          await _saveTokenToSupabase(fcmToken, userId: user.id);
+        }
+      }
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        debugPrint('❌ FCM token not available for test notification');
+        return;
+      }
+
+      debugPrint('🧪 Sending test push notification to user: ${user.id}');
+      if (fcmToken != null) {
+        debugPrint('📱 FCM Token (first 20 chars): ${fcmToken.substring(0, fcmToken.length > 20 ? 20 : fcmToken.length)}...');
+      }
+
+      // Prepare the request body - deployed function expects userId and looks up the token itself
+      final requestBody = {
+        'userId': user.id,
+        'title': '✈️ Flight Status Test',
+        'body': 'This is a test notification! Your push notifications are working correctly.',
+        'data': {
+          'type': 'test_notification',
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      };
+
+      debugPrint('📤 Request body keys: ${requestBody.keys}');
+
+      // Send test notification via Supabase Edge Function
+      final response = await _supabase.functions.invoke(
+        'send-push-notification',
+        body: requestBody,
+      );
+
+      debugPrint('📥 Response: $response');
+      debugPrint('✅ Test push notification sent successfully');
+    } catch (e) {
+      debugPrint('❌ Error sending test push notification: $e');
+      if (e is FunctionException) {
+        debugPrint('📋 FunctionException status: ${e.status}');
+        debugPrint('📋 FunctionException details: ${e.details}');
+        debugPrint('📋 FunctionException reason: ${e.reasonPhrase}');
+      }
+      rethrow;
+    }
+  }
 }
 
 /// Background message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint('Handling background message: ${message.messageId}');
+  
+  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  debugPrint('📱 BACKGROUND NOTIFICATION RECEIVED');
+  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  debugPrint('Message ID: ${message.messageId}');
+  debugPrint('Message Type: ${message.messageType}');
+  debugPrint('Sent Time: ${message.sentTime}');
+  debugPrint('From: ${message.from}');
+  debugPrint('Title: ${message.notification?.title}');
+  debugPrint('Body: ${message.notification?.body}');
+  debugPrint('Data: ${message.data}');
+  debugPrint('Has Notification: ${message.notification != null}');
+  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // Background messages should show notifications automatically
+  // But we can also handle any additional processing here
+  // For example, update local database, schedule local notifications, etc.
+  
+  try {
+    // Initialize local notifications plugin to show notification if needed
+    final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+    
+    if (message.notification != null) {
+      debugPrint('✅ Background notification has notification payload - should display automatically');
+    } else {
+      debugPrint('⚠️ Background message has no notification payload, only data');
+    }
+  } catch (e) {
+    debugPrint('❌ Error in background handler: $e');
+  }
 }
