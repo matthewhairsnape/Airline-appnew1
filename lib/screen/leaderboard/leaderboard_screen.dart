@@ -265,10 +265,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                     Expanded(
                       child: Row(
                         children: [
-                          Text(
-                            airline['name'] ?? 'Unknown Airline',
-                            style: AppStyles.textStyle_16_600.copyWith(
-                              color: Colors.black,
+                          Flexible(
+                            child: Text(
+                              airline['name'] ?? 'Unknown Airline',
+                              style: AppStyles.textStyle_16_600.copyWith(
+                                color: Colors.black,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (airline['movement'] != null) ...[

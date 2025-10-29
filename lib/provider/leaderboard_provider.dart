@@ -149,7 +149,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
     }
   }
 
-  /// Format issues data for display from combined feedback (airport_reviews, airline_reviews, feedback)
+  /// Format issues data for display from combined feedback (airport_reviews, leaderboard_scores, feedback)
   List<Map<String, dynamic>> _formatIssuesData(
       List<Map<String, dynamic>> feedbackData) {
     if (feedbackData.isEmpty) {

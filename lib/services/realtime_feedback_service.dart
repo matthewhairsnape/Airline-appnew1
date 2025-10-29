@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:airline_app/services/supabase_service.dart';
 
 /// Service to handle real-time feedback using LISTEN/NOTIFY
-/// Combines data from airport_reviews, airline_reviews, and feedback tables
+/// Combines data from airport_reviews, leaderboard_scores, and feedback tables
 class RealtimeFeedbackService {
   static final SupabaseClient _client = SupabaseService.client;
   static RealtimeChannel? _channel;
@@ -33,13 +33,13 @@ class RealtimeFeedbackService {
         },
       );
 
-      // Listen for INSERT events on airline_reviews
+      // Listen for INSERT events on leaderboard_scores
       _channel!.onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
-        table: 'airline_reviews',
+        table: 'leaderboard_scores',
         callback: (payload) {
-          debugPrint('✈️ Received airline_review INSERT: ${payload.newRecord}');
+          debugPrint('📊 Received leaderboard_score INSERT: ${payload.newRecord}');
         },
       );
 
@@ -66,9 +66,9 @@ class RealtimeFeedbackService {
       _channel!.onPostgresChanges(
         event: PostgresChangeEvent.update,
         schema: 'public',
-        table: 'airline_reviews',
+        table: 'leaderboard_scores',
         callback: (payload) {
-          debugPrint('✈️ Received airline_review UPDATE: ${payload.newRecord}');
+          debugPrint('📊 Received leaderboard_score UPDATE: ${payload.newRecord}');
         },
       );
 
@@ -93,7 +93,7 @@ class RealtimeFeedbackService {
   }
 
   /// Get combined realtime feedback stream
-  /// Priority: 1) Airport Reviews, 2) Airline Reviews, 3) Feedback
+  /// Priority: 1) Airport Reviews, 2) Leaderboard Scores, 3) Feedback
   static Stream<List<Map<String, dynamic>>> getCombinedFeedbackStream() {
     try {
       debugPrint('📡 Starting combined feedback stream...');
@@ -106,14 +106,26 @@ class RealtimeFeedbackService {
           .asyncMap((airportReviews) async {
             debugPrint('🏢 Fetched ${airportReviews.length} airport reviews');
 
-            // Fetch airline reviews
-            final airlineReviews = await _client
-                .from('airline_reviews')
-                .select()
-                .order('created_at', ascending: false)
+            // Fetch leaderboard scores
+            final leaderboardScores = await _client
+                .from('leaderboard_scores')
+                .select('''
+                  id,
+                  airline_id,
+                  score_type,
+                  score_value,
+                  airlines!inner(
+                    id,
+                    name,
+                    iata_code,
+                    icao_code,
+                    logo_url
+                  )
+                ''')
+                .order('score_value', ascending: false)
                 .limit(30);
 
-            debugPrint('✈️ Fetched ${airlineReviews.length} airline reviews');
+            debugPrint('📊 Fetched ${leaderboardScores.length} leaderboard scores');
 
             // Fetch feedback
             final feedbackData = await _client
@@ -127,7 +139,7 @@ class RealtimeFeedbackService {
             // Combine and format all feedback
             return _formatCombinedFeedback(
               airportReviews,
-              airlineReviews,
+              leaderboardScores,
               feedbackData,
             );
           });
@@ -140,7 +152,7 @@ class RealtimeFeedbackService {
   /// Format combined feedback from all three sources
   static List<Map<String, dynamic>> _formatCombinedFeedback(
     List<dynamic> airportReviews,
-    List<dynamic> airlineReviews,
+    List<dynamic> leaderboardScores,
     List<dynamic> feedbackData,
   ) {
     final List<Map<String, dynamic>> combinedFeedback = [];
@@ -150,9 +162,9 @@ class RealtimeFeedbackService {
       combinedFeedback.add(_formatAirportReview(review));
     }
 
-    // Process airline reviews (Priority 2)
-    for (final review in airlineReviews) {
-      combinedFeedback.add(_formatAirlineReview(review));
+    // Process leaderboard scores (Priority 2)
+    for (final score in leaderboardScores) {
+      combinedFeedback.add(_formatLeaderboardScore(score));
     }
 
     // Process feedback entries (Priority 3)
@@ -172,6 +184,77 @@ class RealtimeFeedbackService {
 
     debugPrint('✅ Combined ${combinedFeedback.length} feedback items');
 
+    // Log the first 2 data items with score calculation details
+    if (combinedFeedback.length >= 1) {
+      debugPrint('📋 FIRST DATA ITEM:');
+      debugPrint('   Type: ${combinedFeedback[0]['feedback_type']}');
+      debugPrint('   ID: ${combinedFeedback[0]['id']}');
+      debugPrint('   Flight: ${combinedFeedback[0]['flight']}');
+      debugPrint('   Phase: ${combinedFeedback[0]['phase']}');
+      debugPrint('   Airline: ${combinedFeedback[0]['airline']}');
+      debugPrint('   Rating/Score: ${combinedFeedback[0]['overall_rating']}');
+      
+      // Show detailed score breakdown based on feedback type
+      if (combinedFeedback[0]['feedback_type'] == 'airport') {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Overall Score: ${combinedFeedback[0]['overall_rating']}');
+        debugPrint('     - Cleanliness: ${combinedFeedback[0]['cleanliness']}');
+        debugPrint('     - Facilities: ${combinedFeedback[0]['facilities']}');
+        debugPrint('     - Staff: ${combinedFeedback[0]['staff']}');
+        debugPrint('     - Waiting Time: ${combinedFeedback[0]['waiting_time']}');
+        debugPrint('     - Accessibility: ${combinedFeedback[0]['accessibility']}');
+        debugPrint('     Note: Overall score comes directly from airport_reviews.overall_score');
+      } else if (combinedFeedback[0]['feedback_type'] == 'leaderboard') {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Score Type: ${combinedFeedback[0]['score_type']}');
+        debugPrint('     - Score Value: ${combinedFeedback[0]['score_value']}');
+        debugPrint('     - Overall Rating (same as score_value): ${combinedFeedback[0]['overall_rating']}');
+        debugPrint('     Note: Score is pre-calculated in leaderboard_scores table');
+      } else {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Overall Rating: ${combinedFeedback[0]['overall_rating']}');
+        debugPrint('     Note: Overall rating comes directly from feedback.overall_rating');
+      }
+      
+      debugPrint('   Timestamp: ${combinedFeedback[0]['timestamp']}');
+      debugPrint('   Full Data: ${combinedFeedback[0]}');
+    }
+
+    if (combinedFeedback.length >= 2) {
+      debugPrint('📋 SECOND DATA ITEM:');
+      debugPrint('   Type: ${combinedFeedback[1]['feedback_type']}');
+      debugPrint('   ID: ${combinedFeedback[1]['id']}');
+      debugPrint('   Flight: ${combinedFeedback[1]['flight']}');
+      debugPrint('   Phase: ${combinedFeedback[1]['phase']}');
+      debugPrint('   Airline: ${combinedFeedback[1]['airline']}');
+      debugPrint('   Rating/Score: ${combinedFeedback[1]['overall_rating']}');
+      
+      // Show detailed score breakdown based on feedback type
+      if (combinedFeedback[1]['feedback_type'] == 'airport') {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Overall Score: ${combinedFeedback[1]['overall_rating']}');
+        debugPrint('     - Cleanliness: ${combinedFeedback[1]['cleanliness']}');
+        debugPrint('     - Facilities: ${combinedFeedback[1]['facilities']}');
+        debugPrint('     - Staff: ${combinedFeedback[1]['staff']}');
+        debugPrint('     - Waiting Time: ${combinedFeedback[1]['waiting_time']}');
+        debugPrint('     - Accessibility: ${combinedFeedback[1]['accessibility']}');
+        debugPrint('     Note: Overall score comes directly from airport_reviews.overall_score');
+      } else if (combinedFeedback[1]['feedback_type'] == 'leaderboard') {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Score Type: ${combinedFeedback[1]['score_type']}');
+        debugPrint('     - Score Value: ${combinedFeedback[1]['score_value']}');
+        debugPrint('     - Overall Rating (same as score_value): ${combinedFeedback[1]['overall_rating']}');
+        debugPrint('     Note: Score is pre-calculated in leaderboard_scores table');
+      } else {
+        debugPrint('   Score Breakdown:');
+        debugPrint('     - Overall Rating: ${combinedFeedback[1]['overall_rating']}');
+        debugPrint('     Note: Overall rating comes directly from feedback.overall_rating');
+      }
+      
+      debugPrint('   Timestamp: ${combinedFeedback[1]['timestamp']}');
+      debugPrint('   Full Data: ${combinedFeedback[1]}');
+    }
+
     return combinedFeedback;
   }
 
@@ -180,6 +263,24 @@ class RealtimeFeedbackService {
     final comments = review['comments'] as String? ?? '';
     final likes = _extractPositiveFromComments(comments);
     final dislikes = _extractNegativeFromComments(comments);
+
+    // Extract score components for logging
+    final overallScore = review['overall_score'] as num?;
+    final cleanliness = review['cleanliness'] as num?;
+    final facilities = review['facilities'] as num?;
+    final staff = review['staff'] as num?;
+    final waitingTime = review['waiting_time'] as num?;
+    final accessibility = review['accessibility'] as num?;
+
+    debugPrint('🏢 AIRPORT REVIEW SCORE CALCULATION:');
+    debugPrint('   Review ID: ${review['id']}');
+    debugPrint('   Overall Score (direct from DB): $overallScore');
+    debugPrint('   Individual Scores:');
+    debugPrint('     - Cleanliness: $cleanliness');
+    debugPrint('     - Facilities: $facilities');
+    debugPrint('     - Staff: $staff');
+    debugPrint('     - Waiting Time: $waitingTime');
+    debugPrint('     - Accessibility: $accessibility');
 
     return {
       'feedback_type': 'airport',
@@ -208,40 +309,74 @@ class RealtimeFeedbackService {
     };
   }
 
-  /// Format airline review data
-  static Map<String, dynamic> _formatAirlineReview(dynamic review) {
-    final comments = review['comment'] as String? ?? '';
+  /// Format leaderboard score data
+  static Map<String, dynamic> _formatLeaderboardScore(dynamic score) {
+    final airline = score['airlines'] as Map<String, dynamic>?;
+    final scoreType = score['score_type'] as String? ?? 'overall';
+    final scoreValue = score['score_value'] as double? ?? 0.0;
+
+    debugPrint('📊 LEADERBOARD SCORE CALCULATION:');
+    debugPrint('   Score ID: ${score['id']}');
+    debugPrint('   Airline ID: ${score['airline_id']}');
+    debugPrint('   Airline Name: ${airline?['name'] ?? 'Unknown'}');
+    debugPrint('   Score Type: $scoreType');
+    debugPrint('   Score Value (calculated by DB/backend): $scoreValue');
+    debugPrint('   Note: This score is pre-calculated and comes directly from leaderboard_scores table');
+
+    // Determine phase based on score type
+    String phase;
+    Color phaseColor;
+    
+    switch (scoreType) {
+      case 'wifi_experience':
+        phase = 'Wi-Fi Experience';
+        phaseColor = const Color(0xFF9B59B6); // Purple
+        break;
+      case 'seat_comfort':
+        phase = 'Seat Comfort';
+        phaseColor = const Color(0xFFE67E22); // Orange
+        break;
+      case 'food_beverage':
+        phase = 'Food & Beverage';
+        phaseColor = const Color(0xFFE74C3C); // Red
+        break;
+      case 'crew_friendliness':
+        phase = 'Crew Service';
+        phaseColor = const Color(0xFF2ECC71); // Green
+        break;
+      case 'operations_timeliness':
+        phase = 'Operations';
+        phaseColor = const Color(0xFF3498DB); // Blue
+        break;
+      default:
+        phase = 'Overall Rating';
+        phaseColor = const Color(0xFF4A90E2); // Blue
+    }
+
+    // Generate comments based on score
+    final comments = _generateCommentsFromScore(scoreValue, scoreType);
     final likes = _extractPositiveFromComments(comments);
     final dislikes = _extractNegativeFromComments(comments);
 
-    // Determine phase based on review type
-    final phase = 'In-flight';
-    const phaseColor = Color(0xFF4A90E2); // Blue
-
     return {
-      'feedback_type': 'airline',
-      'id': review['id'],
-      'journey_id': review['journey_id'],
-      'user_id': review['user_id'],
-      'airline_id': review['airline_id'],
-      'flight': _getFlightNumberSync(review['journey_id']),
+      'feedback_type': 'leaderboard',
+      'id': score['id'],
+      'airline_id': score['airline_id'],
+      'flight': 'Performance Update',
       'phase': phase,
       'phaseColor': phaseColor,
-      'airline': _getAirlineNameSync(review['airline_id']),
-      'airlineName': _getAirlineNameSync(review['airline_id']),
-      'logo': _getAirlineLogo(review['airline_id']),
-      'passenger': 'Anonymous',
-      'seat': _getSeatNumber(review['journey_id']),
+      'airline': airline?['name'] ?? 'Unknown Airline',
+      'airlineName': airline?['name'] ?? 'Unknown Airline',
+      'logo': airline?['logo_url'] ?? 'assets/images/airline_logo.png',
+      'passenger': 'System',
+      'seat': 'N/A',
       'likes': likes,
       'dislikes': dislikes,
       'comments': comments,
-      'comfort_rating': review['comfort_rating'],
-      'cleanliness_rating': review['cleanliness_rating'],
-      'onboard_service_rating': review['onboard_service_rating'],
-      'food_beverage_rating': review['food_beverage_rating'],
-      'entertainment_wifi_rating': review['entertainment_wifi_rating'],
-      'image_urls': review['image_urls'],
-      'timestamp': _parseTimestamp(review['created_at']),
+      'score_type': scoreType,
+      'score_value': scoreValue,
+      'overall_rating': scoreValue,
+      'timestamp': DateTime.now(), // Leaderboard scores don't have timestamps, use current time
     };
   }
 
@@ -250,6 +385,15 @@ class RealtimeFeedbackService {
     final comments = feedback['comment'] as String? ?? '';
     final likes = _extractPositiveFromComments(comments);
     final dislikes = _extractNegativeFromComments(comments);
+
+    // Extract overall rating for logging
+    final overallRating = feedback['overall_rating'] as num?;
+
+    debugPrint('💬 FEEDBACK SCORE CALCULATION:');
+    debugPrint('   Feedback ID: ${feedback['id']}');
+    debugPrint('   Journey ID: ${feedback['journey_id']}');
+    debugPrint('   Overall Rating (direct from DB): $overallRating');
+    debugPrint('   Note: This is the overall rating provided directly from the feedback table');
 
     // Determine phase
     final phase = 'Arrival';
@@ -276,6 +420,48 @@ class RealtimeFeedbackService {
     };
   }
 
+  /// Generate comments based on score value and type
+  static String _generateCommentsFromScore(double scoreValue, String scoreType) {
+    final score = scoreValue;
+    String baseComment = '';
+    
+    if (score >= 4.5) {
+      baseComment = 'Excellent performance in ';
+    } else if (score >= 4.0) {
+      baseComment = 'Great performance in ';
+    } else if (score >= 3.5) {
+      baseComment = 'Good performance in ';
+    } else if (score >= 3.0) {
+      baseComment = 'Average performance in ';
+    } else if (score >= 2.5) {
+      baseComment = 'Below average performance in ';
+    } else {
+      baseComment = 'Poor performance in ';
+    }
+
+    String categoryName;
+    switch (scoreType) {
+      case 'wifi_experience':
+        categoryName = 'Wi-Fi and entertainment services';
+        break;
+      case 'seat_comfort':
+        categoryName = 'seat comfort and legroom';
+        break;
+      case 'food_beverage':
+        categoryName = 'food and beverage quality';
+        break;
+      case 'crew_friendliness':
+        categoryName = 'crew service and friendliness';
+        break;
+      case 'operations_timeliness':
+        categoryName = 'flight operations and timeliness';
+        break;
+      default:
+        categoryName = 'overall service quality';
+    }
+
+    return '$baseComment$categoryName. Score: ${score.toStringAsFixed(1)}/5.0';
+  }
   /// Extract positive feedback from comments
   static List<Map<String, dynamic>> _extractPositiveFromComments(
       String comments) {
@@ -445,19 +631,40 @@ class RealtimeFeedbackService {
     }
   }
 
-  /// Get airline reviews only
-  static Stream<List<Map<String, dynamic>>> getAirlineReviewsStream() {
+  /// Get leaderboard scores only
+  static Stream<List<Map<String, dynamic>>> getLeaderboardScoresStream() {
     try {
       return _client
-          .from('airline_reviews')
+          .from('leaderboard_scores')
           .stream(primaryKey: ['id'])
-          .order('created_at', ascending: false)
+          .order('score_value', ascending: false)
           .limit(50)
-          .asyncMap((reviews) => reviews
-              .map((review) => _formatAirlineReview(review))
-              .toList());
+          .asyncMap((scores) async {
+            // Enrich with airline data
+            final enrichedScores = <Map<String, dynamic>>[];
+            for (final score in scores) {
+              try {
+                final airlineData = await _client
+                    .from('airlines')
+                    .select('id, name, iata_code, icao_code, logo_url')
+                    .eq('id', score['airline_id'])
+                    .single();
+
+                enrichedScores.add({
+                  ...score,
+                  'airlines': airlineData,
+                });
+              } catch (e) {
+                debugPrint('⚠️ Error fetching airline for ${score['airline_id']}: $e');
+                enrichedScores.add(score);
+              }
+            }
+            return enrichedScores
+                .map((score) => _formatLeaderboardScore(score))
+                .toList();
+          });
     } catch (e) {
-      debugPrint('❌ Error creating airline reviews stream: $e');
+      debugPrint('❌ Error creating leaderboard scores stream: $e');
       return Stream.value([]);
     }
   }

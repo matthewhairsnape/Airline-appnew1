@@ -150,10 +150,13 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                       // Flight Number, Stage Badge, and Timestamp
                       Row(
                         children: [
-                          Text(
-                            issue['flight'] ?? 'Unknown Flight',
-                            style: AppStyles.textStyle_16_600.copyWith(
-                              color: Colors.black,
+                          Flexible(
+                            child: Text(
+                              issue['flight'] ?? 'Unknown Flight',
+                              style: AppStyles.textStyle_16_600.copyWith(
+                                color: Colors.black,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -169,9 +172,10 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                               style: AppStyles.textStyle_12_600.copyWith(
                                 color: Colors.white,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           Text(
                             _formatTimestamp(issue['timestamp']),
                             style: AppStyles.textStyle_12_400.copyWith(
@@ -186,10 +190,13 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                       // Airline Name and Seat Number
                       Row(
                         children: [
-                          Text(
-                            issue['airline'] ?? 'Unknown Airline',
-                            style: AppStyles.textStyle_14_400.copyWith(
-                              color: Colors.grey.shade600,
+                          Flexible(
+                            child: Text(
+                              issue['airline'] ?? 'Unknown Airline',
+                              style: AppStyles.textStyle_14_400.copyWith(
+                                color: Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (issue['seat'] != null &&
