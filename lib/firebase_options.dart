@@ -50,8 +50,8 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBIvtANmFwbx7eAG3Njogp7MNs1aZJG2K4',
-    appId: '1:663228736035:android:your-android-app-id',
+    apiKey: 'AIzaSyDPlfJCGctWSucvTEhtw7Y9EA_KV7To5rk',
+    appId: '1:663228736035:android:6b3cf4fcac9dcc6a978796',
     messagingSenderId: '663228736035',
     projectId: 'exampleairline-1d410',
     storageBucket: 'exampleairline-1d410.firebasestorage.app',
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '663228736035',
     projectId: 'exampleairline-1d410',
     storageBucket: 'exampleairline-1d410.firebasestorage.app',
-    iosClientId: '663228736035-your-ios-client-id.apps.googleusercontent.com',
     iosBundleId: 'com.samchui.airlineapp.2025',
   );
+
 }

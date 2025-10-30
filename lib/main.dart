@@ -8,6 +8,7 @@ import 'package:airline_app/services/supabase_service.dart';
 import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/services/notification_manager.dart';
 import 'package:airline_app/services/journey_notification_service.dart';
+import 'package:airline_app/services/push_notification_service.dart';
 import 'package:airline_app/screen/logIn/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -32,6 +33,8 @@ import 'package:airline_app/screen/reviewsubmission/start_reviews.dart';
 import 'package:airline_app/screen/reviewsubmission/submit_screen.dart';
 import 'package:airline_app/screen/journey/my_journey_screen.dart';
 import 'package:airline_app/screen/issues/issues_screen.dart';
+import 'package:airline_app/screen/test_push_notification_screen.dart';
+import 'package:airline_app/widgets/in_app_notification_banner.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
@@ -55,7 +58,11 @@ void main() async {
   } catch (e) {
     // Firebase initialization failed
   }
-
+//   WidgetsFlutterBinding.ensureInitialized();
+// // await Firebase.initializeApp(
+// //   options: DefaultFirebaseOptions.currentPlatform,
+// // );
+// // runApp(const MyApp());
   try {
     await SupabaseService.initialize();
   } catch (e) {
@@ -68,6 +75,15 @@ void main() async {
     // Data flow service initialization failed
   }
 
+  // Initialize Push Notification Service (Main FCM service)
+  try {
+    await PushNotificationService.initialize();
+    debugPrint('✅ PushNotificationService initialized successfully');
+  } catch (e) {
+    debugPrint('❌ PushNotificationService initialization failed: $e');
+    // Continue app even if push notifications fail
+  }
+
   try {
     await NotificationManager().initialize();
     debugPrint('✅ NotificationManager initialized successfully');
@@ -78,7 +94,9 @@ void main() async {
 
   try {
     await JourneyNotificationService.initialize();
+    debugPrint('✅ JourneyNotificationService initialized successfully');
   } catch (e) {
+    debugPrint('❌ JourneyNotificationService initialization failed: $e');
     // Journey notification service initialization failed
   }
 
@@ -98,6 +116,9 @@ final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
+  
+  // Global key for navigator to access overlay
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -108,6 +129,7 @@ class MyApp extends ConsumerWidget {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       locale: locale,
       supportedLocales: const [
         Locale('en', ''),
@@ -137,6 +159,40 @@ class MyApp extends ConsumerWidget {
           },
         ),
       ),
+      builder: (context, child) {
+        // Set up foreground notification callback for in-app banner
+        PushNotificationService.onForegroundNotification = (title, body, data) {
+          // Use post-frame callback to ensure overlay is ready
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Get the navigator state and its overlay directly
+            final navigatorState = navigatorKey.currentState;
+            if (navigatorState != null && navigatorState.mounted) {
+              // Get the overlay from the navigator's context
+              final overlayContext = navigatorState.overlay?.context;
+              if (overlayContext != null && overlayContext.mounted) {
+                debugPrint('📍 Overlay context is ready, showing in-app banner');
+                // Show in-app notification banner when app is in foreground
+                InAppNotificationBanner.show(
+                  overlayContext,
+                  title: title,
+                  body: body,
+                  onTap: () {
+                    debugPrint('In-app notification tapped: $title');
+                    // Handle notification tap - you can add navigation logic here
+                  },
+                  displayDuration: const Duration(seconds: 5),
+                  icon: Icons.flight_takeoff,
+                );
+              } else {
+                debugPrint('⚠️ Overlay context not available for in-app banner');
+              }
+            } else {
+              debugPrint('⚠️ Navigator state not available for in-app banner');
+            }
+          });
+        };
+        return child ?? const SizedBox.shrink();
+      },
       initialRoute: AppRoutes.skipscreen,
       routes: {
         AppRoutes.loginscreen: (context) => const Login(),
@@ -178,6 +234,7 @@ class MyApp extends ConsumerWidget {
         AppRoutes.myJourney: (context) => const MyJourneyScreen(),
         AppRoutes.settingsscreen: (context) => const SettingsScreen(),
         AppRoutes.issuesScreen: (context) => const IssuesScreen(),
+        AppRoutes.testPushNotification: (context) => const TestPushNotificationScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

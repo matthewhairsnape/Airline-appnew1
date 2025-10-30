@@ -52,6 +52,22 @@ class PushNotificationService {
           // You can add navigation logic here
         },
       );
+      
+      // CRITICAL FOR iOS: Request permission to display notifications while app is in foreground
+      if (Platform.isIOS) {
+        debugPrint('🍎 Requesting iOS foreground notification permissions...');
+        final iosImplementation = _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+        
+        if (iosImplementation != null) {
+          await iosImplementation.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+          debugPrint('✅ iOS notification permissions requested');
+        }
+      }
 
       // Create notification channel for Android
       if (Platform.isAndroid) {
@@ -237,6 +253,9 @@ class PushNotificationService {
     }
   }
 
+  /// Callback for in-app notification banner display
+  static Function(String title, String body, Map<String, dynamic> data)? onForegroundNotification;
+
   /// Handle foreground messages
   static void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -257,6 +276,15 @@ class PushNotificationService {
     if (message.notification != null) {
       debugPrint('📤 Showing local notification for foreground message');
       _showForegroundNotification(message);
+      
+      // Trigger in-app notification callback if set
+      if (onForegroundNotification != null) {
+        onForegroundNotification!(
+          message.notification!.title ?? 'Notification',
+          message.notification!.body ?? '',
+          message.data,
+        );
+      }
     } else {
       debugPrint('⚠️ Message has no notification payload, only data: ${message.data}');
       // If no notification payload, create one from data
@@ -272,75 +300,87 @@ class PushNotificationService {
           notification: notification,
         );
         _showForegroundNotification(messageWithNotification);
+        
+        // Trigger in-app notification callback if set
+        if (onForegroundNotification != null) {
+          onForegroundNotification!(
+            message.data['title'],
+            message.data['body'],
+            message.data,
+          );
+        }
       }
     }
   }
 
   /// Show local notification for foreground messages
   static Future<void> _showForegroundNotification(RemoteMessage message) async {
-  try {
-    final notification = message.notification;
-    if (notification == null) return;
+    try {
+      final notification = message.notification;
+      if (notification == null) {
+        debugPrint('⚠️ Notification payload is null, cannot show foreground notification');
+        return;
+      }
 
-    // Initialize the notification service
-    final flightNotificationService = FlightNotificationService();
-    await flightNotificationService.initialize();
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📲 SHOWING FOREGROUND NOTIFICATION');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('Title: ${notification.title}');
+      debugPrint('Body: ${notification.body}');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Create notification channel for Android
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'high_importance_channel', // id
-      'High Importance Notifications', // title
-      description: 'This channel is used for important notifications.',
-      importance: Importance.max,
-      playSound: true,
-    );
+      // Create notification details
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'high_importance_channel',
+        'High Importance Notifications',
+        channelDescription: 'This channel is used for important notifications.',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+        styleInformation: BigTextStyleInformation(
+          notification.body ?? '',
+          htmlFormatBigText: false,
+          contentTitle: notification.title,
+          htmlFormatContentTitle: false,
+        ),
+      );
 
-    // Create an Android Notification Channel
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+      final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,  // CRITICAL for foreground display
+        presentBadge: true,
+        presentSound: true,
+        sound: 'default',
+        subtitle: notification.body,
+        badgeNumber: 1,
+        interruptionLevel: InterruptionLevel.active,  // Show even in foreground
+      );
 
-    // Create notification details
-    final AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'high_importance_channel', // must match channel id above
-      'High Importance Notifications', // must match channel name above
-      channelDescription: 'This channel is used for important notifications.',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      playSound: true,
-      icon: '@mipmap/ic_launcher',
-      styleInformation: BigTextStyleInformation(''),
-    );
+      final NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
 
-    final DarwinNotificationDetails iosPlatformChannelSpecifics =
-        DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+      // Generate a unique notification ID
+      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    final NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iosPlatformChannelSpecifics,
-    );
+      // Show the notification
+      await _flutterLocalNotificationsPlugin.show(
+        notificationId,
+        notification.title ?? 'Notification',
+        notification.body ?? '',
+        platformDetails,
+        payload: message.data.toString(),
+      );
 
-    // Show the notification
-    await _flutterLocalNotificationsPlugin.show(
-      message.hashCode,
-      notification.title,
-      notification.body,
-      platformChannelSpecifics,
-      payload: message.data.toString(),
-    );
-
-    debugPrint('Foreground notification shown: ${message.messageId}');
-  } catch (e) {
-    debugPrint('Error showing foreground notification: $e');
+      debugPrint('✅ Foreground notification shown with ID: $notificationId');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error showing foreground notification: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
   }
-}
   /// Handle notification tap
   static void _handleNotificationTap(RemoteMessage message) {
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -643,6 +683,141 @@ class PushNotificationService {
       debugPrint('✅ FCM token refreshed and saved to database');
     } catch (e, stackTrace) {
       debugPrint('❌ Error refreshing FCM token: $e');
+      debugPrint('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// PUBLIC METHOD: Manually show a foreground notification
+  /// This can be called from anywhere in your app to display a notification
+  static Future<void> showForegroundNotification({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📲 MANUALLY SHOWING FOREGROUND NOTIFICATION');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('Title: $title');
+      debugPrint('Body: $body');
+      debugPrint('Data: $data');
+      
+      // First, ensure the channel is created
+      if (Platform.isAndroid) {
+        debugPrint('🔧 Creating/Verifying Android notification channel...');
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'high_importance_channel',
+          'High Importance Notifications',
+          description: 'This channel is used for important notifications.',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        );
+
+        final androidImplementation = _flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        
+        if (androidImplementation != null) {
+          await androidImplementation.createNotificationChannel(channel);
+          debugPrint('✅ Notification channel created/verified');
+          
+          // Check if notifications are enabled
+          final areEnabled = await androidImplementation.areNotificationsEnabled();
+          debugPrint('📱 Notifications enabled: $areEnabled');
+          
+          if (areEnabled == false) {
+            debugPrint('⚠️ WARNING: Notifications are DISABLED in system settings!');
+            debugPrint('💡 Go to: Settings → Apps → airline_app → Notifications → Allow');
+          }
+        } else {
+          debugPrint('⚠️ Could not get Android implementation');
+        }
+      }
+      
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      // Create notification details
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'high_importance_channel',
+        'High Importance Notifications',
+        channelDescription: 'This channel is used for important notifications.',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+        styleInformation: BigTextStyleInformation(
+          body,
+          htmlFormatBigText: false,
+          contentTitle: title,
+          htmlFormatContentTitle: false,
+        ),
+      );
+
+      final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,  // Show alert when app is in foreground
+        presentBadge: true,  // Update badge
+        presentSound: true,  // Play sound
+        sound: 'default',    // Use default sound
+        subtitle: body,
+        badgeNumber: 1,
+        // CRITICAL: This tells iOS to show the notification even when app is in foreground
+        interruptionLevel: InterruptionLevel.active,
+      );
+
+      final NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      // Generate a unique notification ID
+      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+      debugPrint('📤 Calling flutter_local_notifications.show()...');
+      debugPrint('   ID: $notificationId');
+      debugPrint('   Title: $title');
+      debugPrint('   Body: $body');
+      
+      // Show the notification
+      await _flutterLocalNotificationsPlugin.show(
+        notificationId,
+        title,
+        body,
+        platformDetails,
+        payload: data?.toString(),
+      );
+
+      debugPrint('✅ flutter_local_notifications.show() completed successfully');
+      debugPrint('✅ Foreground notification shown with ID: $notificationId');
+      
+      // Trigger in-app notification callback if set
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🔔 CHECKING FOR IN-APP BANNER CALLBACK');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('Callback is null: ${onForegroundNotification == null}');
+      
+      if (onForegroundNotification != null) {
+        debugPrint('✅ In-app banner callback EXISTS, triggering now...');
+        try {
+          onForegroundNotification!(title, body, data ?? {});
+          debugPrint('✅ In-app banner callback CALLED successfully');
+        } catch (e) {
+          debugPrint('❌ Error calling in-app banner callback: $e');
+        }
+      } else {
+        debugPrint('❌ WARNING: No in-app banner callback set!');
+        debugPrint('💡 The callback should be set in main.dart MaterialApp.builder');
+      }
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📊 NOTIFICATION SENT SUCCESSFULLY');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error showing manual foreground notification: $e');
       debugPrint('Stack trace: $stackTrace');
       rethrow;
     }

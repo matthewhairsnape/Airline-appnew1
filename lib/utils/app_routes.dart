@@ -44,4 +44,5 @@ class AppRoutes {
   static const myJourney = "/my-journey";
   static const settingsscreen = "/settingsscreen";
   static const issuesScreen = "/issues-screen";
+  static const testPushNotification = "/test-push-notification";
 }
