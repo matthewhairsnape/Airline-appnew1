@@ -787,8 +787,8 @@ class SupabaseService {
         return existingJourney;
       }
 
-      // Get or create airline
-      final airlineData = await _getOrCreateAirline(carrier);
+      // Get or create airline (pass API data to extract airline details)
+      final airlineData = await _getOrCreateAirline(carrier, apiData: ciriumData);
       if (airlineData == null) {
         debugPrint('❌ Could not get or create airline: $carrier');
         return null;
@@ -947,38 +947,266 @@ class SupabaseService {
 
   /// Get or create airline
   static Future<Map<String, dynamic>?> _getOrCreateAirline(
-      String carrier) async {
+      String carrier,
+      {Map<String, dynamic>? apiData}) async {  // Optional API data (Cirium, etc.)
     try {
       // Check if airline exists - handle duplicates by taking the first one
       final airlineList = await client
           .from('airlines')
-          .select('id, iata_code, name')
+          .select('id, iata_code, icao_code, name, country, logo_url')
           .eq('iata_code', carrier)
           .limit(1);
 
       if (airlineList.isNotEmpty) {
         final airlineData = airlineList.first;
         debugPrint('✅ Found airline: ${airlineData['name']} (${airlineData['iata_code']})');
+        
+        // Check if we need to update missing fields (logo, ICAO, country)
+        final needsLogoUpdate = airlineData['logo_url'] == null || airlineData['logo_url'].toString().isEmpty;
+        final needsIcaoUpdate = airlineData['icao_code'] == null || airlineData['icao_code'].toString().isEmpty;
+        final needsCountryUpdate = airlineData['country'] == null || airlineData['country'].toString().isEmpty;
+        
+        if (needsLogoUpdate || needsIcaoUpdate || needsCountryUpdate) {
+          try {
+            final updateData = <String, dynamic>{
+              'updated_at': DateTime.now().toIso8601String(),
+            };
+            
+            if (needsLogoUpdate) {
+              final logoUrl = _getAirlineLogoUrl(carrier);
+              if (logoUrl != null) {
+                updateData['logo_url'] = logoUrl;
+                airlineData['logo_url'] = logoUrl;
+                debugPrint('✅ Updated airline logo: $logoUrl');
+              }
+            }
+            
+            if (needsIcaoUpdate || needsCountryUpdate) {
+              // Try to get details from API data first (if available), otherwise use local
+              final details = _getAirlineDetailsFromApiOrLocal(carrier, apiData);
+              if (needsIcaoUpdate && details['icao_code'] != null) {
+                updateData['icao_code'] = details['icao_code'];
+                airlineData['icao_code'] = details['icao_code'];
+                debugPrint('✅ Updated ICAO code: ${details['icao_code']}');
+              }
+              if (needsCountryUpdate && details['country'] != null) {
+                updateData['country'] = details['country'];
+                airlineData['country'] = details['country'];
+                debugPrint('✅ Updated country: ${details['country']}');
+              }
+              if (details['name'] != null && airlineData['name'] == 'Airline $carrier') {
+                updateData['name'] = details['name'];
+                airlineData['name'] = details['name'];
+                debugPrint('✅ Updated airline name: ${details['name']}');
+              }
+            }
+            
+            if (updateData.length > 1) {  // More than just updated_at
+              await client.from('airlines').update(updateData).eq('id', airlineData['id']);
+            }
+          } catch (updateError) {
+            debugPrint('⚠️ Could not update airline: $updateError');
+          }
+        }
+        
         return airlineData;
       }
 
-      // Create new airline
+      // Generate logo URL for new airline
+      final logoUrl = _getAirlineLogoUrl(carrier);
+      
+      // Get airline details from Cirium/API data first, then fall back to local database
+      final airlineDetails = _getAirlineDetailsFromApiOrLocal(carrier, apiData);
+
+      // Create new airline with logo, ICAO code, and country
       final newAirline = await client
           .from('airlines')
           .insert({
             'iata_code': carrier,
-            'name': 'Airline $carrier',
+            'name': airlineDetails['name'] ?? 'Airline $carrier',
+            'icao_code': airlineDetails['icao_code'],
+            'country': airlineDetails['country'],
+            'logo_url': logoUrl,
             'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
           })
-          .select('id, iata_code, name')
+          .select('id, iata_code, icao_code, name, country, logo_url')
           .single();
 
       debugPrint('✅ Created new airline: ${newAirline['name']} (${newAirline['iata_code']})');
+      if (newAirline['icao_code'] != null) {
+        debugPrint('   ICAO: ${newAirline['icao_code']}, Country: ${newAirline['country']}');
+      }
+      if (logoUrl != null) {
+        debugPrint('   Logo: $logoUrl');
+      }
       return newAirline;
     } catch (e) {
       debugPrint('❌ Error getting or creating airline: $e');
       return null;
     }
+  }
+
+  /// Get airline logo URL from public CDN
+  /// Uses airline IATA code to fetch logo from aviation-edge.com or similar
+  static String? _getAirlineLogoUrl(String iataCode) {
+    if (iataCode.isEmpty) return null;
+    
+    // Option 1: Aviation Edge API (requires API key - replace with your key)
+    // return 'https://aviation-edge.com/v2/public/airlineDatabase?key=YOUR_API_KEY&codeIataAirline=$iataCode';
+    
+    // Option 2: Use a public CDN that hosts airline logos
+    // Many services provide airline logos by IATA code
+    // This is a placeholder - replace with your preferred logo service
+    return 'https://www.gstatic.com/flights/airline_logos/70px/$iataCode.png';
+    
+    // Option 3: Aeros API
+    // return 'https://content.airhex.com/content/logos/airlines_${iataCode}_50_50_r.png';
+    
+    // Option 4: FlightRadar24 style
+    // return 'https://images.kiwi.com/airlines/64/$iataCode.png';
+    
+    // Note: Choose the CDN that best fits your needs and is reliable
+    // Consider caching logos locally or in your own storage for better performance
+  }
+
+  /// Get airline details from API data (Cirium/flight API) or fall back to local database
+  /// Prioritizes API data over hardcoded values
+  static Map<String, String?> _getAirlineDetailsFromApiOrLocal(
+    String iataCode,
+    Map<String, dynamic>? apiData,  // Cirium or other API response
+  ) {
+    // First, try to extract from API data if available
+    if (apiData != null) {
+      try {
+        // Extract airline info from Cirium API response
+        final flightStatuses = apiData['flightStatuses'] as List?;
+        if (flightStatuses != null && flightStatuses.isNotEmpty) {
+          final status = flightStatuses.first as Map<String, dynamic>;
+          final carrier = status['carrier'] as Map<String, dynamic>?;
+          
+          if (carrier != null) {
+            final name = carrier['name'] as String?;
+            final icao = carrier['fs'] as String?;  // FlightStats ICAO code
+            // Note: Country might not be in Cirium response
+            
+            if (name != null || icao != null) {
+              debugPrint('✅ Using airline details from API: $name ($icao)');
+              return {
+                'name': name,
+                'icao_code': icao,
+                'country': null,  // Not typically in Cirium response
+              };
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Could not extract airline from API data: $e');
+      }
+    }
+    
+    // Fall back to local database
+    return _getAirlineDetailsLocal(iataCode);
+  }
+
+  /// Get airline details (name, ICAO code, country) from local database
+  /// This is a fallback when API doesn't provide airline details
+  static Map<String, String?> _getAirlineDetailsLocal(String iataCode) {
+    // Comprehensive airline database mapping
+    final airlines = <String, Map<String, String>>{
+      // United States
+      'AA': {'name': 'American Airlines', 'icao': 'AAL', 'country': 'United States'},
+      'UA': {'name': 'United Airlines', 'icao': 'UAL', 'country': 'United States'},
+      'DL': {'name': 'Delta Air Lines', 'icao': 'DAL', 'country': 'United States'},
+      'WN': {'name': 'Southwest Airlines', 'icao': 'SWA', 'country': 'United States'},
+      'B6': {'name': 'JetBlue Airways', 'icao': 'JBU', 'country': 'United States'},
+      'AS': {'name': 'Alaska Airlines', 'icao': 'ASA', 'country': 'United States'},
+      'NK': {'name': 'Spirit Airlines', 'icao': 'NKS', 'country': 'United States'},
+      'F9': {'name': 'Frontier Airlines', 'icao': 'FFT', 'country': 'United States'},
+      
+      // Canada
+      'AC': {'name': 'Air Canada', 'icao': 'ACA', 'country': 'Canada'},
+      'WS': {'name': 'WestJet', 'icao': 'WJA', 'country': 'Canada'},
+      
+      // Europe
+      'BA': {'name': 'British Airways', 'icao': 'BAW', 'country': 'United Kingdom'},
+      'LH': {'name': 'Lufthansa', 'icao': 'DLH', 'country': 'Germany'},
+      'AF': {'name': 'Air France', 'icao': 'AFR', 'country': 'France'},
+      'KL': {'name': 'KLM Royal Dutch Airlines', 'icao': 'KLM', 'country': 'Netherlands'},
+      'IB': {'name': 'Iberia', 'icao': 'IBE', 'country': 'Spain'},
+      'AZ': {'name': 'ITA Airways', 'icao': 'ITY', 'country': 'Italy'},
+      'LX': {'name': 'Swiss International Air Lines', 'icao': 'SWR', 'country': 'Switzerland'},
+      'OS': {'name': 'Austrian Airlines', 'icao': 'AUA', 'country': 'Austria'},
+      'SN': {'name': 'Brussels Airlines', 'icao': 'BEL', 'country': 'Belgium'},
+      'TP': {'name': 'TAP Air Portugal', 'icao': 'TAP', 'country': 'Portugal'},
+      'SK': {'name': 'Scandinavian Airlines', 'icao': 'SAS', 'country': 'Sweden'},
+      'AY': {'name': 'Finnair', 'icao': 'FIN', 'country': 'Finland'},
+      'FR': {'name': 'Ryanair', 'icao': 'RYR', 'country': 'Ireland'},
+      'U2': {'name': 'easyJet', 'icao': 'EZY', 'country': 'United Kingdom'},
+      
+      // Middle East
+      'EK': {'name': 'Emirates', 'icao': 'UAE', 'country': 'United Arab Emirates'},
+      'QR': {'name': 'Qatar Airways', 'icao': 'QTR', 'country': 'Qatar'},
+      'EY': {'name': 'Etihad Airways', 'icao': 'ETD', 'country': 'United Arab Emirates'},
+      'SV': {'name': 'Saudia', 'icao': 'SVA', 'country': 'Saudi Arabia'},
+      'WY': {'name': 'Oman Air', 'icao': 'OMA', 'country': 'Oman'},
+      
+      // Asia-Pacific
+      'SQ': {'name': 'Singapore Airlines', 'icao': 'SIA', 'country': 'Singapore'},
+      'CX': {'name': 'Cathay Pacific', 'icao': 'CPA', 'country': 'Hong Kong'},
+      'NH': {'name': 'All Nippon Airways', 'icao': 'ANA', 'country': 'Japan'},
+      'JL': {'name': 'Japan Airlines', 'icao': 'JAL', 'country': 'Japan'},
+      'KE': {'name': 'Korean Air', 'icao': 'KAL', 'country': 'South Korea'},
+      'OZ': {'name': 'Asiana Airlines', 'icao': 'AAR', 'country': 'South Korea'},
+      'TG': {'name': 'Thai Airways', 'icao': 'THA', 'country': 'Thailand'},
+      'MH': {'name': 'Malaysia Airlines', 'icao': 'MAS', 'country': 'Malaysia'},
+      'GA': {'name': 'Garuda Indonesia', 'icao': 'GIA', 'country': 'Indonesia'},
+      'PR': {'name': 'Philippine Airlines', 'icao': 'PAL', 'country': 'Philippines'},
+      'VN': {'name': 'Vietnam Airlines', 'icao': 'HVN', 'country': 'Vietnam'},
+      'AI': {'name': 'Air India', 'icao': 'AIC', 'country': 'India'},
+      '6E': {'name': 'IndiGo', 'icao': 'IGO', 'country': 'India'},
+      'QF': {'name': 'Qantas', 'icao': 'QFA', 'country': 'Australia'},
+      'VA': {'name': 'Virgin Australia', 'icao': 'VOZ', 'country': 'Australia'},
+      'NZ': {'name': 'Air New Zealand', 'icao': 'ANZ', 'country': 'New Zealand'},
+      
+      // China
+      'CA': {'name': 'Air China', 'icao': 'CCA', 'country': 'China'},
+      'CZ': {'name': 'China Southern Airlines', 'icao': 'CSN', 'country': 'China'},
+      'MU': {'name': 'China Eastern Airlines', 'icao': 'CES', 'country': 'China'},
+      'HU': {'name': 'Hainan Airlines', 'icao': 'CHH', 'country': 'China'},
+      
+      // Latin America
+      'AM': {'name': 'Aeroméxico', 'icao': 'AMX', 'country': 'Mexico'},
+      'Y4': {'name': 'Volaris', 'icao': 'VOI', 'country': 'Mexico'},
+      'CM': {'name': 'Copa Airlines', 'icao': 'CMP', 'country': 'Panama'},
+      'LA': {'name': 'LATAM Airlines', 'icao': 'LAN', 'country': 'Chile'},
+      'AR': {'name': 'Aerolíneas Argentinas', 'icao': 'ARG', 'country': 'Argentina'},
+      'AV': {'name': 'Avianca', 'icao': 'AVA', 'country': 'Colombia'},
+      'G3': {'name': 'GOL Linhas Aéreas', 'icao': 'GLO', 'country': 'Brazil'},
+      
+      // Africa
+      'SA': {'name': 'South African Airways', 'icao': 'SAA', 'country': 'South Africa'},
+      'ET': {'name': 'Ethiopian Airlines', 'icao': 'ETH', 'country': 'Ethiopia'},
+      'MS': {'name': 'EgyptAir', 'icao': 'MSR', 'country': 'Egypt'},
+      'KQ': {'name': 'Kenya Airways', 'icao': 'KQA', 'country': 'Kenya'},
+      
+      // Low-cost carriers
+      'WZ': {'name': 'Wizz Air', 'icao': 'WZZ', 'country': 'Hungary'},
+      'VY': {'name': 'Vueling', 'icao': 'VLG', 'country': 'Spain'},
+      'W6': {'name': 'Wizz Air', 'icao': 'WZZ', 'country': 'Hungary'},
+      'U2': {'name': 'easyJet', 'icao': 'EZY', 'country': 'United Kingdom'},
+      '3U': {'name': 'Sichuan Airlines', 'icao': 'CSC', 'country': 'China'},
+      
+      // Add more airlines as needed
+    };
+
+    final details = airlines[iataCode.toUpperCase()];
+    
+    return {
+      'name': details?['name'],
+      'icao_code': details?['icao'],
+      'country': details?['country'],
+    };
   }
 
   /// Enhanced create or get flight method
@@ -1278,16 +1506,54 @@ class SupabaseService {
   }) async {
     if (!isInitialized) return false;
     
-    // Strategy 1: Try updating all fields at once
+    debugPrint('🔄 Starting journey completion process for: $journeyId');
+    
+    // First, verify the journey exists and get current user
+    final currentUserId = client.auth.currentUser?.id;
+    if (currentUserId == null) {
+      debugPrint('❌ No authenticated user found');
+      return false;
+    }
+    
+    debugPrint('📋 Current user: $currentUserId');
+    
+    // Check if journey exists and user has access
     try {
-      await client.from('journeys').update({
+      final journeyCheck = await client
+          .from('journeys')
+          .select('id, passenger_id, current_phase, visit_status, status')
+          .eq('id', journeyId)
+          .maybeSingle();
+      
+      if (journeyCheck == null) {
+        debugPrint('❌ Journey not found: $journeyId');
+        return false;
+      }
+      
+      debugPrint('📋 Journey found: $journeyCheck');
+      debugPrint('📋 Current phase: ${journeyCheck['current_phase']}');
+      debugPrint('📋 Visit status: ${journeyCheck['visit_status']}');
+      debugPrint('📋 Status: ${journeyCheck['status']}');
+      debugPrint('📋 Passenger ID: ${journeyCheck['passenger_id']}');
+    } catch (e) {
+      debugPrint('⚠️ Error checking journey: $e');
+    }
+    
+    // Strategy 1: Try updating all fields at once with .select() to verify
+    try {
+      final result = await client.from('journeys').update({
         'current_phase': 'landed',
         'visit_status': 'Completed',
         'status': 'completed',
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', journeyId);
+      }).eq('id', journeyId).select();
+      
+      if (result.isEmpty) {
+        throw Exception('Update succeeded but no rows were modified');
+      }
       
       debugPrint('✅ Journey marked as completed (all fields): $journeyId');
+      debugPrint('📋 Updated data: $result');
       
       // Add journey event
       if (addEvent) {
@@ -1300,13 +1566,18 @@ class SupabaseService {
       
       // Strategy 2: Try updating only visit_status (often works even if phase update fails)
       try {
-        await client.from('journeys').update({
+        final result = await client.from('journeys').update({
           'visit_status': 'Completed',
           'status': 'completed',
           'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', journeyId);
+        }).eq('id', journeyId).select();
+        
+        if (result.isEmpty) {
+          throw Exception('Update succeeded but no rows were modified');
+        }
         
         debugPrint('✅ Journey marked as completed (visit_status only): $journeyId');
+        debugPrint('📋 Updated data: $result');
         
         // Add journey event
         if (addEvent) {
@@ -1319,12 +1590,17 @@ class SupabaseService {
         
         // Strategy 3: Try updating only status field
         try {
-          await client.from('journeys').update({
+          final result = await client.from('journeys').update({
             'status': 'completed',
             'updated_at': DateTime.now().toIso8601String(),
-          }).eq('id', journeyId);
+          }).eq('id', journeyId).select();
+          
+          if (result.isEmpty) {
+            throw Exception('Update succeeded but no rows were modified');
+          }
           
           debugPrint('✅ Journey marked as completed (status only): $journeyId');
+          debugPrint('📋 Updated data: $result');
           
           // Add journey event
           if (addEvent) {
@@ -1369,9 +1645,157 @@ class SupabaseService {
           'flight_id': flightId,
         },
       });
+      debugPrint('✅ Journey completed event added');
     } catch (eventError) {
       debugPrint('⚠️ Failed to add journey event: $eventError');
       rethrow; // Re-throw so caller knows event creation failed
     }
+  }
+
+  /// Diagnostic method to test journey update capabilities
+  /// Returns detailed information about why an update might fail
+  static Future<Map<String, dynamic>> diagnoseJourneyUpdate(String journeyId) async {
+    final diagnostics = <String, dynamic>{
+      'timestamp': DateTime.now().toIso8601String(),
+      'journey_id': journeyId,
+      'checks': <String, dynamic>{},
+    };
+
+    try {
+      // Check 1: Is Supabase initialized?
+      diagnostics['checks']['supabase_initialized'] = isInitialized;
+      if (!isInitialized) {
+        diagnostics['error'] = 'Supabase not initialized';
+        return diagnostics;
+      }
+
+      // Check 2: Is user authenticated?
+      final currentUser = client.auth.currentUser;
+      diagnostics['checks']['user_authenticated'] = currentUser != null;
+      diagnostics['current_user_id'] = currentUser?.id;
+      diagnostics['current_user_email'] = currentUser?.email;
+      
+      if (currentUser == null) {
+        diagnostics['error'] = 'No authenticated user';
+        return diagnostics;
+      }
+
+      // Check 3: Does journey exist?
+      try {
+        final journey = await client
+            .from('journeys')
+            .select('*')
+            .eq('id', journeyId)
+            .maybeSingle();
+
+        diagnostics['checks']['journey_exists'] = journey != null;
+        if (journey != null) {
+          diagnostics['journey_data'] = {
+            'id': journey['id'],
+            'passenger_id': journey['passenger_id'],
+            'current_phase': journey['current_phase'],
+            'visit_status': journey['visit_status'],
+            'status': journey['status'],
+            'flight_id': journey['flight_id'],
+          };
+
+          // Check 4: Does user own the journey?
+          final ownsJourney = journey['passenger_id']?.toString() == currentUser.id;
+          diagnostics['checks']['user_owns_journey'] = ownsJourney;
+          
+          if (!ownsJourney) {
+            diagnostics['error'] = 'User does not own this journey';
+            diagnostics['passenger_id'] = journey['passenger_id'];
+          }
+        } else {
+          diagnostics['error'] = 'Journey not found in database';
+          return diagnostics;
+        }
+      } catch (e) {
+        diagnostics['checks']['journey_exists'] = false;
+        diagnostics['journey_fetch_error'] = e.toString();
+      }
+
+      // Check 5: Test update permission
+      try {
+        // Try a safe test update (just updating updated_at)
+        final testUpdate = await client
+            .from('journeys')
+            .update({'updated_at': DateTime.now().toIso8601String()})
+            .eq('id', journeyId)
+            .select();
+
+        diagnostics['checks']['can_update'] = testUpdate.isNotEmpty;
+        diagnostics['test_update_result'] = testUpdate.isNotEmpty ? 'Success' : 'No rows updated';
+        
+        if (testUpdate.isEmpty) {
+          diagnostics['error'] = 'Update query succeeds but no rows are modified (likely RLS policy issue)';
+        }
+      } catch (e) {
+        diagnostics['checks']['can_update'] = false;
+        diagnostics['update_error'] = e.toString();
+        diagnostics['error'] = 'Update failed: ${e.toString()}';
+      }
+
+      // Check 6: Can insert journey events?
+      try {
+        final testEvent = await client.from('journey_events').insert({
+          'journey_id': journeyId,
+          'event_type': 'diagnostic_test',
+          'title': 'Diagnostic Test',
+          'description': 'Testing event insertion capability',
+          'event_timestamp': DateTime.now().toIso8601String(),
+          'metadata': {'test': true},
+        }).select();
+
+        diagnostics['checks']['can_insert_events'] = testEvent.isNotEmpty;
+      } catch (e) {
+        diagnostics['checks']['can_insert_events'] = false;
+        diagnostics['event_insert_error'] = e.toString();
+      }
+
+      // Final assessment
+      final allChecksPassed = diagnostics['checks']['supabase_initialized'] == true &&
+          diagnostics['checks']['user_authenticated'] == true &&
+          diagnostics['checks']['journey_exists'] == true &&
+          diagnostics['checks']['user_owns_journey'] == true &&
+          diagnostics['checks']['can_update'] == true;
+
+      diagnostics['can_complete_journey'] = allChecksPassed;
+      
+      if (allChecksPassed) {
+        diagnostics['recommendation'] = 'All checks passed. Journey completion should work.';
+      } else {
+        diagnostics['recommendation'] = _getDiagnosticRecommendation(diagnostics['checks']);
+      }
+
+    } catch (e) {
+      diagnostics['fatal_error'] = e.toString();
+    }
+
+    return diagnostics;
+  }
+
+  /// Get recommendation based on diagnostic results
+  static String _getDiagnosticRecommendation(Map<String, dynamic> checks) {
+    if (checks['supabase_initialized'] != true) {
+      return 'Initialize Supabase before attempting journey operations.';
+    }
+    if (checks['user_authenticated'] != true) {
+      return 'User must be authenticated. Please log in.';
+    }
+    if (checks['journey_exists'] != true) {
+      return 'Journey not found in database. Ensure journey was created successfully.';
+    }
+    if (checks['user_owns_journey'] != true) {
+      return 'User does not own this journey. Check passenger_id matches auth.uid().';
+    }
+    if (checks['can_update'] != true) {
+      return 'Database update is blocked. Check Supabase RLS policies for UPDATE on journeys table.';
+    }
+    if (checks['can_insert_events'] != true) {
+      return 'Cannot insert journey events. Check RLS policies for INSERT on journey_events table.';
+    }
+    return 'Unknown issue. Check detailed diagnostics.';
   }
 }

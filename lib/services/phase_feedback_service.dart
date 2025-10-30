@@ -168,22 +168,51 @@ class PhaseFeedbackService {
       // Map feedback selections to airport review scores
       final scores = _mapToAirportScores(likes, dislikes, overallRating);
 
-      await _client.from('airport_reviews').insert({
-        'journey_id': journeyId,
-        'user_id': userId,
-        'airport_id': airportId,
-        'overall_score': (overallRating / 5.0).toStringAsFixed(2),
-        'cleanliness': scores['cleanliness'],
-        'facilities': scores['facilities'],
-        'staff': scores['staff'],
-        'waiting_time': scores['waiting_time'],
-        'accessibility': scores['accessibility'],
-        'comments': _createCommentFromSelections(likes, dislikes),
-        'would_recommend': overallRating >= 4,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      // Check if review already exists for this journey-airport combination
+      final existingReview = await _client
+          .from('airport_reviews')
+          .select('id')
+          .eq('journey_id', journeyId)
+          .eq('airport_id', airportId)
+          .maybeSingle();
 
-      debugPrint('✅ Airport review submitted successfully');
+      if (existingReview != null) {
+        // Update existing review
+        debugPrint('🔄 Updating existing airport review');
+        await _client.from('airport_reviews').update({
+          'overall_score': (overallRating / 5.0).toStringAsFixed(2),
+          'cleanliness': scores['cleanliness'],
+          'facilities': scores['facilities'],
+          'staff': scores['staff'],
+          'waiting_time': scores['waiting_time'],
+          'accessibility': scores['accessibility'],
+          'comments': _createCommentFromSelections(likes, dislikes),
+          'would_recommend': overallRating >= 4,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', existingReview['id']);
+        
+        debugPrint('✅ Airport review updated successfully');
+      } else {
+        // Insert new review
+        debugPrint('➕ Creating new airport review');
+        await _client.from('airport_reviews').insert({
+          'journey_id': journeyId,
+          'user_id': userId,
+          'airport_id': airportId,
+          'overall_score': (overallRating / 5.0).toStringAsFixed(2),
+          'cleanliness': scores['cleanliness'],
+          'facilities': scores['facilities'],
+          'staff': scores['staff'],
+          'waiting_time': scores['waiting_time'],
+          'accessibility': scores['accessibility'],
+          'comments': _createCommentFromSelections(likes, dislikes),
+          'would_recommend': overallRating >= 4,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+        
+        debugPrint('✅ Airport review created successfully');
+      }
+      
       return true;
     } catch (e) {
       debugPrint('❌ Error submitting airport review: $e');
@@ -207,44 +236,103 @@ class PhaseFeedbackService {
       // Get airline info from flight using the actual flight ID
       String? airlineId;
 
-      try {
-        // First try with airline_id column
-        final flightData = await _client
-            .from('flights')
-            .select('airline_id')
-            .eq('id', flightId)
-            .single();
+              try {
+                // Try to get airline_id directly, or get carrier info to find airline
+                final flightData = await _client
+                    .from('flights')
+                    .select('airline_id, carrier_code, flight_number')
+                    .eq('id', flightId)
+                    .maybeSingle();
 
-        airlineId = flightData['airline_id'];
+                if (flightData == null) {
+                  debugPrint('❌ Flight not found: $flightId');
+                  return false;
+                }
+
+                // Try airline_id first
+                airlineId = flightData['airline_id'];
+
+                // If no airline_id, try to find airline by carrier_code
+                if (airlineId == null) {
+                  final carrierCode = flightData['carrier_code'];
+                  
+                  // Get Cirium data from journeys table (stored in media column)
+                  Map<String, dynamic>? apiData;
+                  try {
+                    final journeyData = await _client
+                        .from('journeys')
+                        .select('media')
+                        .eq('id', journeyId)
+                        .maybeSingle();
+                    apiData = journeyData?['media'] as Map<String, dynamic>?;
+                    if (apiData != null) {
+                      debugPrint('✅ Found Cirium API data in journey');
+                    }
+                  } catch (e) {
+                    debugPrint('⚠️ Could not fetch API data from journey: $e');
+                  }
+                  
+                  debugPrint('🔍 No airline_id in flight, looking up by carrier_code: $carrierCode');
+
+                  if (carrierCode != null && carrierCode.toString().isNotEmpty) {
+                    final airlineData = await _client
+                        .from('airlines')
+                        .select('id')
+                        .eq('iata_code', carrierCode)
+                        .maybeSingle();
+
+                    airlineId = airlineData?['id'];
+
+                    // If airline not found, create it with full details
+                    if (airlineId == null) {
+                      debugPrint('🔄 Airline not found for $carrierCode, creating...');
+                      try {
+                        // Get airline details from API data first, then fall back to local
+                        final airlineDetails = _getAirlineDetailsFromApiOrCode(carrierCode, apiData);
+                        
+                        final newAirline = await _client
+                            .from('airlines')
+                            .insert({
+                              'iata_code': carrierCode,
+                              'name': airlineDetails['name'] ?? 'Airline $carrierCode',
+                              'icao_code': airlineDetails['icao_code'],
+                              'country': airlineDetails['country'],
+                              'logo_url': 'https://www.gstatic.com/flights/airline_logos/70px/$carrierCode.png',
+                              'created_at': DateTime.now().toIso8601String(),
+                              'updated_at': DateTime.now().toIso8601String(),
+                            })
+                            .select('id')
+                            .single();
+
+                        airlineId = newAirline['id'];
+                        debugPrint('✅ Created airline: $airlineId for $carrierCode');
+                        if (airlineDetails['icao_code'] != null) {
+                          debugPrint('   ICAO: ${airlineDetails['icao_code']}, Country: ${airlineDetails['country']}');
+                        }
+                        if (apiData != null) {
+                          debugPrint('   ✅ Used API data for airline details');
+                        }
+                      } catch (insertError) {
+                        debugPrint('⚠️ Failed to create airline: $insertError');
+                        // Try to fetch again in case it was created by another request
+                        final retryAirline = await _client
+                            .from('airlines')
+                            .select('id')
+                            .eq('iata_code', carrierCode)
+                            .maybeSingle();
+                        airlineId = retryAirline?['id'];
+                      }
+                    }
+                  }
+                }
       } catch (e) {
-        if (e.toString().contains('airline_id does not exist')) {
-          debugPrint(
-              '⚠️ airline_id column not found, trying carrier_code approach');
-
-          // Fallback: get carrier_code and find airline by IATA code
-          final flightData = await _client
-              .from('flights')
-              .select('carrier_code')
-              .eq('id', flightId)
-              .single();
-
-          final carrierCode = flightData['carrier_code'];
-          if (carrierCode != null) {
-            final airlineData = await _client
-                .from('airlines')
-                .select('id')
-                .eq('iata_code', carrierCode)
-                .maybeSingle();
-
-            airlineId = airlineData?['id'];
-          }
-        } else {
-          rethrow;
-        }
+        debugPrint('❌ Error getting airline info: $e');
+        return false;
       }
 
       if (airlineId == null) {
-        debugPrint('❌ No airline ID found for flight');
+        debugPrint('❌ No airline ID found for flight $flightId');
+        debugPrint('💡 Flight may not have airline_id or carrier_code set');
         return false;
       }
 
@@ -254,22 +342,50 @@ class PhaseFeedbackService {
       final scores = _mapToAirlineScores(likes, dislikes, overallRating);
 
       try {
-        await _client.from('airline_reviews').insert({
-          'journey_id': journeyId,
-          'user_id': userId,
-          'airline_id': airlineId,
-          'overall_score': (overallRating / 5.0).toStringAsFixed(2),
-          'seat_comfort': scores['seat_comfort'],
-          'cabin_service': scores['cabin_service'],
-          'food_beverage': scores['food_beverage'],
-          'entertainment': scores['entertainment'],
-          'value_for_money': scores['value_for_money'],
-          'comments': _createCommentFromSelections(likes, dislikes),
-          'would_recommend': overallRating >= 4,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+        // Check if review already exists for this journey-airline combination
+        final existingReview = await _client
+            .from('airline_reviews')
+            .select('id')
+            .eq('journey_id', journeyId)
+            .eq('airline_id', airlineId)
+            .maybeSingle();
 
-        debugPrint('✅ Airline review submitted successfully');
+        if (existingReview != null) {
+          // Update existing review
+          debugPrint('🔄 Updating existing airline review');
+          await _client.from('airline_reviews').update({
+            'overall_score': (overallRating / 5.0).toStringAsFixed(2),
+            'seat_comfort': scores['seat_comfort'],
+            'cabin_service': scores['cabin_service'],
+            'food_beverage': scores['food_beverage'],
+            'entertainment': scores['entertainment'],
+            'value_for_money': scores['value_for_money'],
+            'comments': _createCommentFromSelections(likes, dislikes),
+            'would_recommend': overallRating >= 4,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('id', existingReview['id']);
+          
+          debugPrint('✅ Airline review updated successfully');
+        } else {
+          // Insert new review
+          debugPrint('➕ Creating new airline review');
+          await _client.from('airline_reviews').insert({
+            'journey_id': journeyId,
+            'user_id': userId,
+            'airline_id': airlineId,
+            'overall_score': (overallRating / 5.0).toStringAsFixed(2),
+            'seat_comfort': scores['seat_comfort'],
+            'cabin_service': scores['cabin_service'],
+            'food_beverage': scores['food_beverage'],
+            'entertainment': scores['entertainment'],
+            'value_for_money': scores['value_for_money'],
+            'comments': _createCommentFromSelections(likes, dislikes),
+            'would_recommend': overallRating >= 4,
+            'created_at': DateTime.now().toIso8601String(),
+          });
+          
+          debugPrint('✅ Airline review created successfully');
+        }
 
         // Update leaderboard_scores for in-flight feedback categories
         await _updateLeaderboardScores(
@@ -592,93 +708,54 @@ class PhaseFeedbackService {
         'entertainment': (categoryScores['entertainment'] ?? overallRating) / 5.0,
       };
 
-      // Update/insert scores for each category
+      // Update/insert scores for each category using database function
       for (final entry in scoreTypes.entries) {
         final scoreType = entry.key;
         final newScore = entry.value;
 
         try {
-          // Get existing leaderboard entry
-          final existing = await _client
-              .from('leaderboard_scores')
-              .select('id, review_count, raw_score, bayesian_score')
-              .eq('airline_id', airlineId)
-              .eq('score_type', scoreType)
-              .maybeSingle();
+          // Calculate Bayesian score for first-time insert
+          const double C = 30.0; // Confidence parameter
+          const double m = 3.5; // Prior mean
+          final initialBayesianScore = (1.0 / 31.0) * newScore + (30.0 / 31.0) * m;
 
-          if (existing != null) {
-            // Update existing entry
-            final currentReviewCount = (existing['review_count'] as int? ?? 0) + 1;
-            final currentRawScore = (existing['raw_score'] as num? ?? 0.0).toDouble();
-            final currentReviewCountForCalc = currentReviewCount - 1;
+          // Use database function instead of direct INSERT/UPDATE
+          // This bypasses RLS policy issues
+          final result = await _client.rpc(
+            'update_leaderboard_score',
+            params: {
+              'p_airline_id': airlineId,
+              'p_score_type': scoreType,
+              'p_score_value': newScore.clamp(0.0, 5.0),
+              'p_review_count': 1, // Will be accumulated by the function
+              'p_raw_score': newScore.clamp(0.0, 5.0),
+              'p_bayesian_score': initialBayesianScore.clamp(0.0, 5.0),
+              'p_confidence_level': 'low',
+              'p_phases_completed': 1,
+            },
+          );
 
-            // Calculate new raw score: weighted average
-            double newRawScore;
-            if (currentReviewCountForCalc > 0) {
-              // Weighted average: (old_avg * old_count + new_score) / new_count
-              newRawScore = ((currentRawScore * currentReviewCountForCalc) + newScore) /
-                  currentReviewCount;
-            } else {
-              newRawScore = newScore;
-            }
-
-            // Calculate Bayesian score (simple smoothing)
-            // Using formula: (v/(v+m)) * S + (m/(v+m)) * C
-            // where v = review_count, m = 30 (minimum volume), S = raw_score, C = 3.5 (global average)
-            const double minimumVolume = 30.0;
-            const double globalAverage = 3.5;
-            final v = currentReviewCount.toDouble();
-            final m = minimumVolume;
-
-            final bayesianScore = (v / (v + m)) * newRawScore +
-                (m / (v + m)) * globalAverage;
-
-            // Determine confidence level
-            String confidenceLevel = 'low';
-            if (currentReviewCount >= 51) {
-              confidenceLevel = 'high';
-            } else if (currentReviewCount >= 11) {
-              confidenceLevel = 'medium';
-            }
-
-            // Update leaderboard score
-            await _client
-                .from('leaderboard_scores')
-                .update({
-                  'score_value': bayesianScore.clamp(0.0, 5.0),
-                  'raw_score': newRawScore.clamp(0.0, 5.0),
-                  'bayesian_score': bayesianScore.clamp(0.0, 5.0),
-                  'review_count': currentReviewCount,
-                  'confidence_level': confidenceLevel,
-                  'updated_at': DateTime.now().toIso8601String(),
-                })
-                .eq('id', existing['id']);
-
+          if (result != null && result is List && result.isNotEmpty) {
+            final reviewCount = result[0]['review_count'] ?? 1;
+            final scoreValue = result[0]['score_value'] ?? newScore;
             debugPrint(
-                '✅ Updated leaderboard_scores: $scoreType = ${bayesianScore.toStringAsFixed(2)} (${currentReviewCount} reviews)');
+                '✅ Updated leaderboard_scores: $scoreType = $scoreValue ($reviewCount reviews)');
           } else {
-            // Insert new entry
-            final initialBayesianScore = (1.0 / 31.0) * newScore +
-                (30.0 / 31.0) * 3.5; // First review uses Bayesian smoothing
-
-            await _client.from('leaderboard_scores').insert({
-              'airline_id': airlineId,
-              'score_type': scoreType,
-              'score_value': initialBayesianScore.clamp(0.0, 5.0),
-              'raw_score': newScore.clamp(0.0, 5.0),
-              'bayesian_score': initialBayesianScore.clamp(0.0, 5.0),
-              'review_count': 1,
-              'confidence_level': 'low',
-              'phases_completed': 1, // In-flight phase completed
-              'updated_at': DateTime.now().toIso8601String(),
-            });
-
-            debugPrint(
-                '✅ Created new leaderboard_scores entry: $scoreType = ${initialBayesianScore.toStringAsFixed(2)}');
+            debugPrint('✅ Leaderboard score updated for: $scoreType');
           }
         } catch (categoryError) {
           debugPrint(
               '⚠️ Error updating leaderboard_scores for $scoreType: $categoryError');
+          
+          // Check if it's a "function doesn't exist" error
+          if (categoryError.toString().contains('function') || 
+              categoryError.toString().contains('does not exist') ||
+              categoryError.toString().contains('update_leaderboard_score')) {
+            debugPrint('💡 Database function not found. Please run LEADERBOARD_RLS_FIX.sql');
+            debugPrint('   The function update_leaderboard_score() needs to be created in Supabase.');
+            debugPrint('   File location: LEADERBOARD_RLS_FIX.sql in project root');
+          }
+          
           // Continue with other categories even if one fails
         }
       }
@@ -686,5 +763,76 @@ class PhaseFeedbackService {
       debugPrint('⚠️ Error updating leaderboard_scores: $e');
       // Don't throw - leaderboard update failure shouldn't prevent review submission
     }
+  }
+
+  /// Get airline details from API data (Cirium) or IATA code
+  /// Prioritizes API data over local hardcoded values
+  static Map<String, String?> _getAirlineDetailsFromApiOrCode(
+    String iataCode,
+    Map<String, dynamic>? apiData,  // Cirium or other API response
+  ) {
+    // First, try to extract from API data if available
+    if (apiData != null) {
+      try {
+        // Extract airline info from Cirium API response
+        final flightStatuses = apiData['flightStatuses'] as List?;
+        if (flightStatuses != null && flightStatuses.isNotEmpty) {
+          final status = flightStatuses.first as Map<String, dynamic>;
+          final carrier = status['carrier'] as Map<String, dynamic>?;
+          
+          if (carrier != null) {
+            final name = carrier['name'] as String?;
+            final icao = carrier['fs'] as String?;  // FlightStats ICAO code
+            
+            if (name != null || icao != null) {
+              debugPrint('✅ Using airline details from API: $name ($icao)');
+              return {
+                'name': name,
+                'icao_code': icao,
+                'country': null,  // Not typically in Cirium response
+              };
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Could not extract airline from API data: $e');
+      }
+    }
+    
+    // Fall back to local database
+    return _getAirlineDetailsFromCode(iataCode);
+  }
+
+  /// Get airline details from IATA code (local database - fallback only)
+  /// Returns name, ICAO code, and country for the airline
+  static Map<String, String?> _getAirlineDetailsFromCode(String iataCode) {
+    // Use the same mapping as in SupabaseService
+    // This is a subset of major airlines - expand as needed
+    final airlines = <String, Map<String, String>>{
+      'AA': {'name': 'American Airlines', 'icao': 'AAL', 'country': 'United States'},
+      'UA': {'name': 'United Airlines', 'icao': 'UAL', 'country': 'United States'},
+      'DL': {'name': 'Delta Air Lines', 'icao': 'DAL', 'country': 'United States'},
+      'BA': {'name': 'British Airways', 'icao': 'BAW', 'country': 'United Kingdom'},
+      'LH': {'name': 'Lufthansa', 'icao': 'DLH', 'country': 'Germany'},
+      'AF': {'name': 'Air France', 'icao': 'AFR', 'country': 'France'},
+      'EK': {'name': 'Emirates', 'icao': 'UAE', 'country': 'United Arab Emirates'},
+      'QR': {'name': 'Qatar Airways', 'icao': 'QTR', 'country': 'Qatar'},
+      'SQ': {'name': 'Singapore Airlines', 'icao': 'SIA', 'country': 'Singapore'},
+      'CX': {'name': 'Cathay Pacific', 'icao': 'CPA', 'country': 'Hong Kong'},
+      'QF': {'name': 'Qantas', 'icao': 'QFA', 'country': 'Australia'},
+      'VA': {'name': 'Virgin Australia', 'icao': 'VOZ', 'country': 'Australia'},
+      'NZ': {'name': 'Air New Zealand', 'icao': 'ANZ', 'country': 'New Zealand'},
+      'AC': {'name': 'Air Canada', 'icao': 'ACA', 'country': 'Canada'},
+      'NH': {'name': 'All Nippon Airways', 'icao': 'ANA', 'country': 'Japan'},
+      'JL': {'name': 'Japan Airlines', 'icao': 'JAL', 'country': 'Japan'},
+      // Add more as needed - see supabase_service.dart for complete list
+    };
+
+    final details = airlines[iataCode.toUpperCase()];
+    return {
+      'name': details?['name'],
+      'icao_code': details?['icao'],
+      'country': details?['country'],
+    };
   }
 }
