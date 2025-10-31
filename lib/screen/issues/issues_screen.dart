@@ -111,79 +111,19 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
       );
     }
 
-    // Create dummy example card for reference
-    final dummyExample = {
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 1)),
-      'flight': 'BA213',
-      'airline': 'British Airways',
-      'logo': 'https://logo.clearbit.com/britishairways.com',
-      'seat': '12A',
-      'phase': 'In-flight',
-      'phaseColor': const Color(0xFF4A90E2), // Blue for In-flight
-      'likes': [
-        {'text': 'Comfortable seats', 'count': 1},
-        {'text': 'Friendly crew', 'count': 1},
-      ],
-      'dislikes': [],
-      'comments': 'Great crew and comfy seat',
-    };
-
     return KeyboardDismissWidget(
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: leaderboardState.issues.length + 1, // +1 for dummy example
+        itemCount: leaderboardState.issues.length,
         itemBuilder: (context, index) {
-          // Show dummy example as first card
-          if (index == 0) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade200, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.shade100,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Label for example
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade600,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'EXAMPLE - How cards should look',
-                      style: AppStyles.textStyle_12_600.copyWith(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Actual example card content
-                  ...(_buildFeedbackCardContent(dummyExample)),
-                ],
-              ),
-            );
-          }
-          
-          // Real feedback cards
-          final feedback = leaderboardState.issues[index - 1];
+          final feedback = leaderboardState.issues[index];
           return FadeTransition(
             opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
               CurvedAnimation(
                 parent: _fadeController,
                 curve: Interval(
-                  ((index - 1) * 0.1).clamp(0.0, 0.8),
-                  (((index - 1) * 0.1) + 0.2).clamp(0.0, 1.0),
+                  (index * 0.1).clamp(0.0, 0.8),
+                  ((index * 0.1) + 0.2).clamp(0.0, 1.0),
                   curve: Curves.easeIn,
                 ),
               ),
