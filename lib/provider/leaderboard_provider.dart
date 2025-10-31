@@ -67,8 +67,7 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       // Load airlines and issues in parallel
       final results = await Future.wait([
         SupabaseLeaderboardService.getCategoryRankings(
-          SupabaseLeaderboardService.mapCategoryToScoreType(
-              state.selectedCategory),
+          state.selectedCategory, // Pass category directly (now uses leaderboard_rankings table)
         ),
         RealtimeFeedbackService.getCombinedFeedbackStream().first, // NEW: Use combined feedback
       ]);
@@ -77,12 +76,14 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       final issues = results[1] as List<Map<String, dynamic>>;
 
       // Format airline data with rankings
+      // Use leaderboard_rank from database if available, otherwise use index
       final formattedAirlines = airlines.asMap().entries.map((entry) {
         final index = entry.key;
         final airlineData = entry.value;
+        final rank = airlineData['leaderboard_rank'] as int? ?? (index + 1);
         return SupabaseLeaderboardService.formatAirlineData(
           airlineData,
-          index + 1,
+          rank,
           null, // No movement calculation for initial load
         );
       }).toList();
@@ -120,16 +121,18 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       debugPrint('🔄 Loading $category rankings...');
 
       final airlines = await SupabaseLeaderboardService.getCategoryRankings(
-        SupabaseLeaderboardService.mapCategoryToScoreType(category),
+        category, // Pass category directly (now uses leaderboard_rankings table)
       );
 
       // Format airline data with rankings
+      // Use leaderboard_rank from database if available, otherwise use index
       final formattedAirlines = airlines.asMap().entries.map((entry) {
         final index = entry.key;
         final airlineData = entry.value;
+        final rank = airlineData['leaderboard_rank'] as int? ?? (index + 1);
         return SupabaseLeaderboardService.formatAirlineData(
           airlineData,
-          index + 1,
+          rank,
           null, // No movement calculation for category change
         );
       }).toList();

@@ -105,11 +105,56 @@ class SupabaseLeaderboardService {
   }
 
   /// Get category-specific rankings
+  /// Now uses leaderboard_rankings table for better performance and consistency
   static Future<List<Map<String, dynamic>>> getCategoryRankings(
       String category) async {
     try {
-      debugPrint('📊 Fetching $category rankings...');
+      debugPrint('📊 Fetching $category rankings from leaderboard_rankings...');
 
+      // Try to get from leaderboard_rankings first
+      try {
+        final rankingsResponse = await _client
+            .from('leaderboard_rankings')
+            .select('''
+              id,
+              airline_id,
+              category,
+              leaderboard_rank,
+              leaderboard_score,
+              avg_rating,
+              review_count,
+              airlines!inner(
+                id,
+                name,
+                iata_code,
+                icao_code,
+                logo_url
+              )
+            ''')
+            .eq('category', category)
+            .order('leaderboard_rank', ascending: true)
+            .limit(10);
+
+        if (rankingsResponse.isNotEmpty) {
+          debugPrint('✅ Fetched ${rankingsResponse.length} $category rankings from leaderboard_rankings');
+          // Convert to expected format
+          return rankingsResponse.map((entry) => {
+            'id': entry['id'],
+            'airline_id': entry['airline_id'],
+            'score_type': mapCategoryToScoreType(category),
+            'score_value': entry['leaderboard_score'],
+            'leaderboard_rank': entry['leaderboard_rank'],
+            'avg_rating': entry['avg_rating'],
+            'review_count': entry['review_count'],
+            'airlines': entry['airlines'],
+          }).toList();
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error fetching from leaderboard_rankings, falling back to leaderboard_scores: $e');
+      }
+
+      // Fallback to leaderboard_scores if leaderboard_rankings is not available
+      debugPrint('📊 Falling back to leaderboard_scores for $category...');
       final scoreType = mapCategoryToScoreType(category);
 
       var query = _client
@@ -133,7 +178,7 @@ class SupabaseLeaderboardService {
 
       final response = await query;
 
-      debugPrint('✅ Fetched ${response.length} $category rankings');
+      debugPrint('✅ Fetched ${response.length} $category rankings from leaderboard_scores');
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -224,6 +269,13 @@ class SupabaseLeaderboardService {
     Map<String, dynamic>? movement,
   ) {
     final airline = leaderboardEntry['airlines'] as Map<String, dynamic>?;
+    
+    // Use leaderboard_rank if available (from leaderboard_rankings table)
+    final displayRank = leaderboardEntry['leaderboard_rank'] ?? rank;
+    
+    // Use leaderboard_score if available, otherwise score_value
+    final displayScore = leaderboardEntry['leaderboard_score'] ?? 
+                        leaderboardEntry['score_value'];
 
     return {
       'id': leaderboardEntry['airline_id'],
@@ -231,8 +283,10 @@ class SupabaseLeaderboardService {
       'iataCode': airline?['iata_code'],
       'icaoCode': airline?['icao_code'],
       'logo': airline?['logo_url'] ?? 'assets/images/airline_logo.png',
-      'score': leaderboardEntry['score_value'],
-      'rank': rank,
+      'score': displayScore,
+      'avgRating': leaderboardEntry['avg_rating'],
+      'reviewCount': leaderboardEntry['review_count'],
+      'rank': displayRank,
       'movement': movement?['movement'],
       'previousRank': movement?['previousRank'],
       'color': Colors.grey.shade100,
