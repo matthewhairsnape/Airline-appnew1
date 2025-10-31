@@ -1,15 +1,10 @@
 -- ============================================================================
--- FLIGHT STATUS NOTIFICATION SYSTEM - Optimized Version
+-- UPDATE: Add Gate and Terminal Change Notifications
+-- ============================================================================
+-- Run this to update your trigger to also send notifications for gate/terminal changes
 -- ============================================================================
 
--- Enable pg_net extension
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-GRANT USAGE ON SCHEMA extensions TO postgres, anon, authenticated, service_role;
-
--- ============================================================================
--- FUNCTION: Send flight status notification via Edge Function
--- ============================================================================
-
+-- Step 1: Update the function to detect gate/terminal changes
 CREATE OR REPLACE FUNCTION notify_flight_status_change()
 RETURNS TRIGGER
 SECURITY DEFINER
@@ -115,10 +110,7 @@ BEGIN
 END;
 $$;
 
--- ============================================================================
--- TRIGGER
--- ============================================================================
-
+-- Step 2: Update trigger to include gate and terminal
 DROP TRIGGER IF EXISTS journey_status_notification_trigger ON journeys;
 
 CREATE TRIGGER journey_status_notification_trigger
@@ -126,58 +118,26 @@ CREATE TRIGGER journey_status_notification_trigger
   FOR EACH ROW
   EXECUTE FUNCTION notify_flight_status_change();
 
--- ============================================================================
--- NOTIFICATION LOGS TABLE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS notification_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  journey_id UUID REFERENCES journeys(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  body TEXT NOT NULL,
-  type TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'sent',
-  sent_at TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_notification_logs_user_id ON notification_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_notification_logs_journey_id ON notification_logs(journey_id);
-CREATE INDEX IF NOT EXISTS idx_notification_logs_sent_at ON notification_logs(sent_at DESC);
-
--- Row Level Security
-ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view their own notification logs" ON notification_logs;
-DROP POLICY IF EXISTS "Service role can insert notification logs" ON notification_logs;
-
-CREATE POLICY "Users can view their own notification logs"
-  ON notification_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
-
-CREATE POLICY "Service role can insert notification logs"
-  ON notification_logs FOR INSERT TO service_role WITH CHECK (true);
-
--- Permissions
-GRANT EXECUTE ON FUNCTION notify_flight_status_change() TO postgres, service_role;
-
--- ============================================================================
--- VERIFICATION
--- ============================================================================
-
+-- Step 3: Verify
 DO $$
 DECLARE
-  has_trigger BOOLEAN;
-  has_function BOOLEAN;
-  has_table BOOLEAN;
+  trigger_columns TEXT[];
 BEGIN
-  SELECT EXISTS(SELECT 1 FROM pg_trigger WHERE tgname = 'journey_status_notification_trigger') INTO has_trigger;
-  SELECT EXISTS(SELECT 1 FROM pg_proc WHERE proname = 'notify_flight_status_change') INTO has_function;
-  SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'notification_logs') INTO has_table;
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO trigger_columns
+  FROM pg_trigger t
+  JOIN pg_class c ON t.tgrelid = c.oid
+  JOIN pg_attribute a ON a.attrelid = c.oid
+  WHERE t.tgname = 'journey_status_notification_trigger'
+    AND a.attnum = ANY(t.tgattr)
+    AND NOT a.attisdropped;
   
-  RAISE NOTICE '✅ Setup Complete';
-  RAISE NOTICE '  Trigger: %', CASE WHEN has_trigger THEN '✓' ELSE '✗' END;
-  RAISE NOTICE '  Function: %', CASE WHEN has_function THEN '✓' ELSE '✗' END;
-  RAISE NOTICE '  Table: %', CASE WHEN has_table THEN '✓' ELSE '✗' END;
-  RAISE NOTICE 'Next: Deploy Edge Function → supabase functions deploy flight-status-notification';
+  RAISE NOTICE '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+  RAISE NOTICE '✅ Trigger Updated Successfully';
+  RAISE NOTICE '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+  RAISE NOTICE 'Trigger now monitors: %', array_to_string(trigger_columns, ', ');
+  RAISE NOTICE '';
+  RAISE NOTICE '📋 Next: Deploy the updated Edge Function:';
+  RAISE NOTICE '   supabase functions deploy flight-update-notification --project-ref otidfywfqxyxteixpqre --no-verify-jwt';
 END $$;
+

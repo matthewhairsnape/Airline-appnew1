@@ -38,6 +38,7 @@ import 'package:airline_app/widgets/in_app_notification_banner.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,48 +57,63 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    // Firebase initialization failed
+    // Firebase initialization failed - app will continue without Firebase features
+    debugPrint('⚠️ Firebase initialization failed: $e');
   }
-//   WidgetsFlutterBinding.ensureInitialized();
-// // await Firebase.initializeApp(
-// //   options: DefaultFirebaseOptions.currentPlatform,
-// // );
-// // runApp(const MyApp());
+
   try {
     await SupabaseService.initialize();
   } catch (e) {
-    // Supabase initialization failed
+    // Supabase initialization failed - app will continue with limited functionality
+    if (kDebugMode) {
+      debugPrint('⚠️ Supabase initialization failed: $e');
+    }
   }
 
   try {
     await SimpleDataFlowService.instance.initialize();
   } catch (e) {
-    // Data flow service initialization failed
+    // Data flow service initialization failed - app will continue
+    if (kDebugMode) {
+      debugPrint('⚠️ SimpleDataFlowService initialization failed: $e');
+    }
   }
 
   // Initialize Push Notification Service (Main FCM service)
   try {
     await PushNotificationService.initialize();
-    debugPrint('✅ PushNotificationService initialized successfully');
+    if (kDebugMode) {
+      debugPrint('✅ PushNotificationService initialized successfully');
+    }
   } catch (e) {
-    debugPrint('❌ PushNotificationService initialization failed: $e');
     // Continue app even if push notifications fail
+    if (kDebugMode) {
+      debugPrint('⚠️ PushNotificationService initialization failed: $e');
+    }
   }
 
   try {
     await NotificationManager().initialize();
-    debugPrint('✅ NotificationManager initialized successfully');
+    if (kDebugMode) {
+      debugPrint('✅ NotificationManager initialized successfully');
+    }
   } catch (e) {
-    debugPrint('❌ NotificationManager initialization failed: $e');
-    // Notification manager initialization failed
+    // Notification manager initialization failed - non-critical
+    if (kDebugMode) {
+      debugPrint('⚠️ NotificationManager initialization failed: $e');
+    }
   }
 
   try {
     await JourneyNotificationService.initialize();
-    debugPrint('✅ JourneyNotificationService initialized successfully');
+    if (kDebugMode) {
+      debugPrint('✅ JourneyNotificationService initialized successfully');
+    }
   } catch (e) {
-    debugPrint('❌ JourneyNotificationService initialization failed: $e');
-    // Journey notification service initialization failed
+    // Journey notification service initialization failed - non-critical
+    if (kDebugMode) {
+      debugPrint('⚠️ JourneyNotificationService initialization failed: $e');
+    }
   }
 
   runApp(
@@ -119,6 +135,59 @@ class MyApp extends ConsumerWidget {
   
   // Global key for navigator to access overlay
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+  /// Build routes - excludes test routes in production
+  Map<String, WidgetBuilder> _buildRoutes() {
+    final routes = <String, WidgetBuilder>{
+      AppRoutes.loginscreen: (context) => const Login(),
+      AppRoutes.skipscreen: (context) => const SkipScreen(),
+      AppRoutes.startreviews: (context) => const StartReviews(),
+      AppRoutes.reviewsubmissionscreen: (context) =>
+          const ReviewsubmissionScreen(),
+      AppRoutes.feedscreen: (context) => const FeedScreen(),
+      AppRoutes.feedfilterscreen: (context) => const FeedFilterScreen(),
+      AppRoutes.leaderboardscreen: (context) => const LeaderboardScreen(),
+      AppRoutes.detailairport: (context) => const DetailAirport(),
+      AppRoutes.mediafullscreen: (context) => const MediaFullScreen(),
+      AppRoutes.profilescreen: (context) => const ProfileScreen(),
+      AppRoutes.filterscreen: (context) => const LeaderboardFilterScreen(),
+      AppRoutes.cardnotificationscreen: (context) =>
+          const NotificationsScreen(),
+      AppRoutes.questionfirstscreenforairline: (context) =>
+          const QuestionFirstScreenForAirline(),
+      AppRoutes.detailfirstscreenforairline: (context) =>
+          const DetailFirstScreenForAirline(),
+      AppRoutes.questionsecondscreenforairline: (context) =>
+          const QuestionSecondScreenForAirline(),
+      AppRoutes.detailsecondscreenforairline: (context) =>
+          const DetailSecondScreenForAirline(),
+      AppRoutes.questionfirstscreenforairport: (context) =>
+          const QuestionFirstScreenForAirport(),
+      AppRoutes.detailfirstscreenforairport: (context) =>
+          const DetailFirstScreenForAirport(),
+      AppRoutes.questionsecondscreenforairport: (context) =>
+          const QuestionSecondScreenForAirport(),
+      AppRoutes.detailsecondscreenforairport: (context) =>
+          const DetailSecondScreenForAirport(),
+      AppRoutes.submitscreen: (context) => const SubmitScreen(),
+      AppRoutes.completereviews: (context) => const CompleteReviews(),
+      AppRoutes.eidtprofilescreen: (context) => const EditProfileScreen(),
+      AppRoutes.aboutapp: (context) => const AboutApp(),
+      AppRoutes.helpFaqs: (context) => const HelpFaq(),
+      AppRoutes.termsofservice: (context) => const TermsOfService(),
+      AppRoutes.myJourney: (context) => const MyJourneyScreen(),
+      AppRoutes.settingsscreen: (context) => const SettingsScreen(),
+      AppRoutes.issuesScreen: (context) => const IssuesScreen(),
+    };
+
+    // Only add test routes in debug mode
+    if (kDebugMode) {
+      routes[AppRoutes.testPushNotification] = 
+          (context) => const TestPushNotificationScreen();
+    }
+
+    return routes;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,23 +239,27 @@ class MyApp extends ConsumerWidget {
               // Get the overlay from the navigator's context
               final overlayContext = navigatorState.overlay?.context;
               if (overlayContext != null && overlayContext.mounted) {
-                debugPrint('📍 Overlay context is ready, showing in-app banner');
+                if (kDebugMode) {
+                  debugPrint('📍 Showing in-app notification banner');
+                }
                 // Show in-app notification banner when app is in foreground
                 InAppNotificationBanner.show(
                   overlayContext,
                   title: title,
                   body: body,
                   onTap: () {
-                    debugPrint('In-app notification tapped: $title');
+                    if (kDebugMode) {
+                      debugPrint('In-app notification tapped: $title');
+                    }
                     // Handle notification tap - you can add navigation logic here
                   },
                   displayDuration: const Duration(seconds: 5),
                   icon: Icons.flight_takeoff,
                 );
-              } else {
+              } else if (kDebugMode) {
                 debugPrint('⚠️ Overlay context not available for in-app banner');
               }
-            } else {
+            } else if (kDebugMode) {
               debugPrint('⚠️ Navigator state not available for in-app banner');
             }
           });
@@ -194,48 +267,7 @@ class MyApp extends ConsumerWidget {
         return child ?? const SizedBox.shrink();
       },
       initialRoute: AppRoutes.skipscreen,
-      routes: {
-        AppRoutes.loginscreen: (context) => const Login(),
-        AppRoutes.skipscreen: (context) => const SkipScreen(),
-        AppRoutes.startreviews: (context) => const StartReviews(),
-        AppRoutes.reviewsubmissionscreen: (context) =>
-            const ReviewsubmissionScreen(),
-        AppRoutes.feedscreen: (context) => const FeedScreen(),
-        AppRoutes.feedfilterscreen: (context) => const FeedFilterScreen(),
-        AppRoutes.leaderboardscreen: (context) => const LeaderboardScreen(),
-        AppRoutes.detailairport: (context) => const DetailAirport(),
-        AppRoutes.mediafullscreen: (context) => const MediaFullScreen(),
-        AppRoutes.profilescreen: (context) => const ProfileScreen(),
-        AppRoutes.filterscreen: (context) => const LeaderboardFilterScreen(),
-        AppRoutes.cardnotificationscreen: (context) =>
-            const NotificationsScreen(),
-        AppRoutes.questionfirstscreenforairline: (context) =>
-            const QuestionFirstScreenForAirline(),
-        AppRoutes.detailfirstscreenforairline: (context) =>
-            const DetailFirstScreenForAirline(),
-        AppRoutes.questionsecondscreenforairline: (context) =>
-            const QuestionSecondScreenForAirline(),
-        AppRoutes.detailsecondscreenforairline: (context) =>
-            const DetailSecondScreenForAirline(),
-        AppRoutes.questionfirstscreenforairport: (context) =>
-            const QuestionFirstScreenForAirport(),
-        AppRoutes.detailfirstscreenforairport: (context) =>
-            const DetailFirstScreenForAirport(),
-        AppRoutes.questionsecondscreenforairport: (context) =>
-            const QuestionSecondScreenForAirport(),
-        AppRoutes.detailsecondscreenforairport: (context) =>
-            const DetailSecondScreenForAirport(),
-        AppRoutes.submitscreen: (context) => const SubmitScreen(),
-        AppRoutes.completereviews: (context) => const CompleteReviews(),
-        AppRoutes.eidtprofilescreen: (context) => const EditProfileScreen(),
-        AppRoutes.aboutapp: (context) => const AboutApp(),
-        AppRoutes.helpFaqs: (context) => const HelpFaq(),
-        AppRoutes.termsofservice: (context) => const TermsOfService(),
-        AppRoutes.myJourney: (context) => const MyJourneyScreen(),
-        AppRoutes.settingsscreen: (context) => const SettingsScreen(),
-        AppRoutes.issuesScreen: (context) => const IssuesScreen(),
-        AppRoutes.testPushNotification: (context) => const TestPushNotificationScreen(),
-      },
+      routes: _buildRoutes(),
       debugShowCheckedModeBanner: false,
     );
   }
