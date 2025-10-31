@@ -1,0 +1,109 @@
+name: airline_app
+description: "Real-time airline feedback and review platform for passengers"
+publish_to: "none"
+version: 1.0.9+9
+
+environment:
+  sdk: ^3.5.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_riverpod: ^2.6.1
+  build_runner: ^2.4.13
+  carousel_slider: ^5.0.0
+  button_animations: ^2.0.0+3
+  syncfusion_flutter_datepicker: ^31.1.23
+  latlong2: ^0.9.1
+  http: ^1.2.2
+  file_picker: ^10.3.3
+  image_picker: ^1.1.2
+  dropdown_button2: ^2.3.9
+  loading_indicator: ^3.1.1
+  permission_handler: ^12.0.1
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^6.1.2
+  otpless_flutter: ^2.2.1
+  web_socket_channel: ^3.0.1
+  flutter_localization: ^0.3.3
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+  flutter_animate: ^4.5.0
+  flutter_emoji_feedback: ^1.0.3
+  shared_preferences: ^2.3.3
+  cached_network_image: ^3.4.1
+  mobile_scanner: ^7.1.2
+  country_flags: ^4.0.1
+  country_codes: ^3.1.0+2
+  sealed_countries: ^2.7.0
+  gif: ^2.3.0
+  dio: ^5.7.0
+  fl_chart: ^1.1.1
+  geocoding: ^4.0.0
+  csv: ^6.0.0
+  google_mlkit_text_recognition: ^0.15.0
+  googleapis: ^15.0.0
+  extension_google_sign_in_as_googleapis_auth: ^3.0.0
+  video_player: ^2.9.2
+  flutter_svg: ^2.0.16
+  google_mlkit_barcode_scanning: ^0.14.1
+  url_launcher: ^6.3.1
+  share_plus: ^12.0.0
+  googleapis_auth: ^2.0.0
+  flutter_launcher_icons: "^0.14.2"
+  http_parser: ^4.0.2
+  mime: ^2.0.0
+  animated_flip_counter: ^0.3.4
+  convex_bottom_bar: ^3.2.0
+  shimmer: ^3.0.0
+  path: ^1.9.0
+  flutter_local_notifications: ^19.0.2
+  workmanager: ^0.5.2
+  supabase_flutter: ^2.10.3
+  firebase_core: ^3.15.2
+  firebase_messaging: ^15.2.10
+  firebase_auth: ^5.3.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  image_path: "assets/icon/logoIcon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  adaptive_icon_background: "#ffffff" # or any color you prefer
+  adaptive_icon_foreground: "assets/icon/logoIcon.png"
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/lang/
+    - assets/icon/
+  fonts:
+    - family: SF Pro
+      fonts:
+        - asset: fonts/SF-Pro-Display-Black.otf
+        - asset: fonts/SF-Pro-Display-BlackItalic.otf
+        - asset: fonts/SF-Pro-Display-Bold.otf
+        - asset: fonts/SF-Pro-Display-BoldItalic.otf
+        - asset: fonts/SF-Pro-Display-Heavy.otf
+        - asset: fonts/SF-Pro-Display-HeavyItalic.otf
+        - asset: fonts/SF-Pro-Display-Light.otf
+        - asset: fonts/SF-Pro-Display-LightItalic.otf
+        - asset: fonts/SF-Pro-Display-Medium.otf
+        - asset: fonts/SF-Pro-Display-MediumItalic.otf
+        - asset: fonts/SF-Pro-Display-Regular.otf
+        - asset: fonts/SF-Pro-Display-RegularItalic.otf
+        - asset: fonts/SF-Pro-Display-Semibold.otf
+        - asset: fonts/SF-Pro-Display-SemiboldItalic.otf
+        - asset: fonts/SF-Pro-Display-Thin.otf
+        - asset: fonts/SF-Pro-Display-ThinItalic.otf
+        - asset: fonts/SF-Pro-Display-Ultralight.otf
+        - asset: fonts/SF-Pro-Display-UltralightItalic.otf
