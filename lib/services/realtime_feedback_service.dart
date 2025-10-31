@@ -155,7 +155,7 @@ class RealtimeFeedbackService {
     List<dynamic> leaderboardScores,
     List<dynamic> feedbackData,
   ) {
-    final List<Map<String, dynamic>> combinedFeedback = [];
+    List<Map<String, dynamic>> combinedFeedback = [];
 
     // Process airport reviews (Priority 1)
     for (final review in airportReviews) {
@@ -171,6 +171,9 @@ class RealtimeFeedbackService {
     for (final feedback in feedbackData) {
       combinedFeedback.add(_formatFeedback(feedback));
     }
+
+    // Aggregate likes/dislikes counts by flight before sorting
+    combinedFeedback = _aggregateFeedbackCounts(combinedFeedback);
 
     // Sort by timestamp (most recent first)
     combinedFeedback.sort((a, b) {
@@ -462,13 +465,84 @@ class RealtimeFeedbackService {
 
     return '$baseComment$categoryName. Score: ${score.toStringAsFixed(1)}/5.0';
   }
+  /// Aggregate feedback counts by flight (count actual passengers)
+  static List<Map<String, dynamic>> _aggregateFeedbackCounts(
+      List<Map<String, dynamic>> feedbackList) {
+    // Group feedback by flight
+    final Map<String, List<Map<String, dynamic>>> flightGroups = {};
+    
+    for (final feedback in feedbackList) {
+      final flightKey = '${feedback['flight']}_${feedback['airline']}';
+      if (!flightGroups.containsKey(flightKey)) {
+        flightGroups[flightKey] = [];
+      }
+      flightGroups[flightKey]!.add(feedback);
+    }
+
+    // Aggregate likes/dislikes counts for each flight group
+    final aggregatedFeedback = <Map<String, dynamic>>[];
+    
+    for (final group in flightGroups.values) {
+      if (group.length == 1) {
+        // Single feedback - use as is, but set count to 1
+        final singleFeedback = Map<String, dynamic>.from(group.first);
+        final likes = (singleFeedback['likes'] as List? ?? []) as List<Map<String, dynamic>>;
+        final dislikes = (singleFeedback['dislikes'] as List? ?? []) as List<Map<String, dynamic>>;
+        
+        // Update counts to reflect actual passenger count (1 passenger)
+        for (var like in likes) {
+          like['count'] = 1;
+        }
+        for (var dislike in dislikes) {
+          dislike['count'] = 1;
+        }
+        
+        aggregatedFeedback.add(singleFeedback);
+      } else {
+        // Multiple feedbacks for same flight - aggregate counts
+        final Map<String, int> likesCount = {};
+        final Map<String, int> dislikesCount = {};
+        
+        for (final feedback in group) {
+          final likes = (feedback['likes'] as List? ?? []) as List<Map<String, dynamic>>;
+          final dislikes = (feedback['dislikes'] as List? ?? []) as List<Map<String, dynamic>>;
+          
+          for (final like in likes) {
+            final text = like['text'] as String? ?? '';
+            likesCount[text] = (likesCount[text] ?? 0) + 1;
+          }
+          
+          for (final dislike in dislikes) {
+            final text = dislike['text'] as String? ?? '';
+            dislikesCount[text] = (dislikesCount[text] ?? 0) + 1;
+          }
+        }
+        
+        // Use the most recent feedback as base, but update aggregated counts
+        final mostRecent = group.first;
+        final aggregated = Map<String, dynamic>.from(mostRecent);
+        
+        aggregated['likes'] = likesCount.entries
+            .map((e) => {'text': e.key, 'count': e.value})
+            .toList();
+        aggregated['dislikes'] = dislikesCount.entries
+            .map((e) => {'text': e.key, 'count': e.value})
+            .toList();
+        
+        aggregatedFeedback.add(aggregated);
+      }
+    }
+    
+    return aggregatedFeedback;
+  }
+
   /// Extract positive feedback from comments
   static List<Map<String, dynamic>> _extractPositiveFromComments(
       String comments) {
     if (comments.isEmpty) {
       return [
-        {'text': 'Good facilities', 'count': 5},
-        {'text': 'Helpful staff', 'count': 3},
+        {'text': 'Good facilities', 'count': 1}, // Changed to 1 (actual passenger count)
+        {'text': 'Helpful staff', 'count': 1},   // Changed to 1 (actual passenger count)
       ];
     }
 
@@ -497,14 +571,14 @@ class RealtimeFeedbackService {
 
     if (extractedLikes.isEmpty) {
       return [
-        {'text': 'Positive experience', 'count': 2},
+        {'text': 'Positive experience', 'count': 1}, // Changed to 1 (actual passenger count)
       ];
     }
 
     return extractedLikes
         .map((keyword) => {
               'text': keyword.capitalize(),
-              'count': 3,
+              'count': 1, // Changed to 1 (actual passenger count - will be aggregated later)
             })
         .toList();
   }
@@ -540,7 +614,7 @@ class RealtimeFeedbackService {
     return extractedDislikes
         .map((keyword) => {
               'text': keyword.capitalize(),
-              'count': 1,
+              'count': 1, // Actual passenger count - will be aggregated later
             })
         .toList();
   }

@@ -15,12 +15,26 @@ class IssuesScreen extends ConsumerStatefulWidget {
 }
 
 class _IssuesScreenState extends ConsumerState<IssuesScreen> {
+  // Track expanded/collapsed state for each flight group
+  final Set<String> _expandedFlights = <String>{};
+
   @override
   void initState() {
     super.initState();
     // Load issues data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(leaderboardProvider.notifier).loadLeaderboard();
+    });
+  }
+
+  /// Toggle expand/collapse state for a flight
+  void _toggleFlightExpansion(String flightKey) {
+    setState(() {
+      if (_expandedFlights.contains(flightKey)) {
+        _expandedFlights.remove(flightKey);
+      } else {
+        _expandedFlights.add(flightKey);
+      }
     });
   }
 
@@ -97,17 +111,21 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
       );
     }
 
+    // Group feedback by flight
+    final groupedByFlight = _groupIssuesByFlight(leaderboardState.issues);
+
     return KeyboardDismissWidget(
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: leaderboardState.issues.length,
+        itemCount: groupedByFlight.length,
         itemBuilder: (context, index) {
-          final issue = leaderboardState.issues[index];
-          final rank = index + 1;
+          final flightGroup = groupedByFlight[index];
+          final flightKey = flightGroup['flightKey'] as String;
+          final flightInfo = flightGroup['flightInfo'] as Map<String, dynamic>;
+          final feedbackList = flightGroup['feedback'] as List<Map<String, dynamic>>;
 
           return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -120,119 +138,176 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Rank Badge
-                Container(
-                  width: 40,
-                  height: 40,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: Center(
-                    child: Text(
-                      '$rank',
-                      style: AppStyles.textStyle_16_600.copyWith(
-                        color: Colors.grey.shade600,
+                // Flight Header with Logo and Name (Tappable to expand/collapse)
+                InkWell(
+                  onTap: () => _toggleFlightExpansion(flightKey),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Airline Logo
+                        _buildAirlineLogo(flightInfo['logo'], size: 56),
+                        const SizedBox(width: 16),
+                        // Flight Info
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                flightInfo['flight'] ?? 'Unknown Flight',
+                                style: AppStyles.textStyle_18_600.copyWith(
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                flightInfo['airline'] ?? 'Unknown Airline',
+                                style: AppStyles.textStyle_14_400.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Feedback Count Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Text(
+                            '${feedbackList.length} ${feedbackList.length == 1 ? 'feedback' : 'feedbacks'}',
+                            style: AppStyles.textStyle_12_600.copyWith(
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Expand/Collapse Icon
+                        AnimatedRotation(
+                          duration: const Duration(milliseconds: 200),
+                          turns: _expandedFlights.contains(flightKey) ? 0.5 : 0,
+                          child: Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.grey.shade600,
+                            size: 28,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
 
-                // Airline Logo
-                _buildAirlineLogo(issue['logo']),
+                // Feedback Items List (Expandable)
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: _expandedFlights.contains(flightKey)
+                      ? Column(
+                          children: feedbackList.asMap().entries.map((entry) {
+                            final feedbackIndex = entry.key;
+                            final issue = entry.value;
+                            final isLast = feedbackIndex == feedbackList.length - 1;
 
-                const SizedBox(width: 16),
-
-                // Flight Info and Feedback
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Flight Number, Stage Badge, and Timestamp
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              issue['flight'] ?? 'Unknown Flight',
-                              style: AppStyles.textStyle_16_600.copyWith(
-                                color: Colors.black,
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                border: isLast
+                                    ? null
+                                    : Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade200,
+                                          width: 1,
+                                        ),
+                                      ),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: issue['phaseColor'],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              issue['phase'] ?? 'Unknown',
-                              style: AppStyles.textStyle_12_600.copyWith(
-                                color: Colors.white,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Phase Badge and Timestamp
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: issue['phaseColor'] ?? Colors.grey,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          issue['phase'] ?? 'Unknown',
+                                          style: AppStyles.textStyle_12_600.copyWith(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _formatTimestamp(issue['timestamp']),
+                                        style: AppStyles.textStyle_12_400.copyWith(
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                      if (issue['seat'] != null &&
+                                          issue['seat'] != 'N/A') ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '• Seat ${issue['seat']}',
+                                          style: AppStyles.textStyle_12_400.copyWith(
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  // Score/Rating Display
+                                  if (issue['overall_rating'] != null ||
+                                      issue['score_value'] != null)
+                                    _buildScoreDisplay(issue),
+
+                                  const SizedBox(height: 12),
+
+                                  // Likes Bubble (tappable)
+                                  GestureDetector(
+                                    onTap: () =>
+                                        _showFeedbackDetails(context, issue, 'likes'),
+                                    child: _buildCompactLikes(issue['likes'] ?? []),
+                                  ),
+
+                                  const SizedBox(height: 8),
+
+                                  // Dislikes Bubble (tappable)
+                                  GestureDetector(
+                                    onTap: () => _showFeedbackDetails(
+                                        context, issue, 'dislikes'),
+                                    child: _buildCompactDislikes(issue['dislikes'] ?? []),
+                                  ),
+                                ],
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _formatTimestamp(issue['timestamp']),
-                            style: AppStyles.textStyle_12_400.copyWith(
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      // Airline Name and Seat Number
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              issue['airline'] ?? 'Unknown Airline',
-                              style: AppStyles.textStyle_14_400.copyWith(
-                                color: Colors.grey.shade600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (issue['seat'] != null &&
-                              issue['seat'] != 'N/A') ...[
-                            Text(
-                              ' • Seat ${issue['seat']}',
-                              style: AppStyles.textStyle_14_400.copyWith(
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      const SizedBox(height: 12),
-
-                      // Likes Bubble (tappable)
-                      GestureDetector(
-                        onTap: () =>
-                            _showFeedbackDetails(context, issue, 'likes'),
-                        child: _buildCompactLikes(issue['likes'] ?? []),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Dislikes Bubble (tappable)
-                      GestureDetector(
-                        onTap: () =>
-                            _showFeedbackDetails(context, issue, 'dislikes'),
-                        child: _buildCompactDislikes(issue['dislikes'] ?? []),
-                      ),
-                    ],
-                  ),
+                            );
+                          }).toList(),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -240,6 +315,68 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
         },
       ),
     );
+  }
+
+  /// Group issues by flight
+  List<Map<String, dynamic>> _groupIssuesByFlight(
+      List<Map<String, dynamic>> issues) {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+
+    for (final issue in issues) {
+      // Create a unique key for each flight
+      // Use flight number + airline name as key
+      final flightKey = '${issue['flight'] ?? 'Unknown'}_${issue['airline'] ?? 'Unknown'}';
+
+      if (!grouped.containsKey(flightKey)) {
+        grouped[flightKey] = [];
+      }
+      grouped[flightKey]!.add(issue);
+    }
+
+    // Convert to list format with flight info
+    return grouped.entries.map((entry) {
+      final flightKey = entry.key;
+      final feedbackList = entry.value;
+
+      // Get flight info from the first feedback item
+      final firstFeedback = feedbackList.first;
+      final flightInfo = {
+        'flight': firstFeedback['flight'] ?? 'Unknown Flight',
+        'airline': firstFeedback['airline'] ?? 'Unknown Airline',
+        'logo': firstFeedback['logo'],
+      };
+
+      // Sort feedback by timestamp (most recent first)
+      feedbackList.sort((a, b) {
+        final timeA = a['timestamp'] as DateTime?;
+        final timeB = b['timestamp'] as DateTime?;
+        if (timeA == null && timeB == null) return 0;
+        if (timeA == null) return 1;
+        if (timeB == null) return -1;
+        return timeB.compareTo(timeA);
+      });
+
+      return {
+        'flightKey': flightKey,
+        'flightInfo': flightInfo,
+        'feedback': feedbackList,
+      };
+    }).toList()
+      ..sort((a, b) {
+        // Sort flights by most recent feedback timestamp
+        final aFeedback = a['feedback'] as List<Map<String, dynamic>>;
+        final bFeedback = b['feedback'] as List<Map<String, dynamic>>;
+        if (aFeedback.isEmpty && bFeedback.isEmpty) return 0;
+        if (aFeedback.isEmpty) return 1;
+        if (bFeedback.isEmpty) return -1;
+
+        final aTime = aFeedback.first['timestamp'] as DateTime?;
+        final bTime = bFeedback.first['timestamp'] as DateTime?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
   }
 
   /// Build airline logo widget (network or fallback)
@@ -327,6 +464,88 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen> {
                 fontWeight: FontWeight.w500,
               ),
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build score/rating display widget
+  Widget _buildScoreDisplay(Map<String, dynamic> issue) {
+    final score = issue['overall_rating'] ?? issue['score_value'];
+    if (score == null) return const SizedBox.shrink();
+
+    // Convert score to display format (handle both 0-5 and 0-1 scales)
+    double displayScore;
+    double maxScore = 5.0;
+    
+    if (score is num) {
+      displayScore = score.toDouble();
+      // If score is less than 1, it might be normalized (0-1 scale)
+      if (displayScore <= 1.0) {
+        displayScore = displayScore * 5.0;
+      }
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    // Determine score color
+    Color scoreColor;
+    String scoreLabel;
+    if (displayScore >= 4.5) {
+      scoreColor = Colors.green;
+      scoreLabel = 'Excellent';
+    } else if (displayScore >= 4.0) {
+      scoreColor = Colors.green.shade600;
+      scoreLabel = 'Great';
+    } else if (displayScore >= 3.5) {
+      scoreColor = Colors.blue;
+      scoreLabel = 'Good';
+    } else if (displayScore >= 3.0) {
+      scoreColor = Colors.orange;
+      scoreLabel = 'Average';
+    } else if (displayScore >= 2.0) {
+      scoreColor = Colors.orange.shade700;
+      scoreLabel = 'Below Average';
+    } else {
+      scoreColor = Colors.red;
+      scoreLabel = 'Poor';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scoreColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: scoreColor.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.star_rounded,
+            color: scoreColor,
+            size: 18,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            displayScore.toStringAsFixed(1),
+            style: AppStyles.textStyle_14_600.copyWith(
+              color: scoreColor,
+            ),
+          ),
+          Text(
+            '/${maxScore.toStringAsFixed(0)}',
+            style: AppStyles.textStyle_12_400.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            scoreLabel,
+            style: AppStyles.textStyle_12_600.copyWith(
+              color: scoreColor,
             ),
           ),
         ],

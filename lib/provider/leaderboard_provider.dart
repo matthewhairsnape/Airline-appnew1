@@ -186,6 +186,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         'passenger': passengerName,
         'seat': seatNumber,
         'feedback_type': feedbackType, // Store the type for reference
+        'overall_rating': feedback['overall_rating'], // Include score/rating
+        'score_value': feedback['score_value'], // For leaderboard scores
       };
     }).toList();
   }
