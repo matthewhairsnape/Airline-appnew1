@@ -215,6 +215,10 @@ serve(async (req) => {
               },
             },
             apns: {
+              headers: {
+                'apns-priority': '10', // CRITICAL: High priority for immediate delivery
+                'apns-push-type': 'alert', // CRITICAL: Ensures notification shows outside app
+              },
               payload: {
                 aps: {
                   sound: 'default',
@@ -223,7 +227,11 @@ serve(async (req) => {
                     title,
                     body,
                   },
-                  contentAvailable: 1, // Ensures notification can wake app
+                  // CRITICAL: These settings ensure notification shows outside app
+                  'content-available': 1,
+                  'mutable-content': 1,
+                  // Ensure it wakes device and shows notification
+                  'interruption-level': 'active',
                 },
               },
             },

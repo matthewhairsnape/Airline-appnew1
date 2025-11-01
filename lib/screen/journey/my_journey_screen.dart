@@ -541,13 +541,17 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   List<TimelineEvent> _getPreFlightEvents(FlightTrackingModel flight) {
     final events = <TimelineEvent>[];
 
-    // Trip Added
+    // Trip Added - Use created_at from journey, convert to local time
+    final tripAddedTime = flight.phaseStartTime;
+    final localTripTime = tripAddedTime != null 
+        ? (tripAddedTime.isUtc ? tripAddedTime.toLocal() : tripAddedTime)
+        : DateTime.now();
+    
     events.add(TimelineEvent(
       id: 'trip_added',
       title: 'Trip Added',
       description: 'Boarding pass scanned successfully',
-      timestamp:
-          flight.phaseStartTime ?? DateTime.now().subtract(Duration(hours: 2)),
+      timestamp: localTripTime,
       icon: Icons.phone_android,
       isCompleted: true,
     ));
@@ -576,14 +580,25 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
 
     // Boarding Started
     if (flight.currentPhase.index >= FlightPhase.boarding.index) {
+      // Get gate from flight data, fallback to events, then default
+      String gate = flight.gate ?? '';
+      if (gate.isEmpty) {
+        final gateEvent = flight.events.firstWhere(
+          (e) => e.eventType == 'GATE_ASSIGNED' && e.metadata?['gate'] != null,
+          orElse: () => FlightEvent(eventType: '', timestamp: DateTime.now(), description: ''),
+        );
+        gate = gateEvent.metadata?['gate']?.toString() ?? '';
+      }
+      
+      final gateDisplay = gate.isNotEmpty ? 'Gate $gate' : 'Gate';
       events.add(TimelineEvent(
         id: 'boarding_started',
         title: 'Boarding',
-        description: 'Now boarding at Gate D18',
+        description: 'Now boarding at $gateDisplay',
         timestamp: flight.phaseStartTime ??
             DateTime.now().subtract(Duration(hours: 1)),
         icon: Icons.flight_takeoff,
-        location: 'Gate D18',
+        location: gateDisplay,
         isCompleted: flight.currentPhase.index > FlightPhase.boarding.index,
       ));
     }

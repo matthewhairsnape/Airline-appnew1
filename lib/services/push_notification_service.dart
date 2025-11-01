@@ -899,38 +899,86 @@ class PushNotificationService {
   }
 }
 
-/// Background message handler (must be top-level function)
+  /// Background message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   
-  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  debugPrint('📱 BACKGROUND NOTIFICATION RECEIVED');
-  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  debugPrint('Message ID: ${message.messageId}');
-  debugPrint('Message Type: ${message.messageType}');
-  debugPrint('Sent Time: ${message.sentTime}');
-  debugPrint('From: ${message.from}');
-  debugPrint('Title: ${message.notification?.title}');
-  debugPrint('Body: ${message.notification?.body}');
-  debugPrint('Data: ${message.data}');
-  debugPrint('Has Notification: ${message.notification != null}');
-  debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  // Initialize local notifications to ensure notification displays
+  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
   
-  // Background messages should show notifications automatically
-  // But we can also handle any additional processing here
-  // For example, update local database, schedule local notifications, etc.
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
   
-  try {
-    // Initialize local notifications plugin to show notification if needed
-    final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+  await localNotifications.initialize(initSettings);
+  
+  // Show notification even if it's already in notification payload
+  // This ensures it displays on all platforms
+  if (message.notification != null) {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+    );
     
-    if (message.notification != null) {
-      debugPrint('✅ Background notification has notification payload - should display automatically');
-    } else {
-      debugPrint('⚠️ Background message has no notification payload, only data');
-    }
-  } catch (e) {
-    debugPrint('❌ Error in background handler: $e');
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
+    );
+    
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      message.notification!.title ?? 'Notification',
+      message.notification!.body ?? '',
+      platformDetails,
+      payload: message.data.toString(),
+    );
+  } else if (message.data['title'] != null && message.data['body'] != null) {
+    // If only data payload, create notification
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
+    );
+    
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      message.data['title'],
+      message.data['body'],
+      platformDetails,
+      payload: message.data.toString(),
+    );
   }
 }

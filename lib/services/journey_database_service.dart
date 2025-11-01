@@ -125,8 +125,8 @@ class JourneyDatabaseService {
         events: _extractEventsFromJourney(journeyData),
         isVerified: true,
         seatNumber: journeyData['seat_number']?.toString(),
-        terminal: flight['terminal']?.toString(),
-        gate: flight['gate']?.toString(),
+        terminal: journeyData['terminal']?.toString() ?? flight['terminal']?.toString(),
+        gate: journeyData['gate']?.toString() ?? flight['gate']?.toString(),
         aircraftType: flight['aircraft_type']?.toString(),
         flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
       );

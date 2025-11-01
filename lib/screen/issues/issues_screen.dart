@@ -381,8 +381,10 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
   }
 
   String _formatTimestamp(DateTime timestamp) {
+    // Convert to local time if timestamp is in UTC
+    final localTime = timestamp.isUtc ? timestamp.toLocal() : timestamp;
     final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    final difference = now.difference(localTime);
 
     if (difference.inMinutes < 1) {
       return 'Just now';
@@ -390,10 +392,13 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
       return '${difference.inMinutes} mins ago';
     } else if (difference.inHours < 24) {
       return '${difference.inHours} hrs ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
     } else {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+      // Show actual time for older timestamps (7:01am format)
+      final hour = localTime.hour;
+      final minute = localTime.minute.toString().padLeft(2, '0');
+      final period = hour >= 12 ? 'pm' : 'am';
+      final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+      return '$displayHour:$minute$period';
     }
   }
 
