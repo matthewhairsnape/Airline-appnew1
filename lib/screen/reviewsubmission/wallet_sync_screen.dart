@@ -184,12 +184,15 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
 
       await _processFetchedFlightInfo(flightInfo, pnr, classOfService);
     } catch (e) {
+      debugPrint("❌ Error parsing barcode: $e");
       if (mounted) {
         CustomSnackBar.info(context,
             "Oops! We had trouble processing your boarding pass. Please try again.");
       }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -216,93 +219,164 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       return;
     }
 
-    final flightStatus = flightInfo['flightStatuses'][0];
-    final airlines = flightInfo['appendix']['airlines'];
-    final airports = flightInfo['appendix']['airports'];
-    final airlineName = airlines.firstWhere((airline) =>
-        airline['fs'] == flightStatus['primaryCarrierFsCode'])['name'];
-    final departureAirport = airports.firstWhere(
-        (airport) => airport['fs'] == flightStatus['departureAirportFsCode']);
-    final arrivalAirport = airports.firstWhere(
-        (airport) => airport['fs'] == flightStatus['arrivalAirportFsCode']);
-    final departureEntireTime =
-        DateTime.parse(flightStatus['departureDate']['dateLocal']);
-    final arrivalEntireTime =
-        DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
+    try {
+      final flightStatus = flightInfo['flightStatuses'][0];
+      final airlines = flightInfo['appendix']['airlines'] as List?;
+      final airports = flightInfo['appendix']['airports'] as List?;
+      
+      debugPrint('📊 Flight data received:');
+      debugPrint('   Carrier: ${flightStatus['primaryCarrierFsCode']}');
+      debugPrint('   Departure: ${flightStatus['departureAirportFsCode']}');
+      debugPrint('   Arrival: ${flightStatus['arrivalAirportFsCode']}');
+      debugPrint('   Airlines in appendix: ${airlines?.length ?? 0}');
+      debugPrint('   Airports in appendix: ${airports?.length ?? 0}');
+      
+      // Safely find airline with fallback
+      final airlineData = airlines?.firstWhere(
+        (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
+        orElse: () => null,
+      );
+      final airlineName = airlineData?['name'] ?? flightStatus['carrier']?['name'] ?? 'Unknown Airline';
+      
+      debugPrint('   ✅ Airline name: $airlineName');
+      
+      // Safely find departure airport with fallback
+      final departureAirport = airports?.firstWhere(
+        (airport) => airport['fs'] == flightStatus['departureAirportFsCode'],
+        orElse: () => {
+          'fs': flightStatus['departureAirportFsCode'],
+          'city': 'Unknown',
+          'countryCode': 'XX',
+        },
+      );
+      
+      debugPrint('   ✅ Departure airport: ${departureAirport?['fs']} - ${departureAirport?['city']}');
+      
+      // Safely find arrival airport with fallback
+      final arrivalAirport = airports?.firstWhere(
+        (airport) => airport['fs'] == flightStatus['arrivalAirportFsCode'],
+        orElse: () => {
+          'fs': flightStatus['arrivalAirportFsCode'],
+          'city': 'Unknown',
+          'countryCode': 'XX',
+        },
+      );
+      
+      debugPrint('   ✅ Arrival airport: ${arrivalAirport?['fs']} - ${arrivalAirport?['city']}');
+      
+      final departureEntireTime =
+          DateTime.parse(flightStatus['departureDate']['dateLocal']);
+      final arrivalEntireTime =
+          DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
 
-    // Get user ID, use empty string if not logged in
-    // Get user ID from auth provider
-    final authState = ref.read(authProvider);
-    final userId = authState.user.value?.id ?? '';
+      // Get user ID from auth provider
+      final authState = ref.read(authProvider);
+      final userId = authState.user.value?.id ?? '';
 
-    final newPass = BoardingPass(
-      name: userId.toString(),
-      pnr: pnr,
-      airlineName: airlineName ?? '',
-      departureAirportCode: departureAirport['fs'] ?? '',
-      departureCity: departureAirport['city'] ?? '',
-      departureCountryCode: departureAirport['countryCode'] ?? '',
-      departureTime: _formatTime(departureEntireTime),
-      arrivalAirportCode: arrivalAirport['fs'] ?? '',
-      arrivalCity: arrivalAirport['city'] ?? '',
-      arrivalCountryCode: arrivalAirport['countryCode'] ?? '',
-      arrivalTime: _formatTime(arrivalEntireTime),
-      classOfTravel: classOfService,
-      airlineCode: flightStatus['carrierFsCode'] ?? '',
-      flightNumber:
-          "${flightStatus['carrierFsCode']} ${flightStatus['flightNumber']}",
-      visitStatus: _getVisitStatus(departureEntireTime),
-    );
+      debugPrint('   ✅ Creating boarding pass object');
+      
+      final newPass = BoardingPass(
+        name: userId.toString(),
+        pnr: pnr,
+        airlineName: airlineName,
+        departureAirportCode: departureAirport?['fs'] ?? '',
+        departureCity: departureAirport?['city'] ?? 'Unknown',
+        departureCountryCode: departureAirport?['countryCode'] ?? 'XX',
+        departureTime: _formatTime(departureEntireTime),
+        arrivalAirportCode: arrivalAirport?['fs'] ?? '',
+        arrivalCity: arrivalAirport?['city'] ?? 'Unknown',
+        arrivalCountryCode: arrivalAirport?['countryCode'] ?? 'XX',
+        arrivalTime: _formatTime(arrivalEntireTime),
+        classOfTravel: classOfService,
+        airlineCode: flightStatus['carrierFsCode'] ?? '',
+        flightNumber:
+            "${flightStatus['carrierFsCode']} ${flightStatus['flightNumber']}",
+        visitStatus: _getVisitStatus(departureEntireTime),
+      );
 
-    final bool result = await _boardingPassController.saveBoardingPass(newPass);
+      debugPrint('   ✅ Saving boarding pass to database');
+      final bool result = await _boardingPassController.saveBoardingPass(newPass);
+      debugPrint('   ${result ? "✅" : "⚠️"} Boarding pass save result: $result');
 
-    // Start real-time flight tracking with Cirium
-    final carrier = flightStatus['carrierFsCode'] ?? '';
-    final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
-    final flightDate = departureEntireTime;
-    final departureAirportCode = departureAirport['fs'] ?? '';
+      // Start real-time flight tracking with Cirium
+      final carrier = flightStatus['carrierFsCode'] ?? '';
+      final flightNumber = flightStatus['flightNumber']?.toString() ?? '';
+      final flightDate = departureEntireTime;
+      final departureAirportCode = departureAirport?['fs'] ?? '';
 
-    debugPrint(
-        '🪑 Starting flight tracking for wallet sync: $carrier $flightNumber');
-    final trackingStarted =
-        await ref.read(flightTrackingProvider.notifier).trackFlight(
-              carrier: carrier,
-              flightNumber: flightNumber,
-              flightDate: flightDate,
-              departureAirport: departureAirportCode,
-              pnr: pnr,
-              existingFlightData: flightInfo,
-            );
+      debugPrint(
+          '🪑 Starting flight tracking for wallet sync: $carrier $flightNumber');
+      final trackingStarted =
+          await ref.read(flightTrackingProvider.notifier).trackFlight(
+                carrier: carrier,
+                flightNumber: flightNumber,
+                flightDate: flightDate,
+                departureAirport: departureAirportCode,
+                pnr: pnr,
+                existingFlightData: flightInfo,
+              );
 
-    if (trackingStarted) {
-      debugPrint('✈️ Flight tracking started successfully for $pnr');
-    }
-
-    if (mounted) {
-      // Get the navigator context before popping
-      final navigatorContext =
-          Navigator.of(context, rootNavigator: true).context;
-
-      if (result) {
-        CustomSnackBar.success(
-            context, '✅ Boarding pass from wallet loaded successfully!');
+      if (trackingStarted) {
+        debugPrint('✈️ Flight tracking started successfully for $pnr');
       } else {
-        CustomSnackBar.success(
-            context, '✅ Flight loaded! Your journey is being tracked.');
+        debugPrint('⚠️ Flight tracking did not start for $pnr');
       }
 
-      // Close the wallet sync dialog
-      Navigator.pop(context);
+      if (mounted) {
+        debugPrint('✅ Processing complete, preparing to show confirmation dialog');
+        
+        if (result) {
+          CustomSnackBar.success(
+              context, '✅ Boarding pass from wallet loaded successfully!');
+        } else {
+          CustomSnackBar.success(
+              context, '✅ Flight loaded! Your journey is being tracked.');
+        }
 
-      // Add a small delay to ensure the wallet dialog is fully closed
-      await Future.delayed(const Duration(milliseconds: 300));
+        // Close the wallet sync dialog first
+        debugPrint('🔙 Closing wallet sync dialog');
+        Navigator.pop(context);
 
-      // Show confirmation dialog using the root navigator context
-      FlightConfirmationDialog.show(
-        navigatorContext,
-        newPass,
-        onCancel: () {},
-      );
+        // Add a small delay to ensure the wallet dialog is fully closed
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Check if still mounted after delay
+        if (!mounted) {
+          debugPrint('❌ Widget unmounted after delay, cannot show confirmation');
+          return;
+        }
+
+        try {
+          // Show confirmation dialog
+          debugPrint('📱 Showing FlightConfirmationDialog');
+          await FlightConfirmationDialog.show(
+            context,
+            newPass,
+            onCancel: () {
+              debugPrint('❌ User cancelled flight confirmation');
+            },
+            ciriumFlightData: flightInfo,
+            seatNumber: null,
+            terminal: flightStatus['airportResources']?['departureTerminal'],
+            gate: flightStatus['airportResources']?['departureGate'],
+            aircraftType: flightStatus['flightEquipment']?['iata'],
+            scheduledDeparture: departureEntireTime,
+            scheduledArrival: arrivalEntireTime,
+          );
+          debugPrint('✅ FlightConfirmationDialog shown successfully');
+        } catch (e) {
+          debugPrint('❌ Error showing confirmation dialog: $e');
+        }
+      } else {
+        debugPrint('❌ Widget not mounted, cannot show confirmation dialog');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error processing flight info: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      if (mounted) {
+        CustomSnackBar.error(
+            context, 'Unable to process boarding pass. Please try again.');
+      }
     }
   }
 
@@ -679,6 +753,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
     setState(() => isLoading = true);
 
     try {
+      debugPrint("📸 Analyzing image for barcodes...");
       final BarcodeCapture? barcodeCapture =
           await _controller.analyzeImage(selectedImage!.path);
 
@@ -688,8 +763,11 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       final String? rawValue = barcodeCapture?.barcodes.firstOrNull?.rawValue;
 
       if (rawValue != null) {
-        debugPrint("✅ Barcode found, parsing: $rawValue");
+        debugPrint("✅ Barcode found, length: ${rawValue.length} chars");
+        debugPrint("✅ Barcode raw value: $rawValue");
+        debugPrint("🔄 Calling parseIataBarcode...");
         await parseIataBarcode(rawValue);
+        debugPrint("✅ parseIataBarcode completed");
       } else {
         debugPrint("❌ No barcode found in image");
         if (mounted) {
@@ -700,8 +778,9 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
           });
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint("❌ Error scanning image: $e");
+      debugPrint("❌ Stack trace: $stackTrace");
       if (mounted) {
         CustomSnackBar.info(context,
             'Unable to scan the boarding pass. Please try again with a clearer image.');

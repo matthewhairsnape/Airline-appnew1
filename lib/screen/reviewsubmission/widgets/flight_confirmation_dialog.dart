@@ -390,7 +390,7 @@ class FlightConfirmationDialog extends ConsumerWidget {
   }
 
   // Static method to show the dialog
-  static void show(
+  static Future<void> show(
     BuildContext context,
     BoardingPass boardingPass, {
     VoidCallback? onCancel,
@@ -401,8 +401,8 @@ class FlightConfirmationDialog extends ConsumerWidget {
     String? aircraftType,
     DateTime? scheduledDeparture,
     DateTime? scheduledArrival,
-  }) {
-    showModalBottomSheet(
+  }) async {
+    return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
