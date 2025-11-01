@@ -4,6 +4,7 @@ import 'package:airline_app/screen/app_widgets/loading_widget.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/provider/leaderboard_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -163,12 +164,13 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
 
   List<Widget> _buildFeedbackCardContent(Map<String, dynamic> feedback) {
     final timestamp = feedback['timestamp'] as DateTime? ?? DateTime.now();
-    final flight = feedback['flight'] as String? ?? 'Unknown Flight';
+    final flight = feedback['flight'] as String? ?? '';
     final airline = feedback['airline'] as String? ?? 'Unknown Airline';
     final logo = feedback['logo'] as String?;
     final seat = feedback['seat'] as String?;
     final phase = feedback['phase'] as String? ?? 'Unknown';
     final phaseColor = feedback['phaseColor'] as Color? ?? Colors.grey;
+    final feedbackType = feedback['feedback_type'] as String?;
     
     // Safely convert likes from List<dynamic> to List<Map<String, dynamic>>
     final likesList = feedback['likes'];
@@ -261,7 +263,9 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$airline $flight (${phase})',
+                  flight.isNotEmpty 
+                      ? '$airline $flight ($phase)'
+                      : '$airline ($phase)',
                   style: AppStyles.textStyle_14_600.copyWith(
                     color: Colors.black,
                   ),

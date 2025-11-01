@@ -162,9 +162,9 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
 
     return feedbackData.map((feedback) {
       // Extract data from the new combined feedback structure
-      final flightNumber = feedback['flight'] as String? ?? 'Unknown';
+      final flightNumber = feedback['flight'] as String? ?? '';
       final passengerName = feedback['passenger'] as String? ?? 'Anonymous';
-      final seatNumber = feedback['seat'] as String? ?? 'N/A';
+      final seatNumber = feedback['seat'] as String?; // Can be null
       final phase = feedback['phase'] as String? ?? 'Unknown';
       final phaseColor = feedback['phaseColor'] as Color? ?? Colors.grey;
       final airlineName = feedback['airlineName'] as String? ?? feedback['airline'] as String? ?? 'Unknown Airline';
@@ -173,6 +173,15 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
       final dislikes = feedback['dislikes'] as List<Map<String, dynamic>>? ?? [];
       final timestamp = feedback['timestamp'] as DateTime? ?? DateTime.now();
       final feedbackType = feedback['feedback_type'] as String? ?? 'overall';
+      final journeyId = feedback['journey_id'] as String?; // Include journey_id
+
+      // Debug logging for leaderboard scores
+      if (feedbackType == 'leaderboard') {
+        debugPrint('📋 Formatting leaderboard score in provider:');
+        debugPrint('   Flight: "$flightNumber"');
+        debugPrint('   Seat: $seatNumber');
+        debugPrint('   Journey ID: $journeyId');
+      }
 
       return {
         'issue': 'Feedback Report',
@@ -187,7 +196,8 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         'likes': likes.isNotEmpty ? likes : _generateSampleLikes(passengerName, flightNumber),
         'dislikes': dislikes.isNotEmpty ? dislikes : _generateSampleDislikes(passengerName, flightNumber),
         'passenger': passengerName,
-        'seat': seatNumber,
+        'seat': seatNumber, // Preserve null if not found
+        'journey_id': journeyId, // Include journey_id for potential future use
         'feedback_type': feedbackType, // Store the type for reference
         'overall_rating': feedback['overall_rating'], // Include score/rating
         'score_value': feedback['score_value'], // For leaderboard scores
