@@ -409,29 +409,52 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                   ),
                 ),
                 SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (hasAnyFeedback) {
-                        _showFeedbackManagement(flight);
-                      } else {
-                        _showFeedbackForCompletedJourney(flight);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          hasAnyFeedback ? Colors.blue : Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                // Only show button if feedback exists (Rate Experience is commented out)
+                if (hasAnyFeedback)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Show read-only view of submitted feedback
+                        _showReadOnlyFeedback(flight);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'View Feedback',
+                        style: AppStyles.textStyle_14_600
+                            .copyWith(color: Colors.white),
                       ),
                     ),
-                    child: Text(
-                      hasAnyFeedback ? 'Manage Feedback' : 'Rate Experience',
-                      style: AppStyles.textStyle_14_600
-                          .copyWith(color: Colors.white),
+                  ),
+                
+                /* 
+                // COMMENTED OUT: Rate Experience functionality
+                // Uncomment this to allow users to rate completed journeys without feedback
+                if (!hasAnyFeedback)
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Allow rating for first time
+                        _showFeedbackForCompletedJourney(flight);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Rate Experience',
+                        style: AppStyles.textStyle_14_600
+                            .copyWith(color: Colors.white),
+                      ),
                     ),
                   ),
-                ),
+                */
               ],
             ),
           ),
@@ -651,28 +674,30 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   }
 
   void _showJourneyDetails(FlightTrackingModel flight) {
+    // Simple AlertDialog - Old Version (Currently in use)
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Journey Details'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow(
-                'Flight', '${flight.carrier}${flight.flightNumber}'),
-            _buildDetailRow('Route',
-                '${flight.departureAirport} → ${flight.arrivalAirport}'),
-            _buildDetailRow('PNR', flight.pnr),
-            _buildDetailRow('Departure', _formatDateTime(flight.departureTime)),
-            _buildDetailRow('Arrival', _formatDateTime(flight.arrivalTime)),
-            if (flight.seatNumber != null)
-              _buildDetailRow('Seat', flight.seatNumber!),
-            if (flight.gate != null) _buildDetailRow('Gate', flight.gate!),
-            if (flight.terminal != null)
-              _buildDetailRow('Terminal', flight.terminal!),
-            _buildDetailRow('Status', 'Completed'),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow('Flight', '${flight.carrier}${flight.flightNumber}'),
+              _buildDetailRow('Route', '${flight.departureAirport} → ${flight.arrivalAirport}'),
+              _buildDetailRow('PNR', flight.pnr),
+              _buildDetailRow('Departure', _formatDateTime(flight.departureTime)),
+              _buildDetailRow('Arrival', _formatDateTime(flight.arrivalTime)),
+              if (flight.seatNumber != null)
+                _buildDetailRow('Seat', flight.seatNumber!),
+              if (flight.gate != null)
+                _buildDetailRow('Gate', flight.gate!),
+              if (flight.terminal != null)
+                _buildDetailRow('Terminal', flight.terminal!),
+              _buildDetailRow('Status', 'Completed'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -682,7 +707,288 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         ],
       ),
     );
+    
+    /* MODERN MODAL VERSION - COMMENTED OUT FOR NOW
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        padding: EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with icon
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.flight_takeoff,
+                      color: Colors.green,
+                      size: 28,
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Journey Details',
+                          style: AppStyles.textStyle_24_600,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '${flight.carrier}${flight.flightNumber}',
+                          style: AppStyles.textStyle_16_600.copyWith(
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Completed',
+                      style: AppStyles.textStyle_12_600
+                          .copyWith(color: Colors.green),
+                    ),
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: 24),
+              
+              // Flight Route Section
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade50, Colors.blue.shade100],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'From',
+                                style: AppStyles.textStyle_12_500
+                                    .copyWith(color: Colors.grey[600]),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                flight.departureAirport,
+                                style: AppStyles.textStyle_20_600
+                                    .copyWith(color: Colors.blue[900]),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                _formatDateTimeFull(flight.departureTime),
+                                style: AppStyles.textStyle_12_500
+                                    .copyWith(color: Colors.grey[700]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward,
+                            color: Colors.blue,
+                            size: 24,
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'To',
+                                style: AppStyles.textStyle_12_500
+                                    .copyWith(color: Colors.grey[600]),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                flight.arrivalAirport,
+                                style: AppStyles.textStyle_20_600
+                                    .copyWith(color: Colors.blue[900]),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                _formatDateTimeFull(flight.arrivalTime),
+                                style: AppStyles.textStyle_12_500
+                                    .copyWith(color: Colors.grey[700]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              SizedBox(height: 24),
+              
+              // Details Grid
+              _buildModernDetailCard(
+                'PNR',
+                flight.pnr,
+                Icons.confirmation_number,
+                Colors.purple,
+              ),
+              
+              SizedBox(height: 12),
+              
+              Row(
+                children: [
+                  if (flight.seatNumber != null)
+                    Expanded(
+                      child: _buildModernDetailCard(
+                        'Seat',
+                        flight.seatNumber!,
+                        Icons.event_seat,
+                        Colors.orange,
+                      ),
+                    ),
+                  if (flight.seatNumber != null && flight.gate != null)
+                    SizedBox(width: 12),
+                  if (flight.gate != null)
+                    Expanded(
+                      child: _buildModernDetailCard(
+                        'Gate',
+                        flight.gate!,
+                        Icons.door_front_door,
+                        Colors.teal,
+                      ),
+                    ),
+                ],
+              ),
+              
+              if (flight.terminal != null) ...[
+                SizedBox(height: 12),
+                _buildModernDetailCard(
+                  'Terminal',
+                  flight.terminal!,
+                  Icons.location_city,
+                  Colors.indigo,
+                ),
+              ],
+              
+              SizedBox(height: 24),
+              
+              // Close Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Close',
+                    style: AppStyles.textStyle_16_600
+                        .copyWith(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    */
   }
+  
+  /* COMMENTED OUT - Modern Modal Helper Functions
+  /// Build modern detail card
+  Widget _buildModernDetailCard(String label, String value, IconData icon, Color color) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppStyles.textStyle_12_500
+                      .copyWith(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  value,
+                  style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Format date time for display (full format)
+  String _formatDateTimeFull(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    return '$hour:$minute • $day/$month/$year';
+  }
+  */
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
@@ -734,7 +1040,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     );
   }
 
-  void _showFeedbackManagement(FlightTrackingModel flight) {
+  /// Show read-only feedback view for completed journeys
+  void _showReadOnlyFeedback(FlightTrackingModel flight) {
     if (flight.journeyId == null) return;
 
     showModalBottomSheet(
@@ -754,51 +1061,39 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Your Feedback',
+                  style: AppStyles.textStyle_24_600,
+                ),
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+              ],
+            ),
+            SizedBox(height: 8),
             Text(
-              'Manage Feedback',
-              style: AppStyles.textStyle_24_600,
-              textAlign: TextAlign.center,
+              'Thank you for sharing your experience!',
+              style: AppStyles.textStyle_14_500.copyWith(
+                color: Colors.grey[600],
+              ),
             ),
             SizedBox(height: 24),
 
-            // Pre-flight feedback
-            _buildFeedbackStageCard(
+            // Airport Review (Pre-flight experience)
+            _buildReadOnlyFeedbackCard(
               flight,
-              'Pre-Flight Experience',
-              'pre_flight',
+              'Airport Review',
+              'airport_review',
               flight.journeyId!,
-              Icons.assignment,
-              Colors.blue,
+              Icons.location_city,
+              Colors.teal,
             ),
 
             SizedBox(height: 12),
 
-            // In-flight feedback
-            _buildFeedbackStageCard(
-              flight,
-              'In-Flight Experience',
-              'in_flight',
-              flight.journeyId!,
-              Icons.flight,
-              Colors.orange,
-            ),
-
-            SizedBox(height: 12),
-
-            // Post-flight feedback
-            _buildFeedbackStageCard(
-              flight,
-              'Overall Experience',
-              'post_flight',
-              flight.journeyId!,
-              Icons.star,
-              Colors.purple,
-            ),
-
-            SizedBox(height: 12),
-
-            // Airline review
-            _buildFeedbackStageCard(
+            // Airline Review (In-flight experience)
+            _buildReadOnlyFeedbackCard(
               flight,
               'Airline Review',
               'airline_review',
@@ -809,14 +1104,14 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
 
             SizedBox(height: 12),
 
-            // Airport review
-            _buildFeedbackStageCard(
+            // Overall Experience (from feedback table)
+            _buildReadOnlyFeedbackCard(
               flight,
-              'Airport Review',
-              'airport_review',
+              'Overall Experience',
+              'overall',
               flight.journeyId!,
-              Icons.location_city,
-              Colors.teal,
+              Icons.star,
+              Colors.purple,
             ),
 
             SizedBox(height: 24),
@@ -825,18 +1120,19 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
             Container(
               padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: Colors.green[50],
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green, width: 1),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue),
+                  Icon(Icons.check_circle_outline, color: Colors.green),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Feedback Completion: ${getFeedbackCompletionPercentage(flight.journeyId!)}%',
-                      style: AppStyles.textStyle_14_500
-                          .copyWith(color: Colors.grey[700]),
+                      'Feedback Completed: ${getFeedbackCompletionPercentage(flight.journeyId!)}%',
+                      style: AppStyles.textStyle_14_600
+                          .copyWith(color: Colors.green[700]),
                     ),
                   ),
                 ],
@@ -848,7 +1144,16 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     );
   }
 
-  Widget _buildFeedbackStageCard(FlightTrackingModel flight, String title,
+  /// Deprecated: Old management function (replaced with read-only view)
+  @deprecated
+  void _showFeedbackManagement(FlightTrackingModel flight) {
+    // This function is no longer used for completed journeys
+    // Completed journeys now show read-only feedback via _showReadOnlyFeedback
+    _showReadOnlyFeedback(flight);
+  }
+
+  /// Build read-only feedback card (no editing allowed)
+  Widget _buildReadOnlyFeedbackCard(FlightTrackingModel flight, String title,
       String stage, String journeyId, IconData icon, Color color) {
     final hasFeedback = hasFeedbackForStage(journeyId, stage);
     final existingFeedback = getExistingFeedbackForStage(journeyId, stage);
@@ -870,7 +1175,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            hasFeedback ? Icons.check : icon,
+            hasFeedback ? Icons.check_circle : icon,
             color: Colors.white,
             size: 20,
           ),
@@ -882,22 +1187,205 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           ),
         ),
         subtitle: Text(
-          hasFeedback ? 'Feedback submitted' : 'No feedback yet',
+          hasFeedback
+              ? _getFeedbackSummary(existingFeedback)
+              : 'No feedback submitted',
           style: AppStyles.textStyle_14_500.copyWith(
-            color: hasFeedback ? color : Colors.grey[500],
+            color: hasFeedback ? Colors.grey[700] : Colors.grey[500],
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        trailing: Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: hasFeedback ? color : Colors.grey[400],
-        ),
-        onTap: () {
-          Navigator.pop(context);
-          _showFeedbackForStage(flight, stage, existingFeedback);
-        },
+        trailing: hasFeedback
+            ? Icon(Icons.visibility, size: 20, color: color)
+            : null,
+        onTap: hasFeedback
+            ? () {
+                // Show detailed read-only view in a dialog
+                _showDetailedFeedbackDialog(title, existingFeedback, color);
+              }
+            : null,
       ),
     );
+  }
+
+  /// Get a summary of the feedback for display
+  String _getFeedbackSummary(Map<String, dynamic>? feedback) {
+    if (feedback == null) return 'No feedback submitted';
+
+    // Show rating if available
+    if (feedback['overall_rating'] != null) {
+      final rating = feedback['overall_rating'];
+      return '⭐ ${rating}/5 rating';
+    }
+
+    // Show score if available
+    if (feedback['score'] != null) {
+      final score = feedback['score'];
+      return '⭐ ${score}/5 rating';
+    }
+
+    // Show comment preview if available
+    if (feedback['comments'] != null && feedback['comments'].isNotEmpty) {
+      return feedback['comments'].toString().split('\n').first;
+    }
+
+    return 'Feedback submitted';
+  }
+
+  /// Show detailed feedback in a dialog (read-only)
+  void _showDetailedFeedbackDialog(
+      String title, Map<String, dynamic>? feedback, Color color) {
+    if (feedback == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.feedback, color: color, size: 24),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppStyles.textStyle_20_600,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                
+                // Rating
+                if (feedback['overall_rating'] != null ||
+                    feedback['score'] != null) ...[
+                  Text(
+                    'Rating',
+                    style: AppStyles.textStyle_14_600.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: List.generate(5, (index) {
+                      final rating = (feedback['overall_rating'] ??
+                              feedback['score'] ??
+                              0)
+                          .toInt();
+                      return Icon(
+                        index < rating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 28,
+                      );
+                    }),
+                  ),
+                  SizedBox(height: 16),
+                ],
+
+                // Comments
+                if (feedback['comments'] != null &&
+                    feedback['comments'].isNotEmpty) ...[
+                  Text(
+                    'Comments',
+                    style: AppStyles.textStyle_14_600.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      feedback['comments'].toString(),
+                      style: AppStyles.textStyle_14_400,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+
+                // Submitted date
+                if (feedback['created_at'] != null) ...[
+                  Text(
+                    'Submitted',
+                    style: AppStyles.textStyle_14_600.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    _formatFeedbackDate(feedback['created_at']),
+                    style: AppStyles.textStyle_14_400.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+
+                // Close button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Close',
+                      style: AppStyles.textStyle_14_600
+                          .copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Format feedback date for display
+  String _formatFeedbackDate(dynamic dateValue) {
+    try {
+      final date = dateValue is DateTime
+          ? dateValue
+          : DateTime.parse(dateValue.toString());
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) {
+        return 'Today at ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Recently';
+    }
+  }
+
+  /// Deprecated: Old editable feedback card
+  @deprecated
+  Widget _buildFeedbackStageCard(FlightTrackingModel flight, String title,
+      String stage, String journeyId, IconData icon, Color color) {
+    // This function is deprecated - use _buildReadOnlyFeedbackCard instead
+    return _buildReadOnlyFeedbackCard(flight, title, stage, journeyId, icon, color);
   }
 
   void _showFeedbackForStage(FlightTrackingModel flight, String stage,
@@ -1126,8 +1614,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         
         debugPrint('✅ Journey marked as completed: $journeyId');
 
-        // Refresh the provider to update UI
-        ref.refresh(flightTrackingProvider);
+        // Sync journeys from database to update UI
+        // This will reload all journeys and properly separate active from completed
+        await _syncJourneysFromDatabase();
 
         // Show success message
         if (mounted) {
@@ -1137,6 +1626,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
               backgroundColor: Colors.green,
             ),
           );
+          
+          // Switch to completed tab to show the newly completed journey
+          _tabController.animateTo(1);
         }
       } catch (updateError) {
         debugPrint('❌ Failed to update journey phase: $updateError');

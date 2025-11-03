@@ -19,6 +19,116 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool showLanguageButtons = false;
+  bool _notificationsEnabled = false;
+  bool _isCheckingPermission = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkNotificationPermission();
+  }
+
+  /// Check current notification permission status
+  Future<void> _checkNotificationPermission() async {
+    try {
+      setState(() => _isCheckingPermission = true);
+      final status = await PushNotificationService.getNotificationPermissionStatus();
+      if (mounted) {
+        setState(() {
+          _notificationsEnabled = status;
+          _isCheckingPermission = false;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Error checking notification permission: $e');
+      }
+      if (mounted) {
+        setState(() => _isCheckingPermission = false);
+      }
+    }
+  }
+
+  /// Toggle notification permission
+  Future<void> _toggleNotifications(bool value) async {
+    try {
+      if (value) {
+        // Request permission
+        final granted = await PushNotificationService.requestNotificationPermission();
+        if (mounted) {
+          setState(() => _notificationsEnabled = granted);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                granted 
+                    ? '✅ Notifications enabled' 
+                    : '❌ Notification permission denied',
+                style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+              ),
+              duration: const Duration(seconds: 2),
+              backgroundColor: granted ? Colors.green : Colors.red,
+            ),
+          );
+        }
+      } else {
+        // Show message that they need to disable in system settings
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Text(
+                    'Disable Notifications',
+                    style: AppStyles.textStyle_18_600,
+                  ),
+                ],
+              ),
+              content: Text(
+                'To disable notifications, please go to your device Settings > Notifications > Airline App and turn off notifications.',
+                style: AppStyles.textStyle_14_400,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Got it',
+                    style: AppStyles.textStyle_14_600.copyWith(color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          );
+          // Revert the switch
+          setState(() => _notificationsEnabled = true);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Error toggling notifications: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '❌ Failed to change notification setting: $e',
+              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Revert to previous state
+        await _checkNotificationPermission();
+      }
+    }
+  }
 
   Future<void> _showSignOutConfirmation(BuildContext context) async {
     return showDialog(
@@ -319,183 +429,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return '${months[date.month - 1]} ${date.year}';
   }
 
-  Future<void> _runDiagnostic(BuildContext context) async {
-    try {
-      final results = await PushNotificationService.diagnosticCheck();
-      
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Notification Diagnostic'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: results.entries.map((e) => Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text('${e.key}: ${e.value}'),
-                )).toList(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Diagnostic failed: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _testPushNotification(BuildContext context) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Sending test notification...',
-                style: AppStyles.textStyle_16_600.copyWith(
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    try {
-      await PushNotificationService.testPushNotification();
-      
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ Test notification sent! Check your device for the notification.',
-              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
-            ),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '❌ Failed to send test notification: $e',
-              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
-            ),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      
-      if (kDebugMode) {
-        debugPrint('❌ Error testing push notification: $e');
-      }
-    }
-  }
-
-  Future<void> _refreshFCMToken(BuildContext context) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Refreshing FCM token...',
-                style: AppStyles.textStyle_16_600.copyWith(
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    try {
-      await PushNotificationService.refreshAndSaveToken();
-      
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ FCM token refreshed and saved!',
-              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
-            ),
-            duration: const Duration(seconds: 3),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '❌ Failed to refresh token: $e',
-              style: AppStyles.textStyle_14_400.copyWith(color: Colors.white),
-            ),
-            duration: const Duration(seconds: 4),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      
-      if (kDebugMode) {
-        debugPrint('❌ Error refreshing FCM token: $e');
-      }
-    }
-  }
-
   Widget _buildSettingsItem({
     required BuildContext context,
     required String title,
@@ -562,22 +495,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _buildUserProfileSection(),
               const SizedBox(height: 24),
 
-              // App Settings Section
-              _buildSectionHeader('App Settings'),
-              _buildSettingsItem(
-                context: context,
-                title: 'Diagnostic Check',
-                onTap: () => _runDiagnostic(context),
-              ),
-              _buildSettingsItem(
-                context: context,
-                title: 'Test Push Notification',
-                onTap: () => _testPushNotification(context),
-              ),
-              _buildSettingsItem(
-                context: context,
-                title: 'Refresh FCM Token',
-                onTap: () => _refreshFCMToken(context),
+              // Notifications Section
+              _buildSectionHeader('Notifications'),
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey.shade200,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Push Notifications',
+                            style: AppStyles.textStyle_16_600.copyWith(
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _isCheckingPermission 
+                                ? 'Checking permission...'
+                                : _notificationsEnabled
+                                    ? 'Receive flight updates and alerts'
+                                    : 'Enable to receive notifications',
+                            style: AppStyles.textStyle_12_400.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isCheckingPermission)
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        ),
+                      )
+                    else
+                      Switch(
+                        value: _notificationsEnabled,
+                        onChanged: _toggleNotifications,
+                        activeColor: Colors.blue,
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
 

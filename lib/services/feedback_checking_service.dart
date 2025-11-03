@@ -34,6 +34,7 @@ class FeedbackCheckingService {
         'pre_flight': false,
         'in_flight': false,
         'post_flight': false,
+        'overall': false, // Overall experience from feedback table
         'airline_review': airlineResponse.isNotEmpty,
         'airport_review': airportResponse.isNotEmpty,
       };
@@ -41,8 +42,18 @@ class FeedbackCheckingService {
       // Check stage feedback
       for (final feedback in stageResponse) {
         final stage = feedback['stage'] as String?;
-        if (stage != null && feedbackStages.containsKey(stage)) {
-          feedbackStages[stage] = true;
+        if (stage != null) {
+          if (feedbackStages.containsKey(stage)) {
+            feedbackStages[stage] = true;
+          }
+          // Map 'post_flight' to 'overall' for backward compatibility
+          if (stage == 'post_flight') {
+            feedbackStages['overall'] = true;
+          }
+          // Map 'overall' to 'post_flight' for backward compatibility
+          if (stage == 'overall') {
+            feedbackStages['post_flight'] = true;
+          }
         }
       }
 
@@ -54,6 +65,7 @@ class FeedbackCheckingService {
         'pre_flight': false,
         'in_flight': false,
         'post_flight': false,
+        'overall': false,
         'airline_review': false,
         'airport_review': false,
       };
@@ -205,6 +217,14 @@ class FeedbackCheckingService {
         final stage = feedback['stage'] as String?;
         if (stage != null) {
           feedbackMap[stage] = feedback;
+          // Map 'post_flight' to 'overall' for backward compatibility
+          if (stage == 'post_flight') {
+            feedbackMap['overall'] = feedback;
+          }
+          // Map 'overall' to 'post_flight' for backward compatibility
+          if (stage == 'overall') {
+            feedbackMap['post_flight'] = feedback;
+          }
         }
       }
 

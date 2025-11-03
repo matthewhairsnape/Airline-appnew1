@@ -563,6 +563,64 @@ class PushNotificationService {
     return status == AuthorizationStatus.authorized;
   }
 
+  /// Get notification permission status (returns true if granted, false otherwise)
+  static Future<bool> getNotificationPermissionStatus() async {
+    try {
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+    } catch (e) {
+      debugPrint('❌ Error getting notification permission status: $e');
+      return false;
+    }
+  }
+
+  /// Request notification permission (returns true if granted, false otherwise)
+  static Future<bool> requestNotificationPermission() async {
+    try {
+      if (Platform.isIOS) {
+        final settings = await _firebaseMessaging.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
+
+        final isGranted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
+
+        if (isGranted) {
+          debugPrint('✅ Notification permission granted');
+          // Get FCM token and save it
+          await _getFCMToken();
+          final user = _supabase.auth.currentUser;
+          if (user != null && _fcmToken != null) {
+            await _saveTokenToSupabase(_fcmToken!, userId: user.id);
+          }
+        } else {
+          debugPrint('❌ Notification permission denied');
+        }
+
+        return isGranted;
+      } else {
+        // Android doesn't require explicit permission (it's granted by default)
+        // Just get the token and save it
+        await _getFCMToken();
+        final user = _supabase.auth.currentUser;
+        if (user != null && _fcmToken != null) {
+          await _saveTokenToSupabase(_fcmToken!, userId: user.id);
+        }
+        return true;
+      }
+    } catch (e) {
+      debugPrint('❌ Error requesting notification permission: $e');
+      return false;
+    }
+  }
+
   /// Clear FCM token (for logout)
   static Future<void> clearToken() async {
     try {
