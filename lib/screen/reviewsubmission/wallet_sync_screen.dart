@@ -50,8 +50,33 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
   bool walletOpened = false;
   File? selectedImage;
 
+  /// Safe substring helper to prevent index out of bounds crashes
+  String _safeSubstring(String value, int start, [int? end]) {
+    try {
+      if (value.isEmpty || start < 0 || start >= value.length) {
+        return '';
+      }
+      if (end == null) {
+        return value.substring(start);
+      }
+      if (end > value.length) {
+        end = value.length;
+      }
+      if (end <= start) {
+        return '';
+      }
+      return value.substring(start, end);
+    } catch (e) {
+      debugPrint("❌ Error in _safeSubstring: $e (start: $start, end: $end, length: ${value.length})");
+      return '';
+    }
+  }
+
   Future<void> parseIataBarcode(String rawValue) async {
+    if (!mounted) return;
+    
     setState(() => isLoading = true);
+    
     try {
       debugPrint("rawValue 🎎 =====================> $rawValue");
 
@@ -78,7 +103,7 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         }
 
         // Extract PNR from fixed position (23-29, skip position 22 which is 'E')
-        String extractedPnr = rawValue.substring(23, 29).trim();
+        String extractedPnr = _safeSubstring(rawValue, 23, 29).trim();
         
         // Validate PNR: should be alphanumeric and 5-6 characters
         extractedPnr = extractedPnr.replaceAll(RegExp(r'[^A-Z0-9]'), '');
@@ -92,13 +117,13 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         
         pnr = isValidPnr ? extractedPnr : '';
 
-        // Extract flight info from fixed positions
-        departureAirport = rawValue.substring(30, 33);
-        String arrivalAirportCode = rawValue.substring(33, 36);
-        carrier = rawValue.substring(36, 38);
-        flightNumber = rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
-        String julianDate = rawValue.substring(44, 47).trim();
-        String classCode = rawValue.substring(47, 48);
+        // Extract flight info from fixed positions using safe substring
+        departureAirport = _safeSubstring(rawValue, 30, 33);
+        String arrivalAirportCode = _safeSubstring(rawValue, 33, 36);
+        carrier = _safeSubstring(rawValue, 36, 38);
+        flightNumber = _safeSubstring(rawValue, 39, 44).trim().replaceAll(RegExp(r'^0+'), '');
+        String julianDate = _safeSubstring(rawValue, 44, 47).trim();
+        String classCode = _safeSubstring(rawValue, 47, 48);
         classOfService = _getClassOfService(classCode);
 
         // Parse Julian date

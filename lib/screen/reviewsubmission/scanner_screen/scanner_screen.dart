@@ -80,22 +80,37 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 
   void _handleBarcode(BarcodeCapture barcodes) {
-    if (mounted && !isProcessing) {
+    if (!mounted || isProcessing) return;
+    
+    try {
       setState(() {
         _barcode = barcodes.barcodes.firstOrNull;
       });
-      if (_barcode?.rawValue != null) {
-        isProcessing = true;
-        controller.stop();
+      
+      final rawValue = _barcode?.rawValue;
+      if (rawValue == null || rawValue.isEmpty) {
+        debugPrint("⚠️ Barcode has no value");
+        return;
+      }
+      
+      isProcessing = true;
+      controller.stop();
 
-        // Show what was scanned first
-        debugPrint("📱 Scanned barcode:");
-        debugPrint("  Type: ${_barcode!.format}");
-        debugPrint("  Raw Value: ${_barcode!.rawValue}");
-        debugPrint("  Display Value: ${_barcode!.displayValue ?? 'N/A'}");
+      // Show what was scanned first
+      debugPrint("📱 Scanned barcode:");
+      debugPrint("  Type: ${_barcode!.format}");
+      debugPrint("  Raw Value: $rawValue");
+      debugPrint("  Display Value: ${_barcode!.displayValue ?? 'N/A'}");
 
-        // Try to parse as boarding pass, but don't fail if it's not
-        _tryParseBoardingPass(_barcode!.rawValue!);
+      // Try to parse as boarding pass, but don't fail if it's not
+      _tryParseBoardingPass(rawValue);
+    } catch (e, stackTrace) {
+      debugPrint("❌ Error in _handleBarcode: $e");
+      debugPrint("Stack trace: $stackTrace");
+      if (mounted) {
+        setState(() => isProcessing = false);
+        CustomSnackBar.error(context, 'Error scanning barcode. Please try again.');
+        _restartScanner();
       }
     }
   }
@@ -154,11 +169,34 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 
   void _restartScanner() {
+    if (!mounted) return;
     setState(() {
       isProcessing = false;
       _barcode = null;
     });
     controller.start();
+  }
+  
+  /// Safe substring helper to prevent index out of bounds crashes
+  String _safeSubstring(String value, int start, [int? end]) {
+    try {
+      if (value.isEmpty || start < 0 || start >= value.length) {
+        return '';
+      }
+      if (end == null) {
+        return value.substring(start);
+      }
+      if (end > value.length) {
+        end = value.length;
+      }
+      if (end <= start) {
+        return '';
+      }
+      return value.substring(start, end);
+    } catch (e) {
+      debugPrint("❌ Error in _safeSubstring: $e (start: $start, end: $end, length: ${value.length})");
+      return '';
+    }
   }
 
   String getVisitStatus(DateTime departureEntireTime) {
@@ -175,8 +213,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 
   Future<void> parseIataBarcode(String rawValue) async {
+    if (!mounted) return;
+    
     setState(() => isLoading = true);
     debugPrint("rawValue 🎎 =====================> $rawValue");
+    
     try {
       String pnr = '';
       String departureAirport = '';
@@ -460,20 +501,19 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     Map<String, String> result = {};
 
     try {
-      debugPrint(
-          "🔍 Parsing BCBP (${rawValue.length} chars): ${rawValue.substring(0, rawValue.length > 50 ? 50 : rawValue.length)}...");
+      final preview = _safeSubstring(rawValue, 0, 50);
+      debugPrint("🔍 Parsing BCBP (${rawValue.length} chars): $preview...");
 
       // IATA Resolution 792 - Fixed field positions
       if (rawValue.length < 52) {
-        debugPrint(
-            "❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
+        debugPrint("❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
         return result;
       }
 
-      // Extract fields using exact IATA Resolution 792 offsets
+      // Extract fields using exact IATA Resolution 792 offsets with safe operations
       // Position 22: Electronic ticket indicator (usually 'E')
       // Positions 23-28: Actual PNR (6 characters)
-      String extractedPnr = rawValue.substring(23, 29).trim(); // Get actual PNR, skip the 'E'
+      String extractedPnr = _safeSubstring(rawValue, 23, 29).trim();
       
       // Validate PNR: should be alphanumeric and 5-6 characters
       // Remove any non-alphanumeric characters
@@ -492,20 +532,22 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       // If PNR is invalid or too short, leave it empty for generation
       result['pnr'] = isValidPnr ? extractedPnr : '';
       
-      result['departureAirport'] = rawValue.substring(30, 33);
-      result['arrivalAirport'] = rawValue.substring(33, 36);
-      result['carrier'] =
-          rawValue.substring(36, 38); // Use first 2 chars for IATA code
-      result['flightNumber'] =
-          rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
-      result['julianDate'] = rawValue.substring(44, 47).trim();
-      result['classOfService'] = rawValue.substring(47, 48);
-      result['seatNumber'] =
-          rawValue.length >= 52 ? rawValue.substring(48, 52).trim() : '';
+      // Use safe substring for all extractions
+      result['departureAirport'] = _safeSubstring(rawValue, 30, 33);
+      result['arrivalAirport'] = _safeSubstring(rawValue, 33, 36);
+      result['carrier'] = _safeSubstring(rawValue, 36, 38);
+      result['flightNumber'] = _safeSubstring(rawValue, 39, 44).trim().replaceAll(RegExp(r'^0+'), '');
+      result['julianDate'] = _safeSubstring(rawValue, 44, 47).trim();
+      result['classOfService'] = _safeSubstring(rawValue, 47, 48);
+      result['seatNumber'] = _safeSubstring(rawValue, 48, 52).trim();
       
       // Generate PNR if it's empty or invalid
-      if (result['pnr']!.isEmpty && result['carrier']!.isNotEmpty && result['flightNumber']!.isNotEmpty && result['departureAirport']!.isNotEmpty) {
-        result['pnr'] = '${result['carrier']}${result['flightNumber']}${result['departureAirport']}'.substring(0, 6);
+      if (result['pnr']!.isEmpty && 
+          result['carrier']!.isNotEmpty && 
+          result['flightNumber']!.isNotEmpty && 
+          result['departureAirport']!.isNotEmpty) {
+        final generated = '${result['carrier']}${result['flightNumber']}${result['departureAirport']}';
+        result['pnr'] = _safeSubstring(generated, 0, 6);
         debugPrint('🔄 Generated PNR: ${result['pnr']} (original was invalid)');
       }
 
@@ -554,9 +596,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       debugPrint("  Seat: ${result['seatNumber']}");
 
       return result;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint("❌ Error in BCBP parsing: $e");
-      return result;
+      debugPrint("Stack trace: $stackTrace");
+      // Return empty result to prevent crashes
+      return {};
     }
   }
 
