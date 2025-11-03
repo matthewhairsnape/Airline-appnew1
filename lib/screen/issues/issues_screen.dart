@@ -202,35 +202,6 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
     
     final comments = feedback['comments'] as String? ?? '';
 
-    // Determine sentiment and emoji from likes/dislikes
-    String sentimentEmoji = '😊';
-    Color sentimentColor = Colors.green;
-    String sentimentLabel = 'Positive Experience';
-    
-    if (dislikes.isNotEmpty && likes.isEmpty) {
-      sentimentEmoji = '😡';
-      sentimentColor = Colors.red;
-      sentimentLabel = 'Poor Experience';
-    } else if (dislikes.isNotEmpty && likes.isNotEmpty) {
-      sentimentEmoji = '😐';
-      sentimentColor = Colors.orange;
-      sentimentLabel = 'Mixed Experience';
-    }
-
-    // Get first like/dislike comment for display
-    String displayComment = comments.isNotEmpty 
-        ? comments 
-        : (likes.isNotEmpty 
-            ? likes.first['text'] as String? ?? 'No comment'
-            : dislikes.isNotEmpty
-                ? dislikes.first['text'] as String? ?? 'No comment'
-                : 'No comment');
-
-    // Truncate comment if too long
-    if (displayComment.length > 100) {
-      displayComment = '${displayComment.substring(0, 100)}...';
-    }
-
     return [
       // First Row: Timestamp
       Row(
@@ -298,26 +269,144 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
       if (seat != null && seat != 'N/A' && seat.isNotEmpty)
         const SizedBox(height: 12),
 
-      // Fourth Row: Emoji + Comment
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            sentimentEmoji,
-            style: const TextStyle(fontSize: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              displayComment,
-              style: AppStyles.textStyle_14_400.copyWith(
-                color: Colors.black,
+      // Fourth Row: Specific Likes and Dislikes
+      ...[ 
+        // Show likes (top 2 most common)
+        if (likes.isNotEmpty) ...[
+          for (var i = 0; i < (likes.length > 2 ? 2 : likes.length); i++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '👍',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    likes[i]['text'] as String? ?? '',
+                    style: AppStyles.textStyle_14_600.copyWith(
+                      color: Colors.green.shade700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if ((likes[i]['count'] as int? ?? 0) > 1) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.shade300, width: 1),
+                    ),
+                    child: Text(
+                      '${likes[i]['count']} ${(likes[i]['count'] as int) == 1 ? 'passenger' : 'passengers'}',
+                      style: AppStyles.textStyle_10_500.copyWith(
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (i < (likes.length > 2 ? 1 : likes.length - 1))
+              const SizedBox(height: 6),
+          ],
+          if (likes.length > 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '+${likes.length - 2} more positive',
+                style: AppStyles.textStyle_12_400.copyWith(
+                  color: Colors.green.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ),
-          ),
+          if (dislikes.isNotEmpty)
+            const SizedBox(height: 12),
         ],
-      ),
-      const SizedBox(height: 12),
+        
+        // Show dislikes (top 2 most common)
+        if (dislikes.isNotEmpty) ...[
+          for (var i = 0; i < (dislikes.length > 2 ? 2 : dislikes.length); i++) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '👎',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    dislikes[i]['text'] as String? ?? '',
+                    style: AppStyles.textStyle_14_600.copyWith(
+                      color: Colors.red.shade700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if ((dislikes[i]['count'] as int? ?? 0) > 1) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade300, width: 1),
+                    ),
+                    child: Text(
+                      '${dislikes[i]['count']} ${(dislikes[i]['count'] as int) == 1 ? 'passenger' : 'passengers'}',
+                      style: AppStyles.textStyle_10_500.copyWith(
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (i < (dislikes.length > 2 ? 1 : dislikes.length - 1))
+              const SizedBox(height: 6),
+          ],
+          if (dislikes.length > 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '+${dislikes.length - 2} more issues',
+                style: AppStyles.textStyle_12_400.copyWith(
+                  color: Colors.red.shade600,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+        
+        // Empty state
+        if (likes.isEmpty && dislikes.isEmpty && comments.isEmpty)
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'No specific feedback provided',
+                style: AppStyles.textStyle_14_400.copyWith(
+                  color: Colors.grey.shade500,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        
+        const SizedBox(height: 12),
+      ],
 
       // Fifth Row: Phase Badge
       Container(

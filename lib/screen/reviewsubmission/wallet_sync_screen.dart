@@ -66,54 +66,61 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       if (rawValue.startsWith('M1') || rawValue.startsWith('M2')) {
         debugPrint("✅ Detected BCBP format");
 
-        // BCBP Format: M1HAIRSNAPE/MATTHEW MREHTLSCF BEGISTJU 0426 245Y022F0060
-        // M1 = Format code
-        // HAIRSNAPE/MATTHEW M = Passenger name (variable length)
-        // REHTLSCF = Route info (departure + arrival + carrier)
-        // BEGISTJU = Flight number
-        // 0426 = Julian date
-        // etc.
+        // IATA Resolution 792 BCBP Format - Fixed field positions
+        // M1 = Format code (positions 1-2)
+        // Passenger name (positions 3-22, variable length with padding)
+        // E + PNR (positions 23-29): E = Electronic ticket, PNR = 6 chars
+        // Flight info starts at position 30+
 
-        // Find the route information after the passenger name
-        // Look for pattern: 3-letter airport + 3-letter airport + 2-letter carrier
-        RegExp routePattern = RegExp(r'([A-Z]{3})([A-Z]{3})([A-Z]{2})');
-        Match? routeMatch = routePattern.firstMatch(rawValue);
-
-        if (routeMatch != null) {
-          departureAirport = routeMatch.group(1)!; // First 3 letters
-          String arrivalAirportCode = routeMatch.group(2)!; // Next 3 letters
-          carrier = routeMatch.group(3)!; // Last 2 letters
-
-          // Find flight number after the route info
-          int routeEnd = routeMatch.end;
-          String afterRoute = rawValue.substring(routeEnd).trim();
-
-          // Extract flight number (next word)
-          List<String> parts = afterRoute.split(RegExp(r'\s+'));
-          if (parts.isNotEmpty) {
-            flightNumber = parts[0];
-          }
-
-          // Extract Julian date (next part)
-          if (parts.length > 1) {
-            String julianDate = parts[1];
-            if (julianDate.length >= 3) {
-              final baseDate = DateTime(DateTime.now().year, 1, 0);
-              date = baseDate
-                  .add(Duration(days: int.parse(julianDate.substring(0, 3))));
-            }
-          }
-
-          // Generate PNR from flight info
-          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
-
-          debugPrint("✅ Parsed BCBP boarding pass:");
-          debugPrint("  Departure: $departureAirport");
-          debugPrint("  Arrival: $arrivalAirportCode");
-          debugPrint("  Carrier: $carrier");
-          debugPrint("  Flight: $flightNumber");
-          debugPrint("  Date: $date");
+        if (rawValue.length < 52) {
+          debugPrint("❌ BCBP too short: ${rawValue.length} chars (need at least 52)");
+          throw Exception('Invalid BCBP format: too short');
         }
+
+        // Extract PNR from fixed position (23-29, skip position 22 which is 'E')
+        String extractedPnr = rawValue.substring(23, 29).trim();
+        
+        // Validate PNR: should be alphanumeric and 5-6 characters
+        extractedPnr = extractedPnr.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+        
+        // PNR validation
+        bool isValidPnr = extractedPnr.length >= 5 && 
+                          extractedPnr.length <= 7 &&
+                          !RegExp(r'^[EYFRCJW]$').hasMatch(extractedPnr) && // Not a single class code
+                          !RegExp(r'^\d+$').hasMatch(extractedPnr) && // Not all numbers
+                          RegExp(r'^[A-Z0-9]+$').hasMatch(extractedPnr); // Only alphanumeric
+        
+        pnr = isValidPnr ? extractedPnr : '';
+
+        // Extract flight info from fixed positions
+        departureAirport = rawValue.substring(30, 33);
+        String arrivalAirportCode = rawValue.substring(33, 36);
+        carrier = rawValue.substring(36, 38);
+        flightNumber = rawValue.substring(39, 44).trim().replaceAll(RegExp(r'^0+'), '');
+        String julianDate = rawValue.substring(44, 47).trim();
+        String classCode = rawValue.substring(47, 48);
+        classOfService = _getClassOfService(classCode);
+
+        // Parse Julian date
+        if (julianDate.length >= 3) {
+          final baseDate = DateTime(DateTime.now().year, 1, 0);
+          date = baseDate.add(Duration(days: int.parse(julianDate)));
+        }
+
+        // Generate PNR if it was invalid or empty
+        if (pnr.isEmpty && carrier.isNotEmpty && flightNumber.isNotEmpty && departureAirport.isNotEmpty) {
+          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
+          debugPrint('🔄 Generated PNR: $pnr (original was invalid)');
+        }
+
+        debugPrint("✅ Parsed BCBP boarding pass:");
+        debugPrint("  PNR: $pnr (${isValidPnr ? 'extracted' : 'generated'})");
+        debugPrint("  Departure: $departureAirport");
+        debugPrint("  Arrival: $arrivalAirportCode");
+        debugPrint("  Carrier: $carrier");
+        debugPrint("  Flight: $flightNumber");
+        debugPrint("  Date: $date");
+        debugPrint("  Class: $classOfService");
       } else {
         // Try old format parsing
         final RegExp regex = RegExp(
@@ -125,6 +132,14 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         }
 
         pnr = match.group(1)!;
+        
+        // Validate PNR: ensure it's not just a class code
+        // PNR should be 5-7 alphanumeric characters, not a single letter
+        if (pnr.length == 1 && RegExp(r'^[EYFRCJW]$').hasMatch(pnr)) {
+          debugPrint('⚠️ Invalid PNR detected (looks like class code): $pnr');
+          pnr = ''; // Will be generated later
+        }
+        
         final String routeOfFlight = match.group(2)!;
         flightNumber = match.group(3)!;
         final String julianDateAndClassOfService = match.group(4)!;
@@ -136,6 +151,12 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         classOfService = _getClassOfService(classOfServiceKey);
         final DateTime baseDate = DateTime(DateTime.now().year, 1, 0);
         date = baseDate.add(Duration(days: int.parse(julianDate)));
+        
+        // Generate PNR if it was invalid or empty
+        if (pnr.isEmpty && carrier.isNotEmpty && flightNumber.isNotEmpty && departureAirport.isNotEmpty) {
+          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
+          debugPrint('🔄 Generated PNR: $pnr (original was invalid)');
+        }
 
         debugPrint("✅ Scanned boarding pass details:");
         debugPrint("  PNR: $pnr");
@@ -203,12 +224,92 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       case "R":
         return "Premium Economy";
       case "J":
+      case "C":
         return "Business";
       case "Y":
+      case "E":
+      case "W":
         return "Economy";
       default:
-        return "Premium Economy";
+        return "Economy";
     }
+  }
+
+  /// Map airline code to airline name
+  String _getAirlineNameFromCode(String? code) {
+    if (code == null || code.isEmpty) return 'Unknown Airline';
+    
+    // Common airline codes mapping
+    final Map<String, String> airlineCodes = {
+      'AA': 'American Airlines',
+      'UA': 'United Airlines',
+      'DL': 'Delta Air Lines',
+      'WN': 'Southwest Airlines',
+      'BA': 'British Airways',
+      'LH': 'Lufthansa',
+      'AF': 'Air France',
+      'KL': 'KLM',
+      'EK': 'Emirates',
+      'QF': 'Qantas',
+      'SQ': 'Singapore Airlines',
+      'CX': 'Cathay Pacific',
+      'JL': 'Japan Airlines',
+      'NH': 'All Nippon Airways',
+      'TG': 'Thai Airways',
+      'QR': 'Qatar Airways',
+      'EY': 'Etihad Airways',
+      'VS': 'Virgin Atlantic',
+      'AS': 'Alaska Airlines',
+      'B6': 'JetBlue Airways',
+      'F9': 'Frontier Airlines',
+      'NK': 'Spirit Airlines',
+      'G4': 'Allegiant Air',
+      'AC': 'Air Canada',
+      'AV': 'Avianca',
+      'AM': 'Aeroméxico',
+      'IB': 'Iberia',
+      'AZ': 'ITA Airways',
+      'LX': 'Swiss International Air Lines',
+      'OS': 'Austrian Airlines',
+      'SK': 'Scandinavian Airlines',
+      'AY': 'Finnair',
+      'TP': 'TAP Air Portugal',
+      'SN': 'Brussels Airlines',
+      'EI': 'Aer Lingus',
+      'KE': 'Korean Air',
+      'OZ': 'Asiana Airlines',
+      'BR': 'EVA Air',
+      'CI': 'China Airlines',
+      'MU': 'China Eastern Airlines',
+      'CA': 'Air China',
+      'CZ': 'China Southern Airlines',
+      'AI': 'Air India',
+      'SV': 'Saudia',
+      'MS': 'EgyptAir',
+      'ET': 'Ethiopian Airlines',
+      'SA': 'South African Airways',
+      'LA': 'LATAM Airlines',
+      'AR': 'Aerolineas Argentinas',
+      'CM': 'Copa Airlines',
+      '6E': 'IndiGo',
+      'SG': 'SpiceJet',
+      'UK': 'Vistara',
+      'IX': 'Air India Express',
+      'QZ': 'AirAsia Indonesia',
+      'AK': 'AirAsia',
+      'D7': 'AirAsia X',
+      'FD': 'Thai AirAsia',
+      'VJ': 'VietJet Air',
+      'BL': 'Jetstar Pacific',
+      'TR': 'Scoot',
+      '3K': 'Jetstar Asia',
+      'JQ': 'Jetstar Airways',
+      'VA': 'Virgin Australia',
+      'NZ': 'Air New Zealand',
+      'FJ': 'Fiji Airways',
+    };
+    
+    return airlineCodes[code.toUpperCase()] ?? 'Unknown Airline';
   }
 
   Future<void> _processFetchedFlightInfo(Map<String, dynamic> flightInfo,
@@ -231,13 +332,39 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
       debugPrint('   Airlines in appendix: ${airlines?.length ?? 0}');
       debugPrint('   Airports in appendix: ${airports?.length ?? 0}');
       
-      // Safely find airline with fallback
-      final airlineData = airlines?.firstWhere(
-        (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
-        orElse: () => null,
-      );
-      final airlineName = airlineData?['name'] ?? flightStatus['carrier']?['name'] ?? 'Unknown Airline';
+      // Try multiple methods to get airline name
+      String? airlineName;
       
+      // Method 1: Look up in appendix airlines list
+      try {
+        final airlineData = airlines?.firstWhere(
+          (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
+          orElse: () => null,
+        );
+        airlineName = airlineData?['name'];
+      } catch (e) {
+        debugPrint('⚠️ Could not find airline in appendix: $e');
+      }
+      
+      // Method 2: Try to get from flightStatus carrier object
+      if (airlineName == null || airlineName == 'Unknown Airline') {
+        airlineName = flightStatus['carrier']?['name'];
+        if (airlineName != null) {
+          debugPrint('✅ Got airline name from flightStatus.carrier: $airlineName');
+        }
+      }
+      
+      // Method 3: Map carrier code to airline name
+      if (airlineName == null || airlineName == 'Unknown Airline') {
+        final carrierCode = flightStatus['carrierFsCode'];
+        airlineName = _getAirlineNameFromCode(carrierCode);
+        if (airlineName != 'Unknown Airline') {
+          debugPrint('✅ Mapped carrier code $carrierCode to airline: $airlineName');
+        }
+      }
+      
+      // Final fallback
+      airlineName ??= 'Unknown Airline';
       debugPrint('   ✅ Airline name: $airlineName');
       
       // Safely find departure airport with fallback

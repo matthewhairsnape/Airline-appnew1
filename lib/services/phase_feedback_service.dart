@@ -446,38 +446,9 @@ class PhaseFeedbackService {
 
       debugPrint('🔍 Journey status - phase: $currentPhase, visit_status: $visitStatus, status: $status');
 
-      // If journey is not completed, try to update it first (but don't fail if it doesn't work)
-      // Note: Use 'landed' as phase instead of 'completed' to avoid database constraint errors
-      final isCompleted = currentPhase == 'landed' || visitStatus == 'Completed' || status == 'completed';
-      if (!isCompleted) {
-        debugPrint('🔄 Journey not completed, attempting to update status...');
-        try {
-          await _client.from('journeys').update({
-            'current_phase': 'landed', // Use 'landed' instead of 'completed' to avoid schema errors
-            'visit_status': 'Completed',
-            'status': 'completed',
-            'updated_at': DateTime.now().toIso8601String(),
-          }).eq('id', journeyId);
-
-          // Add journey event
-          await _client.from('journey_events').insert({
-            'journey_id': journeyId,
-            'event_type': 'journey_completed',
-            'title': 'Journey Completed',
-            'description': 'Journey marked as completed before feedback submission',
-            'event_timestamp': DateTime.now().toIso8601String(),
-            'metadata': {
-              'completed_by': 'feedback_submission',
-              'flight_id': flightId,
-            },
-          });
-
-          debugPrint('✅ Journey status updated to completed');
-        } catch (updateError) {
-          debugPrint('⚠️ Failed to update journey status: $updateError');
-          debugPrint('🔄 Continuing with feedback submission anyway...');
-        }
-      }
+      // Note: Removed auto-completion functionality - journey completion is now manual only
+      // Users must explicitly complete the journey, submitting overall review does not auto-complete
+      debugPrint('ℹ️ Journey status will not be changed by feedback submission');
 
       // Use feedback table for overall experience
       // Try different phase values that might be valid

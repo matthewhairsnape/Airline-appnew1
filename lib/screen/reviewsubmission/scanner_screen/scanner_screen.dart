@@ -255,6 +255,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         }
 
         pnr = match.group(1)!;
+        
+        // Validate PNR: ensure it's not just a class code
+        // PNR should be 5-7 alphanumeric characters, not a single letter
+        if (pnr.length == 1 && RegExp(r'^[EYFRCJW]$').hasMatch(pnr)) {
+          debugPrint('⚠️ Invalid PNR detected (looks like class code): $pnr');
+          pnr = ''; // Will be generated later
+        }
+        
         final routeOfFlight = match.group(2)!;
         departureAirport = routeOfFlight.substring(0, 3);
         carrier = routeOfFlight.substring(6, 8);
@@ -265,6 +273,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         classOfService = _getClassOfService(classOfServiceKey);
         final baseDate = DateTime(DateTime.now().year, 1, 0);
         date = baseDate.add(Duration(days: int.parse(julianDate)));
+        
+        // Generate PNR if it was invalid or empty
+        if (pnr.isEmpty && carrier.isNotEmpty && flightNumber.isNotEmpty && departureAirport.isNotEmpty) {
+          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
+          debugPrint('🔄 Generated PNR: $pnr (original was invalid)');
+        }
 
         debugPrint("✅ Scanned boarding pass details:");
         debugPrint("  PNR: $pnr");
@@ -352,12 +366,93 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       case "R":
         return "Premium Economy";
       case "J":
+      case "C":
         return "Business";
       case "Y":
+      case "E":
+      case "W":
         return "Economy";
       default:
-        return "Premium Economy";
+        return "Economy";
     }
+  }
+
+  /// Map airline code to airline name
+  String _getAirlineNameFromCode(String? code) {
+    if (code == null || code.isEmpty) return 'Unknown Airline';
+    
+    // Common airline codes mapping
+    final Map<String, String> airlineCodes = {
+      'AA': 'American Airlines',
+      'UA': 'United Airlines',
+      'DL': 'Delta Air Lines',
+      'WN': 'Southwest Airlines',
+      'BA': 'British Airways',
+      'LH': 'Lufthansa',
+      'AF': 'Air France',
+      'KL': 'KLM',
+      'EK': 'Emirates',
+      'QF': 'Qantas',
+      'SQ': 'Singapore Airlines',
+      'CX': 'Cathay Pacific',
+      'JL': 'Japan Airlines',
+      'NH': 'All Nippon Airways',
+      'TG': 'Thai Airways',
+      'QR': 'Qatar Airways',
+      'EY': 'Etihad Airways',
+      'VS': 'Virgin Atlantic',
+      'AS': 'Alaska Airlines',
+      'B6': 'JetBlue Airways',
+      'F9': 'Frontier Airlines',
+      'NK': 'Spirit Airlines',
+      'G4': 'Allegiant Air',
+      'AC': 'Air Canada',
+      'AV': 'Avianca',
+      'AM': 'Aeroméxico',
+      'IB': 'Iberia',
+      'AZ': 'ITA Airways',
+      'LX': 'Swiss International Air Lines',
+      'OS': 'Austrian Airlines',
+      'SK': 'Scandinavian Airlines',
+      'AY': 'Finnair',
+      'TP': 'TAP Air Portugal',
+      'SN': 'Brussels Airlines',
+      'EI': 'Aer Lingus',
+      'KE': 'Korean Air',
+      'OZ': 'Asiana Airlines',
+      'BR': 'EVA Air',
+      'CI': 'China Airlines',
+      'MU': 'China Eastern Airlines',
+      'CA': 'Air China',
+      'CZ': 'China Southern Airlines',
+      'AI': 'Air India',
+      'SV': 'Saudia',
+      'MS': 'EgyptAir',
+      'ET': 'Ethiopian Airlines',
+      'SA': 'South African Airways',
+      'LA': 'LATAM Airlines',
+      'AR': 'Aerolineas Argentinas',
+      'CM': 'Copa Airlines',
+      'AV': 'Avianca',
+      '6E': 'IndiGo',
+      'SG': 'SpiceJet',
+      'UK': 'Vistara',
+      'IX': 'Air India Express',
+      'QZ': 'AirAsia Indonesia',
+      'AK': 'AirAsia',
+      'D7': 'AirAsia X',
+      'FD': 'Thai AirAsia',
+      'VJ': 'VietJet Air',
+      'BL': 'Jetstar Pacific',
+      'TR': 'Scoot',
+      '3K': 'Jetstar Asia',
+      'JQ': 'Jetstar Airways',
+      'VA': 'Virgin Australia',
+      'NZ': 'Air New Zealand',
+      'FJ': 'Fiji Airways',
+    };
+    
+    return airlineCodes[code.toUpperCase()] ?? 'Unknown Airline';
   }
 
   /// Universal BCBP parser following IATA Resolution 792 standard
@@ -376,7 +471,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       }
 
       // Extract fields using exact IATA Resolution 792 offsets
-      result['pnr'] = rawValue.substring(22, 29).trim();
+      // Position 22: Electronic ticket indicator (usually 'E')
+      // Positions 23-28: Actual PNR (6 characters)
+      String extractedPnr = rawValue.substring(23, 29).trim(); // Get actual PNR, skip the 'E'
+      
+      // Validate PNR: should be alphanumeric and 5-6 characters
+      // Remove any non-alphanumeric characters
+      extractedPnr = extractedPnr.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+      
+      // Additional validation: PNR should not be:
+      // 1. A single class code letter (E, Y, F, R, C, J, W)
+      // 2. All numbers (invalid PNR format)
+      // 3. Contain obvious garbage patterns
+      bool isValidPnr = extractedPnr.length >= 5 && 
+                        extractedPnr.length <= 7 &&
+                        !RegExp(r'^[EYFRCJW]$').hasMatch(extractedPnr) && // Not a single class code
+                        !RegExp(r'^\d+$').hasMatch(extractedPnr) && // Not all numbers
+                        RegExp(r'^[A-Z0-9]+$').hasMatch(extractedPnr); // Only alphanumeric
+      
+      // If PNR is invalid or too short, leave it empty for generation
+      result['pnr'] = isValidPnr ? extractedPnr : '';
+      
       result['departureAirport'] = rawValue.substring(30, 33);
       result['arrivalAirport'] = rawValue.substring(33, 36);
       result['carrier'] =
@@ -387,6 +502,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       result['classOfService'] = rawValue.substring(47, 48);
       result['seatNumber'] =
           rawValue.length >= 52 ? rawValue.substring(48, 52).trim() : '';
+      
+      // Generate PNR if it's empty or invalid
+      if (result['pnr']!.isEmpty && result['carrier']!.isNotEmpty && result['flightNumber']!.isNotEmpty && result['departureAirport']!.isNotEmpty) {
+        result['pnr'] = '${result['carrier']}${result['flightNumber']}${result['departureAirport']}'.substring(0, 6);
+        debugPrint('🔄 Generated PNR: ${result['pnr']} (original was invalid)');
+      }
 
       // Clean up seat number (remove zero padding)
       if (result['seatNumber'] != null && result['seatNumber']!.isNotEmpty) {
@@ -411,6 +532,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
           result['classOfService'] = 'Business';
           break;
         case 'Y':
+        case 'E':
         case 'W':
           result['classOfService'] = 'Economy';
           break;
@@ -515,11 +637,40 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final airlines = flightInfo['appendix']['airlines'] ?? [];
     final airports = flightInfo['appendix']['airports'] ?? [];
 
-    final airlineName = airlines.firstWhere(
-          (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
-          orElse: () => {'name': 'Unknown Airline'},
-        )['name'] ??
-        'Unknown Airline';
+    // Try multiple methods to get airline name
+    String? airlineName;
+    
+    // Method 1: Look up in appendix airlines list
+    try {
+      final airlineData = airlines.firstWhere(
+        (airline) => airline['fs'] == flightStatus['primaryCarrierFsCode'],
+        orElse: () => null,
+      );
+      airlineName = airlineData?['name'];
+    } catch (e) {
+      debugPrint('⚠️ Could not find airline in appendix: $e');
+    }
+    
+    // Method 2: Try to get from flightStatus carrier object
+    if (airlineName == null || airlineName == 'Unknown Airline') {
+      airlineName = flightStatus['carrier']?['name'];
+      if (airlineName != null) {
+        debugPrint('✅ Got airline name from flightStatus.carrier: $airlineName');
+      }
+    }
+    
+    // Method 3: Map carrier code to airline name
+    if (airlineName == null || airlineName == 'Unknown Airline') {
+      final carrierCode = flightStatus['carrierFsCode'] ?? carrier;
+      airlineName = _getAirlineNameFromCode(carrierCode);
+      if (airlineName != 'Unknown Airline') {
+        debugPrint('✅ Mapped carrier code $carrierCode to airline: $airlineName');
+      }
+    }
+    
+    // Final fallback
+    airlineName ??= 'Unknown Airline';
+    debugPrint('📋 Final airline name: $airlineName');
 
     final departureAirport = airports.firstWhere(
       (airport) => airport['fs'] == flightStatus['departureAirportFsCode'],
