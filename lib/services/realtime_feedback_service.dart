@@ -9,6 +9,9 @@ class RealtimeFeedbackService {
   static final SupabaseClient _client = SupabaseService.client;
   static RealtimeChannel? _channel;
   static bool _isSubscribed = false;
+  
+  // Cache for airline logos to ensure same airline always shows same logo
+  static final Map<String, String> _logoCache = {};
 
   /// Initialize realtime feedback listener
   static Future<void> initialize() async {
@@ -98,13 +101,25 @@ class RealtimeFeedbackService {
                 .limit(30);
 
 
-            // Fetch feedback
+            // Fetch feedback (using actual schema columns)
             final feedbackData = await _client
                 .from('feedback')
-                .select()
+                .select('''
+                  id,
+                  journey_id,
+                  flight_id,
+                  phase,
+                  category,
+                  rating,
+                  sentiment,
+                  comment,
+                  timestamp,
+                  tags,
+                  created_at,
+                  media
+                ''')
                 .order('created_at', ascending: false)
                 .limit(30);
-
 
             // Combine and format all feedback (set aggregate to false for individual entries)
             final combined = await _formatCombinedFeedback(
@@ -113,6 +128,8 @@ class RealtimeFeedbackService {
               feedbackData,
               aggregate: false, // Don't aggregate - show individual passenger feedback
             );
+            
+            debugPrint('   Combined feedback total: ${combined.length}');
             
             
             return combined;
@@ -131,20 +148,21 @@ class RealtimeFeedbackService {
   ) async {
     List<Map<String, dynamic>> combinedFeedback = [];
 
-    // Process airport reviews (Priority 1)
+    // Process airport reviews (Priority 1) - REAL user feedback
     for (final review in airportReviews) {
       final formatted = await _formatAirportReview(review);
       combinedFeedback.add(formatted);
     }
 
-    // Process leaderboard scores (Priority 2) - async to fetch flight/seat data
-    // Optimize: Process in parallel batches for better performance
-    final formattedScores = await Future.wait(
-      leaderboardScores.map((score) => _formatLeaderboardScore(score))
-    );
-    combinedFeedback.addAll(formattedScores);
+    // ❌ REMOVED: Leaderboard scores (aggregate data, not individual feedback)
+    // Leaderboard scores generated fake comments like "Excellent performance in..."
+    // User wants ONLY real feedback, not synthetic/aggregate data
+    // final formattedScores = await Future.wait(
+    //   leaderboardScores.map((score) => _formatLeaderboardScore(score))
+    // );
+    // combinedFeedback.addAll(formattedScores);
 
-    // Process feedback entries (Priority 3) - need to await async formatting
+    // Process feedback entries (Priority 2) - REAL user feedback
     for (final feedback in feedbackData) {
       final formatted = await _formatFeedback(feedback);
       combinedFeedback.add(formatted);
@@ -218,11 +236,12 @@ class RealtimeFeedbackService {
     final dislikes = _extractNegativeFromComments(comments);
 
 
-    // Try to get flight number from journey
+    // Try to get flight number and airline logo from journey
     final journeyId = review['journey_id'] as String?;
     String flightNumber = 'Airport Experience';
     String seat = 'N/A';
     String airline = _getAirportName(review['airport_id']);
+    String logo = 'assets/images/airport.png'; // Default to airport icon
     
     if (journeyId != null) {
       try {
@@ -233,8 +252,10 @@ class RealtimeFeedbackService {
               flight:flights(
                 flight_number,
                 airline:airlines(
+                  id,
                   name,
-                  iata_code
+                  iata_code,
+                  logo_url
                 )
               )
             ''')
@@ -255,8 +276,10 @@ class RealtimeFeedbackService {
             final airlineData = flight['airline'] as Map?;
             
             if (airlineData != null) {
+              final airlineId = airlineData['id'] as String?;
               final airlineName = airlineData['name'] as String?;
               final iataCode = airlineData['iata_code'] as String? ?? '';
+              final logoUrl = airlineData['logo_url'] as String?;
               
               if (airlineName != null && airlineName.isNotEmpty) {
                 airline = airlineName;
@@ -266,6 +289,18 @@ class RealtimeFeedbackService {
                 flightNumber = '$iataCode$flightNum';
               } else if (flightNum.isNotEmpty) {
                 flightNumber = flightNum;
+              }
+              
+              // Use airline logo if available (cached for consistency)
+              if (logoUrl != null && logoUrl.isNotEmpty) {
+                logo = logoUrl;
+                // Cache it for consistency
+                if (airlineId != null) {
+                  _logoCache['airline_$airlineId'] = logoUrl;
+                }
+                if (airlineName != null) {
+                  _logoCache['airline_name_$airlineName'] = logoUrl;
+                }
               }
             }
           }
@@ -285,7 +320,7 @@ class RealtimeFeedbackService {
       'phaseColor': const Color(0xFFF5A623), // Orange
       'airline': airline,
       'airlineName': airline,
-      'logo': 'assets/images/airport.png',
+      'logo': logo, // Use airline logo if available, otherwise airport icon
       'passenger': 'Anonymous',
       'seat': seat,
       'likes': likes,
@@ -461,22 +496,28 @@ class RealtimeFeedbackService {
     return result;
   }
 
-  /// Format feedback data
+  /// Format feedback data (using actual schema)
   static Future<Map<String, dynamic>> _formatFeedback(dynamic feedback) async {
     final comments = feedback['comment'] as String? ?? '';
     final likes = _extractPositiveFromComments(comments);
     final dislikes = _extractNegativeFromComments(comments);
 
-    final overallRating = feedback['overall_rating'] as num? ?? feedback['rating'] as num?;
+    // Get rating from actual schema
+    final rating = feedback['rating'] as num?;
+    
+    // Get category and sentiment from actual schema
+    final category = feedback['category'] as String? ?? '';
+    final sentiment = feedback['sentiment'] as String?;
 
-    // Determine phase from feedback data - map to journey parts
-    final phaseStr = feedback['phase'] as String? ?? 'arrival';
+    // Determine phase from feedback data - map actual schema values
+    final phaseStr = feedback['phase'] as String? ?? 'landed';
     String phase;
-    if (phaseStr == 'landed' || phaseStr == 'post-flight' || phaseStr == 'arrival' || phaseStr == 'overall') {
+    // Actual schema: 'on_ground', 'in_air', 'landed'
+    if (phaseStr == 'landed') {
       phase = 'After Flight';
-    } else if (phaseStr == 'in-flight' || phaseStr == 'in_flight') {
+    } else if (phaseStr == 'in_air') {
       phase = 'In-flight';
-    } else if (phaseStr == 'pre-flight' || phaseStr == 'pre_flight' || phaseStr == 'boarding') {
+    } else if (phaseStr == 'on_ground') {
       phase = 'Pre-flight';
     } else {
       phase = 'After Flight'; // Default
@@ -505,11 +546,11 @@ class RealtimeFeedbackService {
     final seat = await _getSeatNumberAsync(feedback['journey_id']);
 
 
-    return {
+    final result = {
       'feedback_type': 'overall',
       'id': feedback['id'],
       'journey_id': feedback['journey_id'],
-      'user_id': feedback['user_id'],
+      'flight_id': feedback['flight_id'],
       'flight': flightNumber,
       'phase': phase,
       'phaseColor': phaseColor,
@@ -521,9 +562,17 @@ class RealtimeFeedbackService {
       'likes': likes,
       'dislikes': dislikes,
       'comments': comments,
-      'overall_rating': overallRating,
+      // Use actual schema columns
+      'overall_rating': rating,
+      'rating': rating,
+      'category': category,
+      'sentiment': sentiment,
+      'tags': feedback['tags'],
+      'media': feedback['media'],
       'timestamp': _parseTimestamp(feedback['created_at'] ?? feedback['timestamp']),
     };
+    
+    return result;
   }
 
   /// Generate comments based on score value and type
@@ -697,11 +746,9 @@ class RealtimeFeedbackService {
   /// Extract positive feedback from comments
   static List<Map<String, dynamic>> _extractPositiveFromComments(
       String comments) {
+    // Return empty if no comments - don't generate fake data
     if (comments.isEmpty) {
-      return [
-        {'text': 'Good facilities', 'count': 1}, // Changed to 1 (actual passenger count)
-        {'text': 'Helpful staff', 'count': 1},   // Changed to 1 (actual passenger count)
-      ];
+      return [];
     }
 
     // Simple keyword matching for positive feedback
@@ -727,16 +774,15 @@ class RealtimeFeedbackService {
       }
     }
 
+    // Return empty if no keywords found - don't generate fake "Positive experience"
     if (extractedLikes.isEmpty) {
-      return [
-        {'text': 'Positive experience', 'count': 1}, // Changed to 1 (actual passenger count)
-      ];
+      return [];
     }
 
     return extractedLikes
         .map((keyword) => {
               'text': keyword.capitalize(),
-              'count': 1, // Changed to 1 (actual passenger count - will be aggregated later)
+              'count': 1, // Actual passenger count - will be aggregated later
             })
         .toList();
   }
@@ -827,17 +873,26 @@ class RealtimeFeedbackService {
     return 'Unknown Airline';
   }
 
-  /// Get airline logo from feedback data
+  /// Get airline logo from feedback data (with caching)
   static Future<String> _getAirlineLogoFromFeedback(dynamic feedback) async {
     try {
       final journeyId = feedback['journey_id'] as String?;
-      if (journeyId == null) return 'assets/images/airline_logo.png';
+      if (journeyId == null) {
+        return 'assets/images/airline_logo.png';
+      }
+
+      // Check cache first
+      if (_logoCache.containsKey(journeyId)) {
+        return _logoCache[journeyId]!;
+      }
 
       final journey = await _client
           .from('journeys')
           .select('''
             flight:flights(
               airline:airlines(
+                id,
+                name,
                 logo_url
               )
             )
@@ -850,14 +905,30 @@ class RealtimeFeedbackService {
         if (flight != null && flight is Map) {
           final airline = flight['airline'] as Map?;
           if (airline != null) {
+            final airlineId = airline['id'] as String?;
+            final airlineName = airline['name'] as String?;
             final logoUrl = airline['logo_url'] as String?;
+            
             if (logoUrl != null && logoUrl.isNotEmpty) {
+              // Cache by journey_id AND airline_id for consistency
+              _logoCache[journeyId] = logoUrl;
+              if (airlineId != null) {
+                _logoCache['airline_$airlineId'] = logoUrl;
+              }
+              if (airlineName != null) {
+                _logoCache['airline_name_$airlineName'] = logoUrl;
+              }
+              
               return logoUrl;
             }
           }
         }
       }
+      
+      // Cache the fallback too to avoid repeated queries
+      _logoCache[journeyId] = 'assets/images/airline_logo.png';
     } catch (e) {
+      // Silent error handling
     }
     return 'assets/images/airline_logo.png';
   }

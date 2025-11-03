@@ -5,6 +5,7 @@ import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/provider/leaderboard_provider.dart';
 import 'package:airline_app/screen/app_widgets/loading_widget.dart';
 import 'package:airline_app/models/leaderboard_category_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -197,7 +198,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     final displayedAirlines = isExpanded
         ? leaderboardState.airlines
-        : leaderboardState.airlines.take(5).toList();
+        : leaderboardState.airlines.take(10).toList(); // Increased from 5 to 10
 
     // Get the selected category to use its icon
     final selectedCategory = categories.firstWhere(

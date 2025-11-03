@@ -10,7 +10,7 @@ class SupabaseLeaderboardService {
   /// Get leaderboard rankings from Supabase
   static Future<List<Map<String, dynamic>>> getLeaderboardRankings({
     String? scoreType,
-    int limit = 10,
+    int limit = 50, // Increased default from 10 to 50
   }) async {
     try {
       debugPrint('📊 Fetching leaderboard rankings from Supabase...');
@@ -48,7 +48,7 @@ class SupabaseLeaderboardService {
   /// Get real-time leaderboard updates
   static Stream<List<Map<String, dynamic>>> subscribeToLeaderboardUpdates({
     String? scoreType,
-    int limit = 10,
+    int limit = 50, // Increased default from 10 to 50
   }) {
     try {
       debugPrint('📡 Subscribing to leaderboard real-time updates...');
@@ -133,10 +133,9 @@ class SupabaseLeaderboardService {
             ''')
             .eq('category', category)
             .order('leaderboard_rank', ascending: true)
-            .limit(10);
+            .limit(50); // Increased from 10 to 50 to show more airlines
 
         if (rankingsResponse.isNotEmpty) {
-          debugPrint('✅ Fetched ${rankingsResponse.length} $category rankings from leaderboard_rankings');
           // Convert to expected format
           return rankingsResponse.map((entry) => {
             'id': entry['id'],
@@ -174,11 +173,23 @@ class SupabaseLeaderboardService {
           ''')
           .eq('score_type', scoreType)
           .order('score_value', ascending: false)
-          .limit(10);
+          .limit(50); // Increased from 10 to 50 to show more airlines
 
       final response = await query;
 
       debugPrint('✅ Fetched ${response.length} $category rankings from leaderboard_scores');
+      
+      // Debug: Log first entry to see structure
+      if (response.isNotEmpty) {
+        final firstEntry = response.first;
+        debugPrint('🔍 First leaderboard_scores entry structure:');
+        debugPrint('   airline_id: ${firstEntry['airline_id']}');
+        debugPrint('   airlines: ${firstEntry['airlines']}');
+        if (firstEntry['airlines'] != null) {
+          final airlines = firstEntry['airlines'] as Map?;
+          debugPrint('   airlines.logo_url: ${airlines?['logo_url']}');
+        }
+      }
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -277,12 +288,14 @@ class SupabaseLeaderboardService {
     final displayScore = leaderboardEntry['leaderboard_score'] ?? 
                         leaderboardEntry['score_value'];
 
+    final logoUrl = airline?['logo_url'] as String?;
+
     return {
       'id': leaderboardEntry['airline_id'],
       'name': airline?['name'] ?? 'Unknown Airline',
       'iataCode': airline?['iata_code'],
       'icaoCode': airline?['icao_code'],
-      'logo': airline?['logo_url'] ?? 'assets/images/airline_logo.png',
+      'logo': logoUrl ?? 'assets/images/airline_logo.png',
       'score': displayScore,
       'avgRating': leaderboardEntry['avg_rating'],
       'reviewCount': leaderboardEntry['review_count'],
