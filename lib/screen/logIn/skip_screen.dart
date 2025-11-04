@@ -3,6 +3,7 @@ import 'package:airline_app/screen/app_widgets/main_button.dart';
 import 'package:airline_app/utils/app_routes.dart';
 import 'package:airline_app/utils/app_styles.dart';
 import 'package:airline_app/provider/auth_provider.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -18,6 +19,8 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   int selectedIndex = 0;
   final PageController _pageController = PageController();
   bool _isLoading = false;
+  bool _hasNavigated = false; // Prevent double navigation
+  DateTime? _lastNavigationAttempt; // Track navigation attempts for debouncing
 
   final List<String> titleList = [
     "Unbiased Reviews",
@@ -35,16 +38,136 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   void initState() {
     super.initState();
 
+    // Set loading state immediately to prevent showing SkipScreen content
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Check auth immediately using multiple methods
+    _checkAuthAndNavigate();
+  }
+
+  Future<void> _checkAuthAndNavigate() async {
+    // Method 1: Check Supabase session directly (fastest, synchronous)
+    try {
+      final session = SupabaseService.client.auth.currentSession;
+      if (session?.user != null && mounted && !_hasNavigated) {
+        debugPrint('✅ Found Supabase session, navigating immediately');
+        _navigateToStartReviews();
+        return;
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error checking Supabase session: $e');
+    }
+
+    // Method 2: Wait for first frame, then check auth provider
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted || _hasNavigated) return;
+
+    // Check auth provider state
+    final authState = ref.read(authProvider);
+    
+    // If auth is initialized and user exists, navigate
+    if (authState.isInitialized) {
+      final user = authState.user.valueOrNull;
+      if (user != null && mounted && !_hasNavigated) {
+        debugPrint('✅ Auth provider initialized with user, navigating');
+        _navigateToStartReviews();
+        return;
+      } else if (user == null && mounted) {
+        // User is not logged in, show SkipScreen
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+
+    // Method 3: Listen to auth provider for changes (if still loading)
+    if (!authState.isInitialized || authState.user.isLoading) {
+      // Set up listener to catch when auth becomes ready
+      _setupAuthListener();
+      
+      // Also poll periodically until initialized
+      _pollAuthState();
+    } else {
+      // Already initialized, set up listener for future changes
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && !_hasNavigated) {
+          _setupAuthListener();
+        }
+      });
+    }
+  }
+
+  void _pollAuthState() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted || _hasNavigated) return;
+      
+      final authState = ref.read(authProvider);
+      if (authState.isInitialized) {
+        final user = authState.user.valueOrNull;
+        if (user != null) {
+          debugPrint('✅ Auth initialized with user (poll), navigating');
+          _navigateToStartReviews();
+        } else {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Still not initialized, poll again
+        _pollAuthState();
+      }
+    });
+  }
+
+  void _navigateToStartReviews() {
+    if (_hasNavigated || !mounted) return;
+    
+    final now = DateTime.now();
+    if (_lastNavigationAttempt != null) {
+      final timeSinceLastAttempt = now.difference(_lastNavigationAttempt!);
+      if (timeSinceLastAttempt.inMilliseconds < 500) {
+        return; // Debounce
+      }
+    }
+    
+    _hasNavigated = true;
+    _lastNavigationAttempt = now;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+    });
+  }
+
+  void _setupAuthListener() {
     // Listen to auth state changes
     ref.listenManual(authProvider, (previous, next) {
-      next.when(
+      // Check if auth is now initialized with a user
+      if (next.isInitialized && next.user.valueOrNull != null && !_hasNavigated) {
+        debugPrint('✅ Auth listener: User found, navigating');
+        _navigateToStartReviews();
+        return;
+      }
+      
+      // Handle new login (transition from null to user)
+      final previousUser = previous?.user.valueOrNull;
+      next.user.when(
         data: (user) {
-          if (user != null && mounted) {
-            debugPrint('✅ Auth state changed: User logged in');
+          // Only navigate if this is a NEW login (previous state had no user)
+          // AND we haven't navigated yet
+          if (user != null && 
+              mounted && 
+              !_hasNavigated && 
+              previousUser == null) {
+            debugPrint('✅ Auth state changed: User logged in (navigating to startreviews)');
+            _navigateToStartReviews();
+          } else if (user == null && mounted) {
+            // User logged out or no user
             setState(() {
               _isLoading = false;
             });
-            Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
           }
         },
         loading: () {
@@ -71,7 +194,21 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   Future<void> _signInWithApple() async {
     if (!Platform.isIOS) {
       // Skip Apple Sign-In on non-iOS platforms
-      Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+      if (!_hasNavigated) {
+        final now = DateTime.now();
+        if (_lastNavigationAttempt != null) {
+          final timeSinceLastAttempt = now.difference(_lastNavigationAttempt!);
+          if (timeSinceLastAttempt.inMilliseconds < 500) {
+            return; // Debounce
+          }
+        }
+        _hasNavigated = true;
+        _lastNavigationAttempt = now;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+        });
+      }
       return;
     }
 
@@ -121,13 +258,79 @@ class _SkipScreenState extends ConsumerState<SkipScreen> {
   }
 
   void _continueAsGuest() {
-    Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+    if (!_hasNavigated) {
+      final now = DateTime.now();
+      if (_lastNavigationAttempt != null) {
+        final timeSinceLastAttempt = now.difference(_lastNavigationAttempt!);
+        if (timeSinceLastAttempt.inMilliseconds < 500) {
+          return; // Debounce
+        }
+      }
+      _hasNavigated = true;
+      _lastNavigationAttempt = now;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, AppRoutes.startreviews);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
+    
+    // Show loading screen while checking auth state (prevents flash of SkipScreen)
+    if (_isLoading && !_hasNavigated) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    // Reactively check auth state as backup
+    final authState = ref.watch(authProvider);
+    
+    // Handle auth state changes reactively
+    return authState.user.when(
+      data: (user) {
+        // If user is logged in, navigate immediately
+        if (user != null && mounted && !_hasNavigated) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _hasNavigated) return;
+            _navigateToStartReviews();
+          });
+          // Return loading screen while navigation happens
+          return Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        
+        // User is not logged in, show SkipScreen content
+        return _buildSkipScreenContent(screenSize);
+      },
+      loading: () {
+        // Auth state is still loading, show loading screen
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      },
+      error: (error, stackTrace) {
+        // Error loading auth, show SkipScreen
+        debugPrint('⚠️ Auth state error: $error');
+        return _buildSkipScreenContent(screenSize);
+      },
+    );
+  }
 
+  Widget _buildSkipScreenContent(Size screenSize) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(

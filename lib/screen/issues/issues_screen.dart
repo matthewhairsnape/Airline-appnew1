@@ -141,14 +141,13 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
       onTap: () => _showFeedbackDetails(context, feedback),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          color: Colors.white, // Visible background color
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.shade100,
+              color: Colors.grey.shade200,
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -269,34 +268,43 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
       if (seat != null && seat != 'N/A' && seat.isNotEmpty)
         const SizedBox(height: 12),
 
-      // Fourth Row: Specific Likes and Dislikes
+      // Fourth Row: Specific Likes and Dislikes with rounded containers
       ...[ 
-        // Show likes (top 2 most common)
+        // Show likes (top 2 most common) - each with individual rounded border
         if (likes.isNotEmpty) ...[
           for (var i = 0; i < (likes.length > 2 ? 2 : likes.length); i++) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '👍',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    likes[i]['text'] as String? ?? '',
-                    style: AppStyles.textStyle_14_600.copyWith(
-                      color: Colors.green.shade700,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            Container(
+              margin: EdgeInsets.only(bottom: i < (likes.length > 2 ? 1 : likes.length - 1) ? 8 : 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(50),
+                              border: Border.all(
+                                color: Colors.green.shade200,
+                                width: 1,
+                              ),
+                            ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '👍',
+                    style: const TextStyle(fontSize: 16),
                   ),
-                ),
-                // Passenger count badge removed
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      likes[i]['text'] as String? ?? '',
+                      style: AppStyles.textStyle_14_600.copyWith(
+                        color: Colors.green.shade700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            if (i < (likes.length > 2 ? 1 : likes.length - 1))
-              const SizedBox(height: 6),
           ],
           if (likes.length > 2)
             Padding(
@@ -313,32 +321,41 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
             const SizedBox(height: 12),
         ],
         
-        // Show dislikes (top 2 most common)
+        // Show dislikes (top 2 most common) - each with individual rounded border
         if (dislikes.isNotEmpty) ...[
           for (var i = 0; i < (dislikes.length > 2 ? 2 : dislikes.length); i++) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '👎',
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    dislikes[i]['text'] as String? ?? '',
-                    style: AppStyles.textStyle_14_600.copyWith(
-                      color: Colors.red.shade700,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            Container(
+              margin: EdgeInsets.only(bottom: i < (dislikes.length > 2 ? 1 : dislikes.length - 1) ? 8 : 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(35),
+                              border: Border.all(
+                                color: Colors.red.shade200,
+                                width: 1,
+                              ),
+                            ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '👎',
+                    style: const TextStyle(fontSize: 16),
                   ),
-                ),
-                // Passenger count badge removed
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      dislikes[i]['text'] as String? ?? '',
+                      style: AppStyles.textStyle_14_600.copyWith(
+                        color: Colors.red.shade700,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            if (i < (dislikes.length > 2 ? 1 : dislikes.length - 1))
-              const SizedBox(height: 6),
           ],
           if (dislikes.length > 2)
             Padding(
@@ -376,12 +393,16 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
         const SizedBox(height: 12),
       ],
 
-      // Fifth Row: Phase Badge
+      // Fifth Row: Phase Badge with rounded border
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: phaseColor,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(12), // Increased from 6 to 12 for more rounded
+          border: Border.all(
+            color: phaseColor.withOpacity(0.3),
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -567,7 +588,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
               height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(35),
               ),
             ),
 
@@ -651,7 +672,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.green.shade50,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(35),
                               border: Border.all(
                                 color: Colors.green.shade200,
                                 width: 1,
@@ -702,7 +723,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(35),
                               border: Border.all(
                                 color: Colors.red.shade200,
                                 width: 1,

@@ -25,22 +25,66 @@ class _LoginState extends ConsumerState<Login> {
   bool _isSignUp = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _hasNavigated = false; // Prevent double navigation
+  DateTime? _lastNavigationAttempt; // Track navigation attempts for debouncing
 
   @override
   void initState() {
     super.initState();
-    _checkExistingAuth();
+    
+    // Check existing auth first
+    _checkExistingAuth().then((_) {
+      // Only set up auth listener AFTER auto-login check is complete
+      // This prevents double navigation on app startup
+      // Add delay to ensure auth state is fully stabilized
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          _setupAuthListener();
+        }
+      });
+    });
+  }
 
-    // Listen to auth state changes
+  void _setupAuthListener() {
+    // Listen to auth state changes (only for manual login/signup)
     ref.listenManual(authProvider, (previous, next) {
-      next.when(
+      // Only navigate if there's an actual change from null to user
+      final previousUser = previous?.user.valueOrNull;
+      
+      next.user.when(
         data: (user) {
-          if (user != null && mounted) {
-            debugPrint('✅ Auth state changed: User logged in');
+          // Only navigate if:
+          // 1. User is now logged in
+          // 2. We haven't navigated yet
+          // 3. This is a NEW login (previous was null or different)
+          // 4. We haven't tried to navigate in the last 500ms (debounce)
+          if (user != null && 
+              mounted && 
+              !_hasNavigated && 
+              previousUser == null) {
+            
+            final now = DateTime.now();
+            if (_lastNavigationAttempt != null) {
+              final timeSinceLastAttempt = now.difference(_lastNavigationAttempt!);
+              if (timeSinceLastAttempt.inMilliseconds < 500) {
+                debugPrint('⏸️ Navigation debounced: ${timeSinceLastAttempt.inMilliseconds}ms since last attempt');
+                return; // Debounce: ignore if too soon
+              }
+            }
+            
+            debugPrint('✅ Auth state changed: User logged in (from null)');
+            _hasNavigated = true; // Mark as navigated to prevent double navigation
+            _lastNavigationAttempt = now;
+            
             setState(() {
               _isLoading = false;
             });
-            Navigator.pushNamed(context, AppRoutes.startreviews);
+            
+            // Use post-frame callback to ensure navigation happens after current frame
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Navigator.pushNamed(context, AppRoutes.startreviews);
+            });
           } else if (user == null && mounted) {
             debugPrint('❌ Auth state: No user data');
             setState(() {
@@ -103,8 +147,20 @@ class _LoginState extends ConsumerState<Login> {
       final userData = prefs.getString('userData');
       if (userData != null) {
         ref.read(userDataProvider.notifier).setUserData(json.decode(userData));
-        if (mounted) {
-          Navigator.pushNamed(context, AppRoutes.startreviews);
+        if (mounted && !_hasNavigated) {
+          final now = DateTime.now();
+          if (_lastNavigationAttempt != null) {
+            final timeSinceLastAttempt = now.difference(_lastNavigationAttempt!);
+            if (timeSinceLastAttempt.inMilliseconds < 500) {
+              return; // Debounce
+            }
+          }
+          _hasNavigated = true;
+          _lastNavigationAttempt = now;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Navigator.pushNamed(context, AppRoutes.startreviews);
+          });
         }
       }
     } else {
