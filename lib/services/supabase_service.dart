@@ -77,20 +77,7 @@ class SupabaseService {
     }
 
     try {
-      // Check if journey already exists for this PNR
-      final existingJourney = await client
-          .from('journeys')
-          .select('id')
-          .eq('pnr', pnr)
-          .eq('passenger_id', userId)
-          .maybeSingle();
-
-      if (existingJourney != null) {
-        debugPrint('⚠️ Journey already exists for PNR: $pnr');
-        return existingJourney;
-      }
-
-      // Try to create or get flight first
+      // Try to create or get flight first (needed for duplicate check)R
       final flightResult = await _createOrGetFlight(
         carrier: carrier,
         flightNumber: flightNumber,
@@ -102,6 +89,23 @@ class SupabaseService {
         terminal: terminal,
         gate: gate,
       );
+
+      // Check if journey already exists for this specific PNR + flight combination
+      // This allows multiple flights under the same PNR (connected flights)
+      if (flightResult != null) {
+        final existingJourney = await client
+            .from('journeys')
+            .select('id')
+            .eq('pnr', pnr)
+            .eq('passenger_id', userId)
+            .eq('flight_id', flightResult['id'])
+            .maybeSingle();
+
+        if (existingJourney != null) {
+          debugPrint('⚠️ Journey already exists for PNR: $pnr + flight: ${flightResult['id']}');
+          return existingJourney;
+        }
+      }
 
       // Create journey with or without flight reference
       final journey = await client
@@ -319,22 +323,22 @@ class SupabaseService {
           .from('flights')
           .select('id')
           .eq('flight_number', flightNumber)
-          .eq('carrier_code', carrier)
-          .eq('departure_time', scheduledDeparture.toIso8601String())
+          .eq('airline_id', airlineData['id'])
+          .eq('scheduled_departure', scheduledDeparture.toIso8601String())
           .maybeSingle();
 
       if (flightData == null) {
-        // Create new flight
+        // Create new flight with proper foreign key IDs
         flightData = await client
             .from('flights')
             .insert({
               'flight_number': flightNumber,
-              'carrier_code': carrier,
-              'departure_airport': departureAirport,
-              'arrival_airport': arrivalAirport,
+              'airline_id': airlineData['id'],  // ✅ Use airline_id (FK)
+              'departure_airport_id': depAirportId,  // ✅ Use departure_airport_id (FK)
+              'arrival_airport_id': arrAirportId,  // ✅ Use arrival_airport_id (FK)
               'aircraft_type': aircraftType,
-              'departure_time': scheduledDeparture.toIso8601String(),
-              'arrival_time': scheduledArrival.toIso8601String(),
+              'scheduled_departure': scheduledDeparture.toIso8601String(),  // ✅ Use scheduled_departure
+              'scheduled_arrival': scheduledArrival.toIso8601String(),  // ✅ Use scheduled_arrival
             })
             .select()
             .single();
@@ -774,19 +778,6 @@ class SupabaseService {
     }
 
     try {
-      // Check if journey already exists for this PNR
-      final existingJourney = await client
-          .from('journeys')
-          .select('id')
-          .eq('pnr', pnr)
-          .eq('passenger_id', userId)
-          .maybeSingle();
-
-      if (existingJourney != null) {
-        debugPrint('⚠️ Journey already exists for PNR: $pnr');
-        return existingJourney;
-      }
-
       // Get or create airline (pass API data to extract airline details)
       final airlineData = await _getOrCreateAirline(carrier, apiData: ciriumData);
       if (airlineData == null) {
@@ -825,6 +816,23 @@ class SupabaseService {
         departureAirportId: depAirportId,
         arrivalAirportId: arrAirportId,
       );
+
+      // Check if journey already exists for this specific PNR + flight combination
+      // This allows multiple flights under the same PNR (connected flights)
+      if (flightResult != null) {
+        final existingJourney = await client
+            .from('journeys')
+            .select('id')
+            .eq('pnr', pnr)
+            .eq('passenger_id', userId)
+            .eq('flight_id', flightResult['id'])
+            .maybeSingle();
+
+        if (existingJourney != null) {
+          debugPrint('⚠️ Journey already exists for PNR: $pnr + flight: ${flightResult['id']}');
+          return existingJourney;
+        }
+      }
 
       // Create journey with fallback for missing columns
       final journeyData = {

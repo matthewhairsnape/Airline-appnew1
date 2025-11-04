@@ -77,8 +77,11 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
 
   /// Handle flight phase update
   void _handleFlightUpdate(FlightTrackingModel flight) {
+    // Use journeyId as unique key (allows multiple flights with same PNR)
+    final key = flight.journeyId ?? flight.pnr;
+    
     debugPrint(
-        '🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase}');
+        '🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase} (key: $key)');
 
     // Send push notification for phase change
     _sendPhaseChangeNotification(flight);
@@ -91,8 +94,8 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       final updatedCompletedFlights =
           Map<String, FlightTrackingModel>.from(state.completedFlights);
 
-      updatedTrackedFlights.remove(flight.pnr);
-      updatedCompletedFlights[flight.pnr] = flight;
+      updatedTrackedFlights.remove(key);
+      updatedCompletedFlights[key] = flight;
 
       state = state.copyWith(
         trackedFlights: updatedTrackedFlights,
@@ -102,12 +105,12 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       // Save completed flight to persistent storage
       _saveCompletedFlights(updatedCompletedFlights);
 
-      debugPrint('✅ Flight completed and moved to history: ${flight.pnr}');
+      debugPrint('✅ Flight completed and moved to history: ${flight.pnr} (key: $key)');
     } else {
       // Update active flight
       final updatedFlights =
           Map<String, FlightTrackingModel>.from(state.trackedFlights);
-      updatedFlights[flight.pnr] = flight;
+      updatedFlights[key] = flight;
 
       state = state.copyWith(trackedFlights: updatedFlights);
 
@@ -355,14 +358,20 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
       }
 
       // Separate active and completed flights
+      // Use journeyId as key to allow multiple flights with same PNR
       final Map<String, FlightTrackingModel> activeFlights = {};
       final Map<String, FlightTrackingModel> completedFlights = {};
 
       for (final flight in databaseFlights) {
+        // Use journeyId as unique key (allows multiple flights with same PNR)
+        final key = flight.journeyId ?? flight.pnr;  // Fallback to PNR if no journeyId
+        
         if (flight.currentPhase == FlightPhase.completed) {
-          completedFlights[flight.pnr] = flight;
+          completedFlights[key] = flight;
+          debugPrint('✅ Added completed flight: ${flight.flightNumber} (key: $key)');
         } else {
-          activeFlights[flight.pnr] = flight;
+          activeFlights[key] = flight;
+          debugPrint('✅ Added active flight: ${flight.flightNumber} (key: $key)');
         }
       }
 

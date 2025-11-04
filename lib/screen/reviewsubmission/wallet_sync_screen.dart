@@ -178,9 +178,11 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         date = baseDate.add(Duration(days: int.parse(julianDate)));
         
         // Generate PNR if it was invalid or empty
+        // Include date to make it unique for same-flight multiple bookings
         if (pnr.isEmpty && carrier.isNotEmpty && flightNumber.isNotEmpty && departureAirport.isNotEmpty) {
-          pnr = '${carrier}${flightNumber}${departureAirport}'.substring(0, 6);
-          debugPrint('🔄 Generated PNR: $pnr (original was invalid)');
+          final dateStr = '${date.month}${date.day}';
+          pnr = '${carrier}${flightNumber}$dateStr'.substring(0, 7);
+          debugPrint('🔄 Generated PNR: $pnr (original was invalid, includes date for uniqueness)');
         }
 
         debugPrint("✅ Scanned boarding pass details:");
@@ -192,11 +194,13 @@ class _WalletSyncDialogState extends ConsumerState<WalletSyncDialog> {
         debugPrint("  Class: $classOfService");
       }
 
+      // Check if this specific flight+date combination has already been reviewed
+      // This allows multiple flights from same airline but different dates/flight numbers
       final bool pnrExists = await _boardingPassController.checkPnrExists(pnr);
       if (pnrExists) {
         if (mounted) {
           CustomSnackBar.info(
-              context, "Boarding pass has already been reviewed.");
+              context, "This boarding pass has already been reviewed.");
         }
         return;
       }
