@@ -36,6 +36,9 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   // Feedback status tracking
   Map<String, Map<String, bool>> _feedbackStatus = {};
   Map<String, Map<String, Map<String, dynamic>?>> _existingFeedback = {};
+  
+  // Complete journey loading state
+  bool _isCompletingJourney = false;
 
   @override
   void initState() {
@@ -508,38 +511,66 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
             child: Builder(
               builder: (context) {
                 final canComplete = _canCompleteJourney(flight);
+                final isEnabled = canComplete && !_isCompletingJourney;
+                
                 return ElevatedButton(
-                  onPressed: canComplete
+                  onPressed: isEnabled
                       ? () async {
                           await _completeJourney();
                         }
-                      : () {
-                          _showCannotCompleteDialog(context, flight);
-                        },
+                      : canComplete
+                          ? null  // Disabled while loading
+                          : () {
+                              _showCannotCompleteDialog(context, flight);
+                            },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: canComplete ? Colors.black : Colors.grey[400],
+                    backgroundColor: isEnabled 
+                        ? Colors.black 
+                        : Colors.grey[400],
                     padding: EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        canComplete ? Icons.check_circle : Icons.schedule,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Complete Journey',
-                        style: AppStyles.textStyle_16_600
-                            .copyWith(color: Colors.white),
-                      ),
-                    ],
-                  ),
+                  child: _isCompletingJourney
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Completing...',
+                              style: AppStyles.textStyle_16_600
+                                  .copyWith(color: Colors.white),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              canComplete ? Icons.check_circle : Icons.schedule,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Complete Journey',
+                              style: AppStyles.textStyle_16_600
+                                  .copyWith(color: Colors.white),
+                            ),
+                          ],
+                        ),
                 );
               },
             ),
@@ -1561,6 +1592,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
 
   /// Complete the journey by updating its status
   Future<void> _completeJourney() async {
+    // Set loading state
+    setState(() {
+      _isCompletingJourney = true;
+    });
+
     try {
       final flightTrackingState = ref.read(flightTrackingProvider);
       final trackedFlights = flightTrackingState.trackedFlights.values.toList();
@@ -1653,6 +1689,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      // Reset loading state
+      if (mounted) {
+        setState(() {
+          _isCompletingJourney = false;
+        });
       }
     }
   }

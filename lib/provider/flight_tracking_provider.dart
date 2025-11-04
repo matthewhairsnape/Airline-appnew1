@@ -7,6 +7,7 @@ import 'package:airline_app/services/stage_question_service.dart';
 import 'package:airline_app/services/journey_database_service.dart';
 import 'package:airline_app/services/journey_notification_service.dart';
 import 'package:airline_app/services/supabase_service.dart';
+import 'package:airline_app/services/connectivity_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -274,16 +275,82 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
     }
   }
 
+  /// Load active flights from persistent storage
+  Future<void> _loadActiveFlights() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeFlightsJson = prefs.getString('active_flights');
+
+      if (activeFlightsJson != null) {
+        final Map<String, dynamic> activeFlightsMap =
+            json.decode(activeFlightsJson);
+        final Map<String, FlightTrackingModel> activeFlights = {};
+
+        activeFlightsMap.forEach((pnr, flightJson) {
+          try {
+            activeFlights[pnr] = FlightTrackingModel.fromJson(flightJson);
+          } catch (e) {
+            debugPrint('❌ Error loading active flight $pnr: $e');
+          }
+        });
+
+        state = state.copyWith(trackedFlights: activeFlights);
+        debugPrint(
+            '📚 Loaded ${activeFlights.length} active flights from storage');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading active flights: $e');
+    }
+  }
+
+  /// Save active flights to persistent storage
+  Future<void> _saveActiveFlights(
+      Map<String, FlightTrackingModel> activeFlights) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Map<String, dynamic> activeFlightsMap = {};
+
+      activeFlights.forEach((pnr, flight) {
+        activeFlightsMap[pnr] = flight.toJson();
+      });
+
+      await prefs.setString(
+          'active_flights', json.encode(activeFlightsMap));
+      debugPrint(
+          '💾 Saved ${activeFlights.length} active flights to storage');
+    } catch (e) {
+      debugPrint('❌ Error saving active flights: $e');
+    }
+  }
+
   /// Sync journeys from database for a specific user
-  Future<void> syncJourneysFromDatabase(String userId) async {
+  /// If offline, loads from local storage instead
+  Future<void> syncJourneysFromDatabase(String userId, {bool forceOnline = false}) async {
     try {
       debugPrint('🔄 Syncing journeys from database for user: $userId');
 
+      // Check connectivity
+      final connectivityService = ConnectivityService();
+      final isOnline = await connectivityService.checkConnectivity();
+
+      if (!isOnline && !forceOnline) {
+        debugPrint('📴 Offline mode: Loading flights from local storage');
+        // Load from local storage when offline
+        await _loadActiveFlights();
+        await _loadCompletedFlights();
+        debugPrint('✅ Loaded flights from local storage (offline mode)');
+        return;
+      }
+
+      debugPrint('📡 Online mode: Fetching flights from database');
       final databaseFlights =
           await JourneyDatabaseService.syncUserJourneys(userId);
 
       if (databaseFlights.isEmpty) {
         debugPrint('📭 No journeys found in database for user: $userId');
+        // Still load from local storage as fallback
+        await _loadActiveFlights();
+        await _loadCompletedFlights();
         return;
       }
 
@@ -305,7 +372,10 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
         completedFlights: completedFlights,
       );
 
-      // Save completed flights to local storage
+      // Save both active and completed flights to local storage for offline access
+      if (activeFlights.isNotEmpty) {
+        _saveActiveFlights(activeFlights);
+      }
       if (completedFlights.isNotEmpty) {
         _saveCompletedFlights(completedFlights);
       }
@@ -314,6 +384,10 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
           '✅ Synced ${activeFlights.length} active and ${completedFlights.length} completed flights from database');
     } catch (e) {
       debugPrint('❌ Error syncing journeys from database: $e');
+      debugPrint('⚠️ Falling back to local storage');
+      // Fallback to local storage on error
+      await _loadActiveFlights();
+      await _loadCompletedFlights();
     }
   }
 

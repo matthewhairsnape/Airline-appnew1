@@ -292,23 +292,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if ((likes[i]['count'] as int? ?? 0) > 1) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green.shade300, width: 1),
-                    ),
-                    child: Text(
-                      '${likes[i]['count']} ${(likes[i]['count'] as int) == 1 ? 'passenger' : 'passengers'}',
-                      style: AppStyles.textStyle_10_500.copyWith(
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                  ),
-                ],
+                // Passenger count badge removed
               ],
             ),
             if (i < (likes.length > 2 ? 1 : likes.length - 1))
@@ -350,23 +334,7 @@ class _IssuesScreenState extends ConsumerState<IssuesScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if ((dislikes[i]['count'] as int? ?? 0) > 1) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.red.shade300, width: 1),
-                    ),
-                    child: Text(
-                      '${dislikes[i]['count']} ${(dislikes[i]['count'] as int) == 1 ? 'passenger' : 'passengers'}',
-                      style: AppStyles.textStyle_10_500.copyWith(
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                  ),
-                ],
+                // Passenger count badge removed
               ],
             ),
             if (i < (dislikes.length > 2 ? 1 : dislikes.length - 1))

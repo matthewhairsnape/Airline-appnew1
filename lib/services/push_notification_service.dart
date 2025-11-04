@@ -125,8 +125,8 @@ class PushNotificationService {
           }
         });
 
-        // Set up background message handler
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        // NOTE: Background message handler is registered in main.dart at app startup
+        // This ensures it works when app is fully terminated
 
         // Handle foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -957,86 +957,6 @@ class PushNotificationService {
   }
 }
 
-  /// Background message handler (must be top-level function)
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  
-  // Initialize local notifications to ensure notification displays
-  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
-  
-  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
-  );
-  const InitializationSettings initSettings = InitializationSettings(
-    android: androidSettings,
-    iOS: iosSettings,
-  );
-  
-  await localNotifications.initialize(initSettings);
-  
-  // Show notification even if it's already in notification payload
-  // This ensures it displays on all platforms
-  if (message.notification != null) {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      channelDescription: 'This channel is used for important notifications.',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-    );
-    
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
-    );
-    
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    await localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      message.notification!.title ?? 'Notification',
-      message.notification!.body ?? '',
-      platformDetails,
-      payload: message.data.toString(),
-    );
-  } else if (message.data['title'] != null && message.data['body'] != null) {
-    // If only data payload, create notification
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'High Importance Notifications',
-      channelDescription: 'This channel is used for important notifications.',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
-    );
-    
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    await localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      message.data['title'],
-      message.data['body'],
-      platformDetails,
-      payload: message.data.toString(),
-    );
-  }
-}
+// NOTE: Background message handler moved to main.dart
+// The handler MUST be registered at the top level before app initialization
+// to ensure notifications work when the app is fully terminated

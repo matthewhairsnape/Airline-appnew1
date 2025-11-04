@@ -13,16 +13,12 @@ class JourneyNotificationService {
     try {
       debugPrint('🔔 Initializing journey notification service...');
 
-      // Request permission
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        provisional: false,
-      );
+      // Check existing permission status (don't request again)
+      // PushNotificationService already requests permission in main.dart
+      final settings = await _messaging.getNotificationSettings();
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('✅ Push notification permission granted');
+        debugPrint('✅ Notification permission already granted (checked by journey service)');
 
         // Get FCM token
         final token = await _messaging.getToken();
@@ -37,9 +33,8 @@ class JourneyNotificationService {
           await _saveTokenToDatabase(newToken);
         });
 
-        // Listen to background messages
-        FirebaseMessaging.onBackgroundMessage(
-            _firebaseMessagingBackgroundHandler);
+        // NOTE: Background message handler is registered in main.dart at app startup
+        // to ensure it works when app is fully terminated
 
         // Listen to foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -49,7 +44,8 @@ class JourneyNotificationService {
 
         debugPrint('✅ Journey notification service initialized');
       } else {
-        debugPrint('❌ Push notification permission denied');
+        debugPrint('⚠️ Notification permission not granted yet. Waiting for PushNotificationService to request permission.');
+        // PushNotificationService will request permission and this service can be re-initialized after
       }
     } catch (e) {
       debugPrint('❌ Error initializing journey notification service: $e');
@@ -268,10 +264,6 @@ class JourneyNotificationService {
 }
 
 /// Background message handler
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('📱 Background message received: ${message.notification?.title}');
-
-  // Handle background message processing
-  // This could include updating local storage, triggering sync, etc.
-}
+// NOTE: Background message handler moved to main.dart
+// The handler MUST be registered at the top level before app initialization
+// to ensure notifications work when the app is fully terminated

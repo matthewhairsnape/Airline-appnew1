@@ -9,6 +9,9 @@ import 'package:airline_app/services/simple_data_flow_service.dart';
 import 'package:airline_app/services/notification_manager.dart';
 import 'package:airline_app/services/journey_notification_service.dart';
 import 'package:airline_app/services/push_notification_service.dart';
+import 'package:airline_app/services/connectivity_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:airline_app/screen/logIn/skip_screen.dart';
 import 'package:airline_app/screen/leaderboard/detail_airport.dart';
 import 'package:airline_app/screen/leaderboard/leaderboard_screen.dart';
@@ -37,6 +40,7 @@ import 'package:airline_app/screen/test_push_notification_screen.dart';
 import 'package:airline_app/widgets/in_app_notification_banner.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +49,91 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+
+/// CRITICAL: Background message handler for when app is terminated
+/// This MUST be a top-level function (not inside a class)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  if (kDebugMode) {
+    debugPrint('🔔 Background message received (app terminated)');
+    debugPrint('   Title: ${message.notification?.title}');
+    debugPrint('   Body: ${message.notification?.body}');
+    debugPrint('   Data: ${message.data}');
+  }
+  
+  // Initialize local notifications
+  final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+  
+  const AndroidInitializationSettings androidSettings = 
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+  );
+  
+  await localNotifications.initialize(initSettings);
+  
+  // Create Android notification channel
+  if (!kIsWeb && Platform.isAndroid) {
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'High Importance Notifications',
+      description: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      playSound: true,
+    );
+    
+    await localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+  }
+  
+  // Show notification
+  if (message.notification != null) {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'High Importance Notifications',
+      channelDescription: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      playSound: true,
+      enableVibration: true,
+    );
+    
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
+    );
+    
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+    
+    await localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      message.notification!.title ?? 'Notification',
+      message.notification!.body ?? '',
+      platformDetails,
+      payload: message.data.toString(),
+    );
+    
+    if (kDebugMode) {
+      debugPrint('✅ Notification displayed successfully');
+    }
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +145,13 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    
+    // CRITICAL: Register background message handler IMMEDIATELY after Firebase init
+    // This ensures notifications work when app is terminated
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    if (kDebugMode) {
+      debugPrint('✅ Background message handler registered');
+    }
   } catch (e) {
     // Firebase initialization failed - app will continue without Firebase features
     debugPrint('⚠️ Firebase initialization failed: $e');
@@ -80,6 +176,9 @@ void main() async {
   }
 
   // Initialize Push Notification Service (Main FCM service)
+  // IMPORTANT: This MUST run BEFORE JourneyNotificationService
+  // PushNotificationService requests notification permission (once)
+  // JourneyNotificationService just checks if permission was granted
   try {
     await PushNotificationService.initialize();
     if (kDebugMode) {
@@ -104,6 +203,9 @@ void main() async {
     }
   }
 
+  // Initialize Journey Notification Service
+  // This service does NOT request permission (to avoid double prompt)
+  // It only initializes if permission was already granted by PushNotificationService
   try {
     await JourneyNotificationService.initialize();
     if (kDebugMode) {
@@ -113,6 +215,19 @@ void main() async {
     // Journey notification service initialization failed - non-critical
     if (kDebugMode) {
       debugPrint('⚠️ JourneyNotificationService initialization failed: $e');
+    }
+  }
+
+  // Initialize Connectivity Service for offline support
+  try {
+    await ConnectivityService().initialize();
+    if (kDebugMode) {
+      debugPrint('✅ ConnectivityService initialized successfully');
+    }
+  } catch (e) {
+    // Connectivity service initialization failed - non-critical
+    if (kDebugMode) {
+      debugPrint('⚠️ ConnectivityService initialization failed: $e');
     }
   }
 

@@ -30,7 +30,7 @@ class RealtimeFeedbackService {
       _channel!.onPostgresChanges(
         event: PostgresChangeEvent.insert,
         schema: 'public',
-        table: 'leaderboard_scores',
+        table: 'airline_reviews',
         callback: (_) {},
       );
 
@@ -51,7 +51,7 @@ class RealtimeFeedbackService {
       _channel!.onPostgresChanges(
         event: PostgresChangeEvent.update,
         schema: 'public',
-        table: 'leaderboard_scores',
+        table: 'airline_reviews',
         callback: (_) {},
       );
 
@@ -70,7 +70,7 @@ class RealtimeFeedbackService {
   }
 
   /// Get combined realtime feedback stream
-  /// Priority: 1) Airport Reviews, 2) Leaderboard Scores, 3) Feedback
+  /// Priority: 1) Airport Reviews (Pre-flight), 2) Airline Reviews (In-flight), 3) Feedback (Overall)
   static Stream<List<Map<String, dynamic>>> getCombinedFeedbackStream() {
     try {
 
@@ -81,27 +81,20 @@ class RealtimeFeedbackService {
           .limit(50)
           .asyncMap((airportReviews) async {
 
-            // Fetch leaderboard scores
-            final leaderboardScores = await _client
-                .from('leaderboard_scores')
+            // Fetch airline reviews (In-flight reviews)
+            final airlineReviews = await _client
+                .from('airline_reviews')
                 .select('''
                   id,
+                  journey_id,
                   airline_id,
-                  score_type,
-                  score_value,
-                  airlines!inner(
-                    id,
-                    name,
-                    iata_code,
-                    icao_code,
-                    logo_url
-                  )
+                  comments,
+                  created_at
                 ''')
-                .order('score_value', ascending: false)
+                .order('created_at', ascending: false)
                 .limit(30);
 
-
-            // Fetch feedback (using actual schema columns)
+            // Fetch feedback (Overall feedback)
             final feedbackData = await _client
                 .from('feedback')
                 .select('''
@@ -124,7 +117,7 @@ class RealtimeFeedbackService {
             // Combine and format all feedback (set aggregate to false for individual entries)
             final combined = await _formatCombinedFeedback(
               airportReviews,
-              leaderboardScores,
+              airlineReviews,
               feedbackData,
               aggregate: false, // Don't aggregate - show individual passenger feedback
             );
@@ -142,27 +135,25 @@ class RealtimeFeedbackService {
   /// Format combined feedback from all three sources
   static Future<List<Map<String, dynamic>>> _formatCombinedFeedback(
     List<dynamic> airportReviews,
-    List<dynamic> leaderboardScores,
+    List<dynamic> airlineReviews,
     List<dynamic> feedbackData,
     {bool aggregate = true}
   ) async {
     List<Map<String, dynamic>> combinedFeedback = [];
 
-    // Process airport reviews (Priority 1) - REAL user feedback
+    // Process airport reviews (Priority 1 - Pre-flight) - REAL user feedback
     for (final review in airportReviews) {
       final formatted = await _formatAirportReview(review);
       combinedFeedback.add(formatted);
     }
 
-    // ❌ REMOVED: Leaderboard scores (aggregate data, not individual feedback)
-    // Leaderboard scores generated fake comments like "Excellent performance in..."
-    // User wants ONLY real feedback, not synthetic/aggregate data
-    // final formattedScores = await Future.wait(
-    //   leaderboardScores.map((score) => _formatLeaderboardScore(score))
-    // );
-    // combinedFeedback.addAll(formattedScores);
+    // Process airline reviews (Priority 2 - In-flight) - REAL user feedback
+    for (final review in airlineReviews) {
+      final formatted = await _formatAirlineReview(review);
+      combinedFeedback.add(formatted);
+    }
 
-    // Process feedback entries (Priority 2) - REAL user feedback
+    // Process feedback entries (Priority 3 - Overall) - REAL user feedback
     for (final feedback in feedbackData) {
       final formatted = await _formatFeedback(feedback);
       combinedFeedback.add(formatted);
@@ -332,6 +323,106 @@ class RealtimeFeedbackService {
       'staff': review['staff'],
       'waiting_time': review['waiting_time'],
       'accessibility': review['accessibility'],
+      'timestamp': _parseTimestamp(review['created_at']),
+    };
+  }
+
+  /// Format airline review data (In-flight reviews)
+  static Future<Map<String, dynamic>> _formatAirlineReview(dynamic review) async {
+    final comments = review['comments'] as String? ?? '';
+    final likes = _extractPositiveFromComments(comments);
+    final dislikes = _extractNegativeFromComments(comments);
+
+    // Try to get flight number, seat, and logo from journey
+    final journeyId = review['journey_id'] as String?;
+    String flightNumber = 'Flight';
+    String seat = 'N/A';
+    String airline = 'Unknown Airline';
+    String logo = 'assets/images/airline.png'; // Default to airline icon
+    
+    if (journeyId != null) {
+      try {
+        final journey = await _client
+            .from('journeys')
+            .select('''
+              seat_number,
+              flight:flights(
+                flight_number,
+                airline:airlines(
+                  id,
+                  name,
+                  iata_code,
+                  logo_url
+                )
+              )
+            ''')
+            .eq('id', journeyId)
+            .maybeSingle();
+        
+        if (journey != null) {
+          // Get seat number
+          final seatNum = journey['seat_number'] as String?;
+          if (seatNum != null && seatNum.isNotEmpty && seatNum != 'null') {
+            seat = seatNum;
+          }
+          
+          // Get flight info
+          final flight = journey['flight'];
+          if (flight != null && flight is Map) {
+            final flightNum = flight['flight_number'] as String? ?? '';
+            final airlineData = flight['airline'] as Map?;
+            
+            if (airlineData != null) {
+              final airlineId = airlineData['id'] as String?;
+              final airlineName = airlineData['name'] as String?;
+              final iataCode = airlineData['iata_code'] as String? ?? '';
+              final logoUrl = airlineData['logo_url'] as String?;
+              
+              if (airlineName != null && airlineName.isNotEmpty) {
+                airline = airlineName;
+              }
+              
+              if (iataCode.isNotEmpty && flightNum.isNotEmpty) {
+                flightNumber = '$iataCode$flightNum';
+              } else if (flightNum.isNotEmpty) {
+                flightNumber = flightNum;
+              }
+              
+              // Use airline logo if available (cached for consistency)
+              if (logoUrl != null && logoUrl.isNotEmpty) {
+                logo = logoUrl;
+                // Cache it for consistency
+                if (airlineId != null) {
+                  _logoCache['airline_$airlineId'] = logoUrl;
+                }
+                if (airlineName != null) {
+                  _logoCache['airline_name_$airlineName'] = logoUrl;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Silent error handling
+      }
+    }
+
+    return {
+      'feedback_type': 'airline',
+      'id': review['id'],
+      'journey_id': review['journey_id'],
+      'airline_id': review['airline_id'],
+      'flight': flightNumber,
+      'phase': 'In-flight', // Airline reviews are during flight
+      'phaseColor': const Color(0xFF4A90E2), // Blue
+      'airline': airline,
+      'airlineName': airline,
+      'logo': logo, // Use airline logo
+      'passenger': 'Anonymous',
+      'seat': seat,
+      'likes': likes,
+      'dislikes': dislikes,
+      'comments': comments,
       'timestamp': _parseTimestamp(review['created_at']),
     };
   }
@@ -743,84 +834,89 @@ class RealtimeFeedbackService {
     return aggregatedFeedback;
   }
 
-  /// Extract positive feedback from comments
+  /// Extract likes from structured comments
+  /// Format: "likes: item1, item2, item3; dislikes issues: item4, item5"
   static List<Map<String, dynamic>> _extractPositiveFromComments(
       String comments) {
-    // Return empty if no comments - don't generate fake data
     if (comments.isEmpty) {
       return [];
     }
 
-    // Simple keyword matching for positive feedback
-    final positiveKeywords = [
-      'excellent',
-      'great',
-      'good',
-      'clean',
-      'helpful',
-      'comfortable',
-      'fast',
-      'smooth',
-      'amazing',
-      'wonderful',
-    ];
-
-    final extractedLikes = <String>[];
-    final lowercaseComments = comments.toLowerCase();
-
-    for (final keyword in positiveKeywords) {
-      if (lowercaseComments.contains(keyword)) {
-        extractedLikes.add(keyword);
+    try {
+      // Split by "likes:" and get the content before "dislikes issues:"
+      final likesSection = comments.split('likes:');
+      if (likesSection.length < 2) {
+        return [];
       }
-    }
 
-    // Return empty if no keywords found - don't generate fake "Positive experience"
-    if (extractedLikes.isEmpty) {
+      // Get the part after "likes:" and before "dislikes issues:"
+      String likesContent = likesSection[1];
+      if (likesContent.contains('; dislikes issues:')) {
+        likesContent = likesContent.split('; dislikes issues:')[0];
+      } else if (likesContent.contains(';dislikes issues:')) {
+        likesContent = likesContent.split(';dislikes issues:')[0];
+      }
+
+      // Split by comma and trim each item
+      final likeItems = likesContent
+          .split(',')
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+
+      if (likeItems.isEmpty) {
+        return [];
+      }
+
+      return likeItems
+          .map((item) => {
+                'text': item,
+                'count': 1,
+              })
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /// Extract dislikes from structured comments
+  /// Format: "likes: item1, item2, item3; dislikes issues: item4, item5"
+  static List<Map<String, dynamic>> _extractNegativeFromComments(
+      String comments) {
+    if (comments.isEmpty) {
       return [];
     }
 
-    return extractedLikes
-        .map((keyword) => {
-              'text': keyword.capitalize(),
-              'count': 1, // Actual passenger count - will be aggregated later
-            })
-        .toList();
-  }
-
-  /// Extract negative feedback from comments
-  static List<Map<String, dynamic>> _extractNegativeFromComments(
-      String comments) {
-    if (comments.isEmpty) return [];
-
-    // Simple keyword matching for negative feedback
-    final negativeKeywords = [
-      'slow',
-      'dirty',
-      'rude',
-      'delayed',
-      'broken',
-      'poor',
-      'disappointed',
-      'uncomfortable',
-      'bad',
-      'terrible',
-    ];
-
-    final extractedDislikes = <String>[];
-    final lowercaseComments = comments.toLowerCase();
-
-    for (final keyword in negativeKeywords) {
-      if (lowercaseComments.contains(keyword)) {
-        extractedDislikes.add(keyword);
+    try {
+      // Split by "dislikes issues:" and get the content after it
+      final dislikesSection = comments.split('dislikes issues:');
+      if (dislikesSection.length < 2) {
+        return [];
       }
-    }
 
-    return extractedDislikes
-        .map((keyword) => {
-              'text': keyword.capitalize(),
-              'count': 1, // Actual passenger count - will be aggregated later
-            })
-        .toList();
+      // Get the part after "dislikes issues:"
+      String dislikesContent = dislikesSection[1].trim();
+
+      // Split by comma and trim each item
+      final dislikeItems = dislikesContent
+          .split(',')
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+
+      if (dislikeItems.isEmpty) {
+        return [];
+      }
+
+      return dislikeItems
+          .map((item) => {
+                'text': item,
+                'count': 1,
+              })
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Get airline name from airline_id (sync version)
