@@ -204,7 +204,13 @@ serve(async (req) => {
               title,
               body,
             },
-            data: data || {},
+            // CRITICAL: Convert all data values to strings (FCM requirement)
+            data: data ? Object.fromEntries(
+              Object.entries(data).map(([key, value]) => [
+                key,
+                typeof value === 'string' ? value : JSON.stringify(value)
+              ])
+            ) : {},
             android: {
               priority: 'high',
               notification: {

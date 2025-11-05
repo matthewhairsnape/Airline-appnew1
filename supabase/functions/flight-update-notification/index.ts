@@ -127,22 +127,35 @@ serve(async (req) => {
       has_push_token: !!user.push_token,
     })
 
+    // CRITICAL: Check if user has FCM token
+    if (!user.fcm_token) {
+      console.warn('⚠️ User has no FCM token, skipping notification')
+      return CorsResponse({
+        success: true,
+        message: 'User has no FCM token, notification skipped',
+        journeyId: request.journeyId,
+        userId: userId,
+      })
+    }
+
     // Determine notification content
     const phase = request.phase || journey.current_phase || ''
     const status = request.status || journey.status || ''
     const notificationType = request.notificationType || 'status_change'
 
     // Get flight details for better notification content
-    let flightInfo = null
+    let flightInfo: any = null
     if (journey.flight_id) {
-      const { data: flight } = await supabaseClient
+      const { data: flight, error: flightError } = await supabaseClient
         .from('flights')
         .select('id, flight_number, carrier_code, gate, terminal, departure_airport_id, arrival_airport_id')
         .eq('id', journey.flight_id)
         .single()
       
-      if (flight) {
+      if (!flightError && flight) {
         flightInfo = flight
+      } else {
+        console.warn('⚠️ Flight not found or error:', flightError)
       }
     }
 
@@ -150,8 +163,8 @@ serve(async (req) => {
     let title = 'Flight Status Update'
     let body = 'Your flight status has been updated.'
 
-    const carrier = flightInfo?.carrier_code || ''
-    const flightNumber = flightInfo?.flight_number || ''
+    const carrier = (flightInfo?.carrier_code || '') as string
+    const flightNumber = (flightInfo?.flight_number || '') as string
     const flightCode = carrier && flightNumber ? `${carrier}${flightNumber}` : 'Your flight'
 
     switch (notificationType) {
@@ -243,45 +256,122 @@ serve(async (req) => {
 
     console.log('📝 Notification content:', { title, body })
 
+    // Prepare notification data - FCM requires all data values to be strings
+    const notificationData: Record<string, string> = {
+      type: notificationType || 'status_change',
+      journey_id: request.journeyId,
+      phase: phase || '',
+      status: status || '',
+      timestamp: new Date().toISOString(),
+      // CRITICAL: Include click_action for Android and category for iOS interaction
+      click_action: 'FLIGHT_STATUS_UPDATE',
+      // Include gate and terminal info if available
+      gate: (request.gate || journey.gate || '').toString(),
+      terminal: (request.terminal || journey.terminal || '').toString(),
+    }
+
     // Invoke send-push-notification function
     console.log('📤 Invoking send-push-notification function...')
-    const notificationResponse = await fetch(
-      `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-          'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
-        },
-        body: JSON.stringify({
-          userId: userId,
-          title: title,
-          body: body,
-          data: {
-            type: notificationType,
-            journey_id: request.journeyId,
-            phase: phase,
-            status: status,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      }
-    )
-
-    const notificationResult = await notificationResponse.json()
-    console.log('📥 Notification response:', {
-      status: notificationResponse.status,
-      result: notificationResult,
+    console.log('📋 Request payload:', {
+      userId,
+      title,
+      body,
+      dataKeys: Object.keys(notificationData),
     })
 
-    if (!notificationResponse.ok) {
-      console.error('❌ Failed to send notification:', notificationResult)
+    try {
+      const notificationResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            title: title,
+            body: body,
+            data: notificationData,
+          }),
+        }
+      )
+
+      const responseText = await notificationResponse.text()
+      console.log('📥 Notification response status:', notificationResponse.status)
+      console.log('📥 Notification response body:', responseText)
+
+      let notificationResult
+      try {
+        notificationResult = JSON.parse(responseText)
+      } catch (parseError) {
+        console.error('❌ Failed to parse response as JSON:', parseError)
+        console.error('Raw response:', responseText)
+        return CorsResponse(
+          {
+            success: false,
+            error: 'Invalid response from send-push-notification',
+            details: responseText,
+          },
+          500
+        )
+      }
+
+      console.log('📥 Notification result:', notificationResult)
+
+      if (!notificationResponse.ok) {
+        console.error('❌ Failed to send notification:', notificationResult)
+        return CorsResponse(
+          {
+            success: false,
+            error: 'Failed to send notification',
+            details: notificationResult,
+          },
+          notificationResponse.status || 500
+        )
+      }
+
+      // Check if notification was actually sent
+      if (notificationResult.success === false || notificationResult.error) {
+        console.error('❌ Notification service returned error:', notificationResult)
+        return CorsResponse(
+          {
+            success: false,
+            error: notificationResult.error || 'Notification service returned error',
+            details: notificationResult,
+          },
+          500
+        )
+      }
+
+      // Verify notification was sent (check sent count)
+      if (notificationResult.success === true && notificationResult.sent > 0) {
+        console.log('✅ Notification sent successfully:', {
+          sent: notificationResult.sent || 0,
+          failed: notificationResult.failed || 0,
+        })
+      } else if (notificationResult.success === true && notificationResult.sent === 0) {
+        console.warn('⚠️ Notification service returned success but no notifications were sent:', notificationResult)
+        return CorsResponse(
+          {
+            success: false,
+            error: 'No notifications were sent',
+            details: notificationResult,
+          },
+          500
+        )
+      } else {
+        // If success field is missing, assume it worked if we got 200 OK
+        console.log('✅ Notification response received (assuming success):', notificationResult)
+      }
+    } catch (fetchError) {
+      console.error('❌ Error calling send-push-notification:', fetchError)
       return CorsResponse(
         {
           success: false,
-          error: 'Failed to send notification',
-          details: notificationResult,
+          error: 'Failed to invoke send-push-notification function',
+          details: fetchError.message || String(fetchError),
         },
         500
       )

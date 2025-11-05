@@ -238,6 +238,10 @@ serve(async (req) => {
           new_phase: request.newPhase || '',
           flight_number: request.flightNumber || '',
           type: 'flight_status_update',
+          // CRITICAL: Include timestamp for notification review/tracking
+          timestamp: new Date().toISOString(),
+          // CRITICAL: Include click_action for Android and category for iOS interaction
+          click_action: 'FLIGHT_STATUS_UPDATE',
         },
         android: {
           priority: 'high',
@@ -249,13 +253,26 @@ serve(async (req) => {
           },
         },
         apns: {
+          headers: {
+            'apns-priority': '10', // CRITICAL: High priority for immediate delivery
+            'apns-push-type': 'alert', // CRITICAL: Ensures notification shows outside app
+          },
           payload: {
             aps: {
               sound: 'default',
               badge: 1,
               alert: { title, body },
-              contentAvailable: 1,
+              // CRITICAL: These settings ensure notification shows outside app
+              'content-available': 1,
+              'mutable-content': 1,
+              // CRITICAL for iOS 15+: Use time-sensitive to prevent auto-dismiss and bypass Focus mode
+              // This ensures notifications persist until user dismisses them and can be reviewed
+              'interruption-level': 'time-sensitive',  // iOS 15+ - prevents auto-dismiss, bypasses Focus mode
+              // Category for better notification management and interaction
+              category: 'FLIGHT_STATUS_UPDATE',
             },
+            // Thread identifier at root level to prevent notification grouping (iOS 12+)
+            'thread-id': 'flight_status_updates',
           },
         },
       },
