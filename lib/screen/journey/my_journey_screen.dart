@@ -513,24 +513,40 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           FlightStatusCard(flight: flight),
 
           // Timeline Sections
-          TimelineSection(
-            title: 'At the Airport',
-            icon: Icons.assignment,
-            events: _getPreFlightEvents(flight),
-            isExpanded: _expandedSections['At the Airport']!,
-            onToggle: () => _toggleSection('At the Airport'),
-            flight: flight,
-          ),
+          // Show all three sections when flight is NOT landed, NOT completed, and NOT in flight
+          // (i.e., for phases: preCheckIn, checkInOpen, security, boarding, departed)
+          
+          // "At the Airport" section:
+          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed
+          // - HIDDEN for: inFlight, landed, completed
+          if (flight.currentPhase != FlightPhase.inFlight && 
+              flight.currentPhase != FlightPhase.landed &&
+              flight.currentPhase != FlightPhase.completed)
+            TimelineSection(
+              title: 'At the Airport',
+              icon: Icons.assignment,
+              events: _getPreFlightEvents(flight),
+              isExpanded: _expandedSections['At the Airport']!,
+              onToggle: () => _toggleSection('At the Airport'),
+              flight: flight,
+            ),
 
-          TimelineSection(
-            title: 'During the Flight',
-            icon: Icons.flight,
-            events: _getInFlightEvents(flight),
-            isExpanded: _expandedSections['During the Flight']!,
-            onToggle: () => _toggleSection('During the Flight'),
-            flight: flight,
-          ),
+          // "During the Flight" section:
+          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed, inFlight
+          // - HIDDEN for: landed, completed
+          if (flight.currentPhase != FlightPhase.landed &&
+              flight.currentPhase != FlightPhase.completed)
+            TimelineSection(
+              title: 'During the Flight',
+              icon: Icons.flight,
+              events: _getInFlightEvents(flight),
+              isExpanded: _expandedSections['During the Flight']!,
+              onToggle: () => _toggleSection('During the Flight'),
+              flight: flight,
+            ),
 
+          // "Overall Experience" section:
+          // - ALWAYS SHOWN for all phases
           TimelineSection(
             title: 'Overall Experience',
             icon: Icons.star,

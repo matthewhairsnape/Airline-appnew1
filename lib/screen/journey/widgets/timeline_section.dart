@@ -102,8 +102,13 @@ class _TimelineSectionState extends State<TimelineSection> {
                       .toList(),
 
                   // Feedback Button
-                  SizedBox(height: 16),
-                  _buildFeedbackButton(),
+                  // Hide feedback button for:
+                  // - "At the Airport" when flight is in flight, landed, or completed
+                  // - "During the Flight" when flight is landed or completed
+                  if (!_shouldHideFeedbackButton()) ...[
+                    SizedBox(height: 16),
+                    _buildFeedbackButton(),
+                  ],
                 ],
               ),
             ),
@@ -116,6 +121,26 @@ class _TimelineSectionState extends State<TimelineSection> {
   Color _getIconColor() {
     // Use black for uniformed branding
     return Colors.black;
+  }
+
+  /// Check if feedback button should be hidden based on flight phase
+  bool _shouldHideFeedbackButton() {
+    // Hide "At the Airport" feedback button when flight is in flight, landed, or completed
+    if (widget.title == 'At the Airport' &&
+        (widget.flight?.currentPhase == FlightPhase.inFlight ||
+         widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      return true;
+    }
+    
+    // Hide "During the Flight" feedback button when flight is landed or completed
+    if (widget.title == 'During the Flight' &&
+        (widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      return true;
+    }
+    
+    return false;
   }
 
   Widget _buildFeedbackButton() {

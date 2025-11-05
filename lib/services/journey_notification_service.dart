@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 import '../models/flight_tracking_model.dart';
+import '../utils/navigation_service.dart';
 
 class JourneyNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -39,8 +40,21 @@ class JourneyNotificationService {
         // Listen to foreground messages
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-        // Listen to notification taps
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+        // ====================================================================
+        // NOTIFICATION HANDLERS FOR ALL APP STATES
+        // ====================================================================
+        // Handle notification taps in BACKGROUND state (app is minimized)
+        // Note: TERMINATED state is handled by PushNotificationService.getInitialMessage()
+        // FOREGROUND state is handled by PushNotificationService local notification tap
+        // ====================================================================
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('📱 JOURNEY NOTIFICATION TAPPED (BACKGROUND STATE)');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('Title: ${message.notification?.title}');
+          debugPrint('Journey ID: ${message.data['journey_id']}');
+          _handleNotificationTap(message);
+        });
 
         debugPrint('✅ Journey notification service initialized');
       } else {
@@ -226,29 +240,22 @@ class JourneyNotificationService {
 
   /// Handle notification taps
   static void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('👆 Notification tapped: ${message.notification?.title}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('👆 NOTIFICATION TAPPED (Journey Service)');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('Title: ${message.notification?.title}');
+    debugPrint('Data: ${message.data}');
+    debugPrint('Journey ID: ${message.data['journey_id']}');
+    debugPrint('Type: ${message.data['type']}');
 
-    final data = message.data;
-    final type = data['type'];
-    final journeyId = data['journey_id'];
+    // Navigate to My Journey screen for all notification types
+    _navigateToMyJourney();
+  }
 
-    // Navigate to appropriate screen based on notification type
-    switch (type) {
-      case 'journey_complete':
-        // Navigate to feedback screen
-        break;
-      case 'boarding_started':
-      case 'flight_departed':
-      case 'flight_landed':
-        // Navigate to journey timeline
-        break;
-      case 'gate_change':
-        // Navigate to journey details
-        break;
-      default:
-        // Navigate to journey screen
-        break;
-    }
+  /// Navigate to My Journey screen
+  static void _navigateToMyJourney() {
+    debugPrint('🔄 Calling NavigationService.navigateToMyJourney()...');
+    NavigationService.navigateToMyJourney();
   }
 
   /// Clear all notifications for a user

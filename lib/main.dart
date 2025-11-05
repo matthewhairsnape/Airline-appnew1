@@ -40,6 +40,7 @@ import 'package:airline_app/screen/test_push_notification_screen.dart';
 import 'package:airline_app/widgets/in_app_notification_banner.dart';
 import 'package:airline_app/utils/app_localizations.dart';
 import 'package:airline_app/utils/app_routes.dart';
+import 'package:airline_app/utils/navigation_service.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -79,7 +80,21 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     iOS: iosSettings,
   );
   
-  await localNotifications.initialize(initSettings);
+  // Initialize with tap handler to navigate when notification is tapped
+  await localNotifications.initialize(
+    initSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // This handler will be called when user taps notification
+      // Note: This runs in background isolate, so we can't navigate directly
+      // But getInitialMessage() or onMessageOpenedApp will handle navigation when app opens
+      if (kDebugMode) {
+        debugPrint('🔔 Background notification tapped');
+        debugPrint('   Payload: ${response.payload}');
+      }
+      // Navigation will be handled by getInitialMessage() or onMessageOpenedApp
+      // when the app opens
+    },
+  );
   
   // Create Android notification channel
   if (!kIsWeb && Platform.isAndroid) {
@@ -260,8 +275,8 @@ final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
   
-  // Global key for navigator to access overlay
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  // Global key for navigator - now using NavigationService
+  static GlobalKey<NavigatorState> get navigatorKey => NavigationService.navigatorKey;
 
   /// Build routes - excludes test routes in production
   Map<String, WidgetBuilder> _buildRoutes() {
@@ -325,7 +340,7 @@ class MyApp extends ConsumerWidget {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
     return MaterialApp(
-      navigatorKey: navigatorKey,
+      navigatorKey: NavigationService.navigatorKey,
       locale: locale,
       supportedLocales: const [
         Locale('en', ''),
@@ -378,7 +393,8 @@ class MyApp extends ConsumerWidget {
                     if (kDebugMode) {
                       debugPrint('In-app notification tapped: $title');
                     }
-                    // Handle notification tap - you can add navigation logic here
+                    // Navigate to My Journey screen
+                    NavigationService.navigateToMyJourney();
                   },
                   displayDuration: const Duration(seconds: 5),
                   icon: Icons.flight_takeoff,

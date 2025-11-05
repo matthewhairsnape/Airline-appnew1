@@ -731,6 +731,25 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
         final journeyId = widget.flight!.journeyId ?? widget.flight!.pnr; // Use journeyId if available, fallback to PNR
         final seat = widget.flight!.seatNumber ?? 'Unknown';
 
+        // Prevent "At the Airport" feedback when flight is in flight, landed, or completed
+        if (widget.sectionName.toLowerCase() == 'at the airport' &&
+            (widget.flight?.currentPhase == FlightPhase.inFlight ||
+             widget.flight?.currentPhase == FlightPhase.landed ||
+             widget.flight?.currentPhase == FlightPhase.completed)) {
+          _showErrorDialog(
+              'Airport feedback is not available at this stage of your journey.');
+          return;
+        }
+        
+        // Prevent "During the Flight" feedback when flight is landed or completed
+        if (widget.sectionName.toLowerCase() == 'during the flight' &&
+            (widget.flight?.currentPhase == FlightPhase.landed ||
+             widget.flight?.currentPhase == FlightPhase.completed)) {
+          _showErrorDialog(
+              'In-flight feedback is not available after the flight has landed.');
+          return;
+        }
+
         debugPrint(
             '📝 Submitting ${widget.sectionName} feedback for user: $userId, flight: $flightId, journey: $journeyId');
 

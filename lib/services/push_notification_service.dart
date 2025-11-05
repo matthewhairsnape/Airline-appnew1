@@ -2,9 +2,12 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'flight_notification_service.dart';
+import '../utils/app_routes.dart';
+import '../utils/navigation_service.dart';
 
 class PushNotificationService {
   static final FirebaseMessaging _firebaseMessaging =
@@ -47,9 +50,16 @@ class PushNotificationService {
       await _flutterLocalNotificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          // Handle notification tap
-          debugPrint('Notification tapped: ${response.payload}');
-          // You can add navigation logic here
+          // Handle local notification tap
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('👆 LOCAL NOTIFICATION TAPPED');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('Payload: ${response.payload}');
+          debugPrint('Action ID: ${response.actionId}');
+          debugPrint('Input: ${response.input}');
+          
+          // Navigate to My Journey screen
+          _navigateToMyJourney();
         },
       );
       
@@ -133,19 +143,50 @@ class PushNotificationService {
         // NOTE: Background message handler is registered in main.dart at app startup
         // This ensures it works when app is fully terminated
 
-        // Handle foreground messages
+        // ====================================================================
+        // NOTIFICATION HANDLERS FOR ALL APP STATES
+        // ====================================================================
+        // These handlers ensure navigation to My Journey screen works in ALL states:
+        // 1. TERMINATED: App is fully closed → getInitialMessage() handles it
+        // 2. BACKGROUND: App is minimized → onMessageOpenedApp handles it
+        // 3. FOREGROUND: App is open → Local notification tap + in-app banner tap
+        // ====================================================================
+
+        // Handle foreground messages (app is open)
         FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-        // Handle notification taps when app is opened from terminated state
+        // Handle notification taps when app is opened from TERMINATED state
+        // This is called when user taps notification while app is fully closed
         FirebaseMessaging.instance.getInitialMessage().then((message) {
           if (message != null) {
-            debugPrint('App opened from terminated state via notification');
-            _handleNotificationTap(message);
+            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            debugPrint('📱 APP OPENED FROM NOTIFICATION (TERMINATED STATE)');
+            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            debugPrint('Title: ${message.notification?.title}');
+            debugPrint('Body: ${message.notification?.body}');
+            debugPrint('Data: ${message.data}');
+            debugPrint('Journey ID: ${message.data['journey_id']}');
+            
+            // Add delay to ensure app is fully initialized before navigation
+            // Increased delay to ensure navigator is ready
+            Future.delayed(const Duration(milliseconds: 2000), () {
+              debugPrint('🔄 Attempting navigation after delay...');
+              _handleNotificationTap(message);
+            });
           }
         });
 
-        // Handle notification taps when app is in background
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+        // Handle notification taps when app is in BACKGROUND state
+        // This is called when user taps notification while app is minimized
+        FirebaseMessaging.onMessageOpenedApp.listen((message) {
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('📱 NOTIFICATION TAPPED (BACKGROUND STATE)');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('Title: ${message.notification?.title}');
+          debugPrint('Body: ${message.notification?.body}');
+          debugPrint('Journey ID: ${message.data['journey_id']}');
+          _handleNotificationTap(message);
+        });
 
         debugPrint('✅ Push notification service initialized successfully');
       } else {
@@ -409,12 +450,14 @@ class PushNotificationService {
     debugPrint('Phase: ${message.data['phase']}');
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Handle navigation based on notification data
-    // You can add navigation logic here based on the message data
-    // Example:
-    // if (message.data['journey_id'] != null) {
-    //   // Navigate to journey details
-    // }
+    // Navigate to My Journey screen
+    _navigateToMyJourney();
+  }
+
+  /// Navigate to My Journey screen
+  static void _navigateToMyJourney() {
+    debugPrint('🔄 Calling NavigationService.navigateToMyJourney()...');
+    NavigationService.navigateToMyJourney();
   }
 
   /// Subscribe to a topic
