@@ -96,7 +96,10 @@ class _TimelineSectionState extends State<TimelineSection> {
                       .map(
                         (event) => Padding(
                           padding: EdgeInsets.only(bottom: 16),
-                          child: TimelineEventCard(event: event),
+                          child: TimelineEventCard(
+                            event: event,
+                            showTime: widget.title == 'At the Airport', // Only show time for "At the Airport" section
+                          ),
                         ),
                       )
                       .toList(),

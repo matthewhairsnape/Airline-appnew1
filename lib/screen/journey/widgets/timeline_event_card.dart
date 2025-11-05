@@ -4,10 +4,12 @@ import 'timeline_section.dart';
 
 class TimelineEventCard extends StatelessWidget {
   final TimelineEvent event;
+  final bool showTime; // Whether to display the time
 
   const TimelineEventCard({
     Key? key,
     required this.event,
+    this.showTime = true, // Default to showing time for backward compatibility
   }) : super(key: key);
 
   @override
@@ -81,13 +83,14 @@ class TimelineEventCard extends StatelessWidget {
             ),
           ),
 
-          // Time
-          Text(
-            _formatTime(event.timestamp),
-            style: AppStyles.textStyle_12_500.copyWith(
-              color: Colors.grey[600],
+          // Time - Only show for "At the Airport" section
+          if (showTime)
+            Text(
+              _formatTime(event.timestamp),
+              style: AppStyles.textStyle_12_500.copyWith(
+                color: Colors.grey[600],
+              ),
             ),
-          ),
         ],
       ),
     );
