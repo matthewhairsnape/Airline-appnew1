@@ -98,7 +98,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   // Show notification
   if (message.notification != null) {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    // CRITICAL: Set autoCancel to false to prevent notifications from auto-dismissing
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'high_importance_channel',
       'High Importance Notifications',
       channelDescription: 'This channel is used for important notifications.',
@@ -107,22 +108,33 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       showWhen: true,
       playSound: true,
       enableVibration: true,
+      autoCancel: false, // CRITICAL: Don't auto-dismiss notifications
+      ongoing: false, // Allow user to dismiss manually
     );
     
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+    final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
+      // CRITICAL for iOS: Use timeSensitive to prevent auto-dismiss
+      // This ensures notifications persist until user dismisses them
+      interruptionLevel: InterruptionLevel.timeSensitive,  // iOS 15+ - prevents auto-dismiss
+      threadIdentifier: 'flight_notifications',  // Prevent notification grouping
+      categoryIdentifier: 'FLIGHT_NOTIFICATION',  // Custom category for better control
     );
     
-    const NotificationDetails platformDetails = NotificationDetails(
+    final NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
     
+    // Generate unique notification ID to prevent replacements
+    final notificationId = (message.notification!.title ?? '').hashCode.abs() + 
+        (message.notification!.body ?? '').hashCode.abs() + 
+        DateTime.now().millisecondsSinceEpoch;
+    
     await localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notificationId,
       message.notification!.title ?? 'Notification',
       message.notification!.body ?? '',
       platformDetails,

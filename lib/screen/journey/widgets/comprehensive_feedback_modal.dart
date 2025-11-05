@@ -35,7 +35,11 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // For completed flights, only show "After Flight" (overall experience) tab
+    // For active flights, show all 3 tabs (Pre-Flight, In-Flight, After Flight)
+    final isCompleted = widget.flight.currentPhase == FlightPhase.completed;
+    final tabCount = isCompleted ? 1 : 3;
+    _tabController = TabController(length: tabCount, vsync: this);
   }
 
   @override
@@ -97,42 +101,74 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
 
           SizedBox(height: 24),
 
-          // Tab Bar
-          Container(
-            margin: EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                color: Colors.black,
+          // Tab Bar - Only show for active flights, hide for completed flights
+          if (widget.flight.currentPhase != FlightPhase.completed)
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.grey[600],
-              labelStyle: AppStyles.textStyle_14_600,
-              tabs: [
-                Tab(text: 'Pre-Flight'),
-                Tab(text: 'In-Flight'),
-                Tab(text: 'After Flight'),
-              ],
+              child: TabBar(
+                controller: _tabController,
+                indicator: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.grey[600],
+                labelStyle: AppStyles.textStyle_14_600,
+                tabs: [
+                  Tab(text: 'Pre-Flight'),
+                  Tab(text: 'In-Flight'),
+                  Tab(text: 'After Flight'),
+                ],
+              ),
             ),
-          ),
+
+          // For completed flights, show a header explaining only overall review is available
+          if (widget.flight.currentPhase == FlightPhase.completed) ...[
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Flight completed. Please share your overall experience.',
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.blue[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+          ],
 
           SizedBox(height: 16),
 
           // Tab Content
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildPreFlightFeedback(),
-                _buildInFlightFeedback(),
-                _buildPostFlightFeedback(),
-              ],
-            ),
+            child: widget.flight.currentPhase == FlightPhase.completed
+                ? _buildPostFlightFeedback() // Only show post-flight for completed flights
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPreFlightFeedback(),
+                      _buildInFlightFeedback(),
+                      _buildPostFlightFeedback(),
+                    ],
+                  ),
           ),
 
           // Submit Button
@@ -386,23 +422,36 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
           '📝 Submitting feedback for user: $userId, flight: $flightId, journey: $journeyId');
 
       // Submit feedback for each phase to the correct table
-      final phases = [
-        {
-          'phase': 'Pre-Flight',
-          'likes': _preFlightLikes,
-          'dislikes': _preFlightDislikes,
-        },
-        {
-          'phase': 'In-Flight',
-          'likes': _inFlightLikes,
-          'dislikes': _inFlightDislikes,
-        },
-        {
-          'phase': 'Post-Flight',
-          'likes': _postFlightLikes,
-          'dislikes': _postFlightDislikes,
-        },
-      ];
+      // For completed flights, only submit "Post-Flight" (overall experience)
+      final isCompleted = widget.flight.currentPhase == FlightPhase.completed;
+      
+      final phases = isCompleted
+          ? [
+              // Only Post-Flight for completed flights
+              {
+                'phase': 'Post-Flight',
+                'likes': _postFlightLikes,
+                'dislikes': _postFlightDislikes,
+              },
+            ]
+          : [
+              // All phases for active flights
+              {
+                'phase': 'Pre-Flight',
+                'likes': _preFlightLikes,
+                'dislikes': _preFlightDislikes,
+              },
+              {
+                'phase': 'In-Flight',
+                'likes': _inFlightLikes,
+                'dislikes': _inFlightDislikes,
+              },
+              {
+                'phase': 'Post-Flight',
+                'likes': _postFlightLikes,
+                'dislikes': _postFlightDislikes,
+              },
+            ];
 
       bool allSuccess = true;
       for (final phaseData in phases) {

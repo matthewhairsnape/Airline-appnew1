@@ -60,11 +60,16 @@ class PushNotificationService {
             .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
         
         if (iosImplementation != null) {
+          // Request standard permissions
           await iosImplementation.requestPermissions(
             alert: true,
             badge: true,
             sound: true,
           );
+          
+          // CRITICAL for iOS 15+: Request time-sensitive notification permission
+          // This prevents notifications from auto-dismissing
+          // Note: This is handled in AppDelegate.swift, but we can also request here if needed
           debugPrint('✅ iOS notification permissions requested');
         }
       }
@@ -340,6 +345,8 @@ class PushNotificationService {
         enableVibration: true,
         playSound: true,
         icon: '@mipmap/ic_launcher',
+        autoCancel: false, // CRITICAL: Don't auto-dismiss notifications
+        ongoing: false, // Allow user to dismiss manually
         styleInformation: BigTextStyleInformation(
           notification.body ?? '',
           htmlFormatBigText: false,
@@ -355,7 +362,11 @@ class PushNotificationService {
         sound: 'default',
         subtitle: notification.body,
         badgeNumber: 1,
-        interruptionLevel: InterruptionLevel.active,  // Show even in foreground
+        // CRITICAL for iOS: Use timeSensitive to prevent auto-dismiss
+        // This ensures notifications persist until user dismisses them
+        interruptionLevel: InterruptionLevel.timeSensitive,  // iOS 15+ - prevents auto-dismiss
+        threadIdentifier: 'flight_notifications',  // Prevent notification grouping
+        categoryIdentifier: 'FLIGHT_NOTIFICATION',  // Custom category for better control
       );
 
       final NotificationDetails platformDetails = NotificationDetails(
@@ -363,8 +374,11 @@ class PushNotificationService {
         iOS: iosDetails,
       );
 
-      // Generate a unique notification ID
-      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      // Generate a unique notification ID using hash of title+body+timestamp
+      // This ensures each notification gets a unique ID and won't replace others
+      final notificationId = ((notification.title ?? '').hashCode.abs() + 
+          (notification.body ?? '').hashCode.abs() + 
+          DateTime.now().millisecondsSinceEpoch);
 
       // Show the notification
       await _flutterLocalNotificationsPlugin.show(
@@ -807,6 +821,8 @@ class PushNotificationService {
         enableVibration: true,
         playSound: true,
         icon: '@mipmap/ic_launcher',
+        autoCancel: false, // CRITICAL: Don't auto-dismiss notifications
+        ongoing: false, // Allow user to dismiss manually
         styleInformation: BigTextStyleInformation(
           body,
           htmlFormatBigText: false,
@@ -822,8 +838,11 @@ class PushNotificationService {
         sound: 'default',    // Use default sound
         subtitle: body,
         badgeNumber: 1,
-        // CRITICAL: This tells iOS to show the notification even when app is in foreground
-        interruptionLevel: InterruptionLevel.active,
+        // CRITICAL for iOS: Use timeSensitive to prevent auto-dismiss
+        // This ensures notifications persist until user dismisses them
+        interruptionLevel: InterruptionLevel.timeSensitive,  // iOS 15+ - prevents auto-dismiss
+        threadIdentifier: 'flight_notifications',  // Prevent notification grouping
+        categoryIdentifier: 'FLIGHT_NOTIFICATION',  // Custom category for better control
       );
 
       final NotificationDetails platformDetails = NotificationDetails(
@@ -831,8 +850,11 @@ class PushNotificationService {
         iOS: iosDetails,
       );
 
-      // Generate a unique notification ID
-      final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      // Generate a unique notification ID using hash of title+body+timestamp
+      // This ensures each notification gets a unique ID and won't replace others
+      final notificationId = title.hashCode.abs() + 
+          body.hashCode.abs() + 
+          DateTime.now().millisecondsSinceEpoch;
 
       debugPrint('📤 Calling flutter_local_notifications.show()...');
       debugPrint('   ID: $notificationId');

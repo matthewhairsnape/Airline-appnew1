@@ -83,6 +83,27 @@ class FlightStatusCard extends StatelessWidget {
                           color: Colors.white.withAlpha(200),
                         ),
                       ),
+                      // Show gate if available
+                      if (flight.gate != null && flight.gate!.isNotEmpty) ...[
+                        SizedBox(height: 4),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.door_front_door,
+                              size: 12,
+                              color: Colors.white.withAlpha(180),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Gate ${flight.gate}',
+                              style: AppStyles.textStyle_12_500.copyWith(
+                                color: Colors.white.withAlpha(180),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -158,11 +179,25 @@ class FlightStatusCard extends StatelessWidget {
                         ),
                       ),
                       SizedBox(height: 4),
-                      Text(
-                        _formatTime(flight.arrivalTime),
-                        style: AppStyles.textStyle_14_500.copyWith(
-                          color: Colors.white.withAlpha(200),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _formatTime(flight.arrivalTime),
+                            style: AppStyles.textStyle_14_500.copyWith(
+                              color: Colors.white.withAlpha(200),
+                            ),
+                          ),
+                          // Show indicator if actual landing time is available
+                          if (_hasActualLandingTime(flight)) ...[
+                            SizedBox(width: 4),
+                            Icon(
+                              Icons.update,
+                              size: 12,
+                              color: Colors.green[300],
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -254,5 +289,16 @@ class FlightStatusCard extends StatelessWidget {
       default:
         return '${flight.carrier} Airlines';
     }
+  }
+  
+  /// Check if flight has actual landing time from Cirium (not just scheduled)
+  bool _hasActualLandingTime(FlightTrackingModel flight) {
+    final ciriumData = flight.ciriumData;
+    if (ciriumData == null) return false;
+    
+    final operationalTimes = ciriumData['operationalTimes'] ?? {};
+    return operationalTimes['actualGateArrival'] != null ||
+           operationalTimes['actualRunwayArrival'] != null ||
+           operationalTimes['estimatedGateArrival'] != null;
   }
 }

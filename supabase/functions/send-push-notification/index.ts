@@ -230,8 +230,13 @@ serve(async (req) => {
                   // CRITICAL: These settings ensure notification shows outside app
                   'content-available': 1,
                   'mutable-content': 1,
-                  // Ensure it wakes device and shows notification
-                  'interruption-level': 'active',
+                  // CRITICAL for iOS 15+: Use time-sensitive to prevent auto-dismiss
+                  // This ensures notifications persist until user dismisses them
+                  'interruption-level': 'time-sensitive',  // iOS 15+ - prevents auto-dismiss
+                  // Category for better notification management
+                  category: 'FLIGHT_NOTIFICATION',
+                  // Thread identifier to prevent notification grouping (iOS 12+)
+                  'thread-id': 'flight_notifications',
                 },
               },
             },

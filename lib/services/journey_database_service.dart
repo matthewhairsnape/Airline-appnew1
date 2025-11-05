@@ -79,23 +79,32 @@ class JourneyDatabaseService {
           await _determinePhaseFromJourney(journeyData, flight);
 
       // Parse departure and arrival times
+      // CRITICAL: Times from database are stored in UTC, must parse as UTC
       DateTime departureTime;
       DateTime arrivalTime;
 
       try {
-        departureTime = DateTime.parse(
-            flight['departure_time'] ?? flight['scheduled_departure'] ?? '');
+        final departureTimeStr = flight['departure_time'] ?? flight['scheduled_departure'] ?? '';
+        if (departureTimeStr.toString().isEmpty) {
+          departureTime = DateTime.now().toUtc();
+        } else {
+          departureTime = _parseDateTimeAsUtc(departureTimeStr.toString());
+        }
       } catch (e) {
         debugPrint('❌ Error parsing departure time: $e');
-        departureTime = DateTime.now();
+        departureTime = DateTime.now().toUtc();
       }
 
       try {
-        arrivalTime = DateTime.parse(
-            flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '');
+        final arrivalTimeStr = flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '';
+        if (arrivalTimeStr.toString().isEmpty) {
+          arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+        } else {
+          arrivalTime = _parseDateTimeAsUtc(arrivalTimeStr.toString());
+        }
       } catch (e) {
         debugPrint('❌ Error parsing arrival time: $e');
-        arrivalTime = DateTime.now().add(Duration(hours: 2));
+        arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
       }
 
       // Extract airport codes - these should be stored as strings in the flights table
@@ -213,11 +222,16 @@ class JourneyDatabaseService {
     // Fallback: determine phase based on current time vs flight times
     // NOTE: Do NOT automatically mark as completed - only user action can complete journeys
     // Completion must be explicit (via event, visit_status, or status field)
-    final now = DateTime.now();
-    final departureTime =
-        DateTime.tryParse(flight['departure_time'] ?? '') ?? now;
-    final arrivalTime = DateTime.tryParse(flight['arrival_time'] ?? '') ??
-        now.add(Duration(hours: 2));
+    final now = DateTime.now().toUtc();
+    final departureTimeStr = flight['departure_time'] ?? flight['scheduled_departure'] ?? '';
+    final arrivalTimeStr = flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '';
+    
+    final departureTime = departureTimeStr.toString().isNotEmpty
+        ? _parseDateTimeAsUtc(departureTimeStr.toString())
+        : now;
+    final arrivalTime = arrivalTimeStr.toString().isNotEmpty
+        ? _parseDateTimeAsUtc(arrivalTimeStr.toString())
+        : now.add(Duration(hours: 2));
 
     // Only use time-based logic for phase detection, NOT for completion
     // Journey completion must be explicitly done by user via the complete button
@@ -281,12 +295,13 @@ class JourneyDatabaseService {
       final seatNumber = journeyData['seat_number']?.toString();
 
       // Try to parse times from journey data
-      DateTime departureTime = DateTime.now();
-      DateTime arrivalTime = DateTime.now().add(Duration(hours: 2));
+      // CRITICAL: Times from database are stored in UTC, must parse as UTC
+      DateTime departureTime = DateTime.now().toUtc();
+      DateTime arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
 
       if (journeyData['departure_time'] != null) {
         try {
-          departureTime = DateTime.parse(journeyData['departure_time']);
+          departureTime = _parseDateTimeAsUtc(journeyData['departure_time'].toString());
         } catch (e) {
           debugPrint('⚠️ Could not parse departure_time: $e');
         }
@@ -294,7 +309,7 @@ class JourneyDatabaseService {
 
       if (journeyData['arrival_time'] != null) {
         try {
-          arrivalTime = DateTime.parse(journeyData['arrival_time']);
+          arrivalTime = _parseDateTimeAsUtc(journeyData['arrival_time'].toString());
         } catch (e) {
           debugPrint('⚠️ Could not parse arrival_time: $e');
         }
@@ -363,11 +378,67 @@ class JourneyDatabaseService {
     }
   }
 
+  /// Parse DateTime string as UTC (handles timezone-aware and timezone-naive strings)
+  /// CRITICAL: Database times are stored in UTC. If no timezone info in string,
+  /// we must append 'Z' to force UTC parsing, otherwise DateTime.parse() treats it as local time.
+  static DateTime _parseDateTimeAsUtc(String timeString) {
+    try {
+      // Clean up the string - remove any trailing spaces
+      final cleanString = timeString.trim();
+      
+      // Check if string already has timezone info
+      // Formats: "2025-01-15T18:30:00Z", "2025-01-15T18:30:00+00:00", "2025-01-15T18:30:00-05:00"
+      // Simple check: ends with 'Z' or has timezone offset pattern (+/-HH:MM) at the end
+      final hasTimezone = cleanString.endsWith('Z') || 
+          RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(cleanString);
+      
+      if (hasTimezone) {
+        // Parse with timezone info
+        final parsed = DateTime.parse(cleanString);
+        // Convert to UTC if not already
+        final utcTime = parsed.isUtc ? parsed : parsed.toUtc();
+        debugPrint('🕐 Parsed time with timezone: $timeString -> $utcTime (UTC=${utcTime.isUtc})');
+        return utcTime;
+      }
+      
+      // If no timezone info, assume it's UTC and append 'Z' to force UTC parsing
+      // Supabase returns UTC times but sometimes without 'Z' suffix
+      // DateTime.parse() without timezone treats as LOCAL time, which would be wrong
+      // This is the KEY FIX: by appending 'Z', we force UTC parsing
+      final utcString = '${cleanString}Z';
+      final parsed = DateTime.parse(utcString);
+      debugPrint('🕐 Parsed time as UTC (appended Z): $timeString -> $parsed (UTC=${parsed.isUtc})');
+      return parsed;
+    } catch (e) {
+      debugPrint('⚠️ Error parsing time as UTC: $timeString, error: $e');
+      // Fallback: try normal parse and convert to UTC
+      try {
+        final parsed = DateTime.parse(timeString.trim());
+        // If it parsed as local time, we need to account for timezone offset
+        // But we don't know the original timezone, so this is a best-effort conversion
+        final utcTime = parsed.isUtc ? parsed : parsed.toUtc();
+        debugPrint('⚠️ Fallback parsing: $timeString -> $utcTime (was local=${!parsed.isUtc})');
+        return utcTime;
+      } catch (e2) {
+        debugPrint('❌ Complete failure parsing time: $timeString');
+        return DateTime.now().toUtc();
+      }
+    }
+  }
+
   /// Calculate flight duration
+  /// CRITICAL: Both times must be in UTC to get accurate duration
   static String _calculateFlightDuration(DateTime departure, DateTime arrival) {
-    final duration = arrival.difference(departure);
+    // Ensure both times are in UTC for accurate duration calculation
+    final departureUtc = departure.isUtc ? departure : departure.toUtc();
+    final arrivalUtc = arrival.isUtc ? arrival : arrival.toUtc();
+    
+    final duration = arrivalUtc.difference(departureUtc);
     final hours = duration.inHours;
     final minutes = duration.inMinutes % 60;
+    
+    debugPrint('🕐 Duration calculation: departure=$departureUtc, arrival=$arrivalUtc, duration=${hours}h ${minutes}m');
+    
     return '${hours}h ${minutes}m';
   }
 

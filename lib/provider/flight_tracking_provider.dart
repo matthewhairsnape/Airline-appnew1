@@ -75,16 +75,28 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
     });
   }
 
-  /// Handle flight phase update
+  /// Handle flight phase update or landing time update
   void _handleFlightUpdate(FlightTrackingModel flight) {
     // Use journeyId as unique key (allows multiple flights with same PNR)
     final key = flight.journeyId ?? flight.pnr;
     
+    // Get existing flight to compare
+    final existingFlight = state.trackedFlights[key] ?? state.completedFlights[key];
+    
+    // Check if arrival time changed (real-time landing time update)
+    final arrivalTimeChanged = existingFlight != null && 
+        existingFlight.arrivalTime != flight.arrivalTime;
+    
     debugPrint(
         '🔄 Flight update received: ${flight.pnr} - ${flight.currentPhase} (key: $key)');
+    if (arrivalTimeChanged) {
+      debugPrint('🕐 Landing time updated: ${existingFlight.arrivalTime} → ${flight.arrivalTime}');
+    }
 
     // Send push notification for phase change
-    _sendPhaseChangeNotification(flight);
+    if (existingFlight == null || existingFlight.currentPhase != flight.currentPhase) {
+      _sendPhaseChangeNotification(flight);
+    }
 
     // Check if flight is completed
     if (flight.currentPhase == FlightPhase.completed) {
@@ -107,16 +119,23 @@ class FlightTrackingNotifier extends StateNotifier<FlightTrackingState> {
 
       debugPrint('✅ Flight completed and moved to history: ${flight.pnr} (key: $key)');
     } else {
-      // Update active flight
+      // Update active flight (even if only arrival time changed)
       final updatedFlights =
           Map<String, FlightTrackingModel>.from(state.trackedFlights);
       updatedFlights[key] = flight;
 
       state = state.copyWith(trackedFlights: updatedFlights);
 
-      // Send notification for phase change
-      notificationService.notifyFlightPhaseChange(flight);
+      // Send notification for phase change (only if phase actually changed)
+      if (existingFlight == null || existingFlight.currentPhase != flight.currentPhase) {
+        notificationService.notifyFlightPhaseChange(flight);
+      }
     }
+  }
+  
+  /// Public method to update a flight (for real-time landing time updates)
+  void updateFlight(FlightTrackingModel flight) {
+    _handleFlightUpdate(flight);
   }
 
   /// Send push notification for flight phase change

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/flight_tracking_model.dart';
 import '../../provider/flight_tracking_provider.dart';
 import '../../services/supabase_service.dart';
 import '../../services/feedback_checking_service.dart';
+import '../../services/cirium_flight_tracking_service.dart';
 import '../../utils/app_styles.dart';
 import '../../utils/app_routes.dart';
 import '../../utils/app_localizations.dart';
@@ -39,6 +41,11 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   
   // Complete journey loading state
   bool _isCompletingJourney = false;
+  
+  // Real-time updates
+  Timer? _refreshTimer;
+  StreamSubscription<FlightTrackingModel>? _flightUpdateSubscription;
+  final CiriumFlightTrackingService _ciriumService = CiriumFlightTrackingService();
 
   @override
   void initState() {
@@ -53,13 +60,43 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     // Sync journeys from database when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncJourneysFromDatabase();
+      _startRealTimeUpdates();
     });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _refreshTimer?.cancel();
+    _flightUpdateSubscription?.cancel();
     super.dispose();
+  }
+  
+  /// Start real-time updates for landing time
+  void _startRealTimeUpdates() {
+    // Listen to flight updates from Cirium service
+    // The provider already listens to these updates, but we also listen here
+    // to trigger UI refresh when landing time changes
+    _flightUpdateSubscription = _ciriumService.flightUpdates.listen((updatedFlight) {
+      if (mounted) {
+        // The provider will handle the update automatically via its own listener
+        // But we trigger a rebuild here to ensure UI updates immediately
+        setState(() {});
+        debugPrint('🔄 Real-time update received: Landing time may have changed for ${updatedFlight.pnr}');
+      }
+    });
+    
+    // Set up periodic refresh every 30 seconds to ensure UI stays updated
+    // This is a backup to ensure landing time updates even if stream events are missed
+    _refreshTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      if (mounted) {
+        // Trigger rebuild to show latest landing times from provider
+        setState(() {});
+        debugPrint('🔄 Periodic refresh: Checking for landing time updates');
+      }
+    });
+    
+    debugPrint('🔄 Started real-time landing time updates');
   }
 
   @override

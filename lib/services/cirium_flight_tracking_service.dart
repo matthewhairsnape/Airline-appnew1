@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:airline_app/models/flight_tracking_model.dart';
 import 'package:airline_app/models/stage_feedback_model.dart';
 import 'package:airline_app/utils/global_variable.dart';
+import 'package:airline_app/services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -63,21 +64,38 @@ class CiriumFlightTrackingService {
       final flightEquipment = flightStatus['flightEquipment'];
 
       // Calculate flight duration
-      final departureTime =
+      // CRITICAL: Cirium provides times in local timezone of each airport
+      // We need to calculate duration using UTC times to avoid timezone offset issues
+      final departureTimeLocal =
           DateTime.parse(flightStatus['departureDate']['dateLocal']);
-      final arrivalTime =
+      final arrivalTimeLocal =
           DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
-      final duration = arrivalTime.difference(departureTime);
+      
+      // Convert to UTC for accurate duration calculation
+      // Note: dateLocal is in the airport's local timezone, but we need UTC
+      // Get UTC times from Cirium data if available, otherwise convert local to UTC
+      final departureTimeUtc = flightStatus['departureDate']['dateUtc'] != null
+          ? DateTime.parse(flightStatus['departureDate']['dateUtc'])
+          : departureTimeLocal.toUtc();
+      final arrivalTimeUtc = flightStatus['arrivalDate']['dateUtc'] != null
+          ? DateTime.parse(flightStatus['arrivalDate']['dateUtc'])
+          : arrivalTimeLocal.toUtc();
+      
+      // Calculate duration using UTC times to get accurate flight duration
+      final duration = arrivalTimeUtc.difference(departureTimeUtc);
       final flightDuration = '${duration.inHours}h ${duration.inMinutes % 60}m';
+      
+      debugPrint('🕐 Cirium duration calculation: departure=$departureTimeUtc (local=$departureTimeLocal), arrival=$arrivalTimeUtc (local=$arrivalTimeLocal), duration=${duration.inHours}h ${duration.inMinutes % 60}m');
 
       // Create flight tracking model
+      // Use UTC times for consistency with database storage
       final flightTracking = FlightTrackingModel(
         flightId: pnr, // Use PNR as flight ID since it's our primary key
         pnr: pnr,
         carrier: carrier,
         flightNumber: flightNumber,
-        departureTime: departureTime,
-        arrivalTime: arrivalTime,
+        departureTime: departureTimeUtc,
+        arrivalTime: arrivalTimeUtc,
         departureAirport: flightStatus['departureAirportFsCode'],
         arrivalAirport: flightStatus['arrivalAirportFsCode'],
         currentPhase: _determineFlightPhase(flightStatus),
@@ -308,12 +326,16 @@ class CiriumFlightTrackingService {
         return;
       }
 
-      // Stop polling after flight is completed
+      // Continue polling even after landing to get actual gate arrival time
+      // Only stop after flight is completed (user marked it as complete)
       if (flight.currentPhase == FlightPhase.completed) {
         debugPrint('✅ Flight completed, stopping polling');
         timer.cancel();
         return;
       }
+      
+      // Continue polling if flight has landed but not completed
+      // This ensures we get actual gate arrival time updates
 
       try {
         final updatedInfo = await _fetchFlightStatus(
@@ -327,27 +349,171 @@ class CiriumFlightTrackingService {
             updatedInfo['flightStatuses'] != null) {
           final flightStatus = updatedInfo['flightStatuses'][0];
           final newPhase = _determineFlightPhase(flightStatus);
-
-          // Check if phase changed
-          if (newPhase != flight.currentPhase) {
-            debugPrint(
-                '🔄 Flight phase changed: ${flight.currentPhase} → $newPhase');
+          
+          // Extract actual arrival time if available (real-time landing time)
+          DateTime? actualArrivalTime = _extractActualArrivalTime(flightStatus);
+          
+          // Extract gate and terminal information from airport resources
+          final airportResources = flightStatus['airportResources'] ?? {};
+          final newGate = airportResources['departureGate']?.toString();
+          final newTerminal = airportResources['departureTerminal']?.toString();
+          
+          // Check if phase changed, arrival time updated, or gate/terminal updated
+          final phaseChanged = newPhase != flight.currentPhase;
+          final arrivalTimeChanged = actualArrivalTime != null && 
+              actualArrivalTime != flight.arrivalTime;
+          final gateChanged = newGate != null && newGate.isNotEmpty && 
+              newGate != flight.gate;
+          final terminalChanged = newTerminal != null && newTerminal.isNotEmpty && 
+              newTerminal != flight.terminal;
+          
+          if (phaseChanged || arrivalTimeChanged || gateChanged || terminalChanged) {
+            if (phaseChanged) {
+              debugPrint(
+                  '🔄 Flight phase changed: ${flight.currentPhase} → $newPhase');
+            }
+            if (arrivalTimeChanged) {
+              debugPrint(
+                  '🕐 Landing time updated: ${flight.arrivalTime} → $actualArrivalTime');
+            }
+            if (gateChanged) {
+              debugPrint(
+                  '🛫 Gate updated: ${flight.gate ?? 'None'} → $newGate');
+            }
+            if (terminalChanged) {
+              debugPrint(
+                  '🛫 Terminal updated: ${flight.terminal ?? 'None'} → $newTerminal');
+            }
 
             final updatedFlight = flight.copyWith(
               currentPhase: newPhase,
               phaseStartTime: DateTime.now(),
+              arrivalTime: actualArrivalTime ?? flight.arrivalTime, // Use actual if available
+              gate: newGate ?? flight.gate, // Update gate if available
+              terminal: newTerminal ?? flight.terminal, // Update terminal if available
               ciriumData: flightStatus,
               events: _extractEvents(flightStatus),
             );
 
             _activeFlights[pnr] = updatedFlight;
             _flightUpdateController.add(updatedFlight);
+            
+            // Update database with gate/terminal information
+            if ((gateChanged || terminalChanged) && flight.journeyId != null) {
+              await _updateJourneyGateTerminal(
+                journeyId: flight.journeyId!,
+                gate: newGate,
+                terminal: newTerminal,
+              );
+            }
           }
         }
       } catch (e) {
         debugPrint('❌ Error polling flight status: $e');
       }
     });
+  }
+
+  /// Extract actual arrival time from Cirium flight status
+  /// Priority: actualGateArrival > actualRunwayArrival > scheduledArrival
+  DateTime? _extractActualArrivalTime(Map<String, dynamic> flightStatus) {
+    final operationalTimes = flightStatus['operationalTimes'] ?? {};
+    
+    // Check for actual gate arrival (most accurate)
+    if (operationalTimes['actualGateArrival'] != null) {
+      try {
+        final arrivalTime = DateTime.parse(
+          operationalTimes['actualGateArrival']['dateUtc'] ?? 
+          operationalTimes['actualGateArrival']['dateLocal']
+        );
+        debugPrint('✅ Found actual gate arrival time: $arrivalTime');
+        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+      } catch (e) {
+        debugPrint('⚠️ Error parsing actualGateArrival: $e');
+      }
+    }
+    
+    // Check for actual runway arrival (landing time)
+    if (operationalTimes['actualRunwayArrival'] != null) {
+      try {
+        final arrivalTime = DateTime.parse(
+          operationalTimes['actualRunwayArrival']['dateUtc'] ?? 
+          operationalTimes['actualRunwayArrival']['dateLocal']
+        );
+        debugPrint('✅ Found actual runway arrival time: $arrivalTime');
+        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+      } catch (e) {
+        debugPrint('⚠️ Error parsing actualRunwayArrival: $e');
+      }
+    }
+    
+    // Check for estimated gate arrival
+    if (operationalTimes['estimatedGateArrival'] != null) {
+      try {
+        final arrivalTime = DateTime.parse(
+          operationalTimes['estimatedGateArrival']['dateUtc'] ?? 
+          operationalTimes['estimatedGateArrival']['dateLocal']
+        );
+        debugPrint('✅ Found estimated gate arrival time: $arrivalTime');
+        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+      } catch (e) {
+        debugPrint('⚠️ Error parsing estimatedGateArrival: $e');
+      }
+    }
+    
+    // Return null if no actual/estimated time available (use scheduled)
+    return null;
+  }
+
+  /// Update journey gate and terminal in database
+  Future<void> _updateJourneyGateTerminal({
+    required String journeyId,
+    String? gate,
+    String? terminal,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{};
+      
+      if (gate != null && gate.isNotEmpty) {
+        updateData['gate'] = gate;
+      }
+      if (terminal != null && terminal.isNotEmpty) {
+        updateData['terminal'] = terminal;
+      }
+      
+      if (updateData.isEmpty) {
+        return; // Nothing to update
+      }
+      
+      // Update journeys table
+      await SupabaseService.client
+          .from('journeys')
+          .update(updateData)
+          .eq('id', journeyId);
+      
+      debugPrint('✅ Updated journey $journeyId with gate=$gate, terminal=$terminal');
+      
+      // Also try to update flights table if journey has flight_id
+      try {
+        final journeyData = await SupabaseService.client
+            .from('journeys')
+            .select('flight_id')
+            .eq('id', journeyId)
+            .maybeSingle();
+            
+        if (journeyData != null && journeyData['flight_id'] != null) {
+          await SupabaseService.client
+              .from('flights')
+              .update(updateData)
+              .eq('id', journeyData['flight_id']);
+          debugPrint('✅ Updated flight ${journeyData['flight_id']} with gate=$gate, terminal=$terminal');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Could not update flights table: $e');
+      }
+    } catch (e) {
+      debugPrint('❌ Error updating journey gate/terminal: $e');
+    }
   }
 
   /// Stop tracking a specific flight

@@ -159,12 +159,18 @@ class FlightNotificationService {
       priority: Priority.high,
       showWhen: true,
       icon: '@mipmap/launcher_icon',
+      autoCancel: false, // CRITICAL: Don't auto-dismiss notifications
+      ongoing: false, // Allow user to dismiss manually
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      // CRITICAL for iOS: Use timeSensitive to prevent auto-dismiss
+      interruptionLevel: InterruptionLevel.timeSensitive,  // iOS 15+ - prevents auto-dismiss
+      threadIdentifier: 'flight_tracking',  // Prevent notification grouping
+      categoryIdentifier: 'FLIGHT_TRACKING',  // Custom category for better control
     );
 
     const NotificationDetails notificationDetails = NotificationDetails(
