@@ -64,28 +64,54 @@ class CiriumFlightTrackingService {
       final flightEquipment = flightStatus['flightEquipment'];
 
       // Calculate flight duration
-      // CRITICAL: Cirium provides times in local timezone of each airport
-      // We need to calculate duration using UTC times to avoid timezone offset issues
-      final departureTimeLocal =
-          DateTime.parse(flightStatus['departureDate']['dateLocal']);
-      final arrivalTimeLocal =
-          DateTime.parse(flightStatus['arrivalDate']['dateLocal']);
+      // CRITICAL: Always use UTC times to ensure correct landing time regardless of user's location
+      // Cirium provides both dateUtc (UTC) and dateLocal (airport timezone)
+      // We MUST use dateUtc to avoid timezone conversion errors when user is in different timezone
+      final departureDate = flightStatus['departureDate'] as Map<String, dynamic>;
+      final arrivalDate = flightStatus['arrivalDate'] as Map<String, dynamic>;
       
-      // Convert to UTC for accurate duration calculation
-      // Note: dateLocal is in the airport's local timezone, but we need UTC
-      // Get UTC times from Cirium data if available, otherwise convert local to UTC
-      final departureTimeUtc = flightStatus['departureDate']['dateUtc'] != null
-          ? DateTime.parse(flightStatus['departureDate']['dateUtc'])
-          : departureTimeLocal.toUtc();
-      final arrivalTimeUtc = flightStatus['arrivalDate']['dateUtc'] != null
-          ? DateTime.parse(flightStatus['arrivalDate']['dateUtc'])
-          : arrivalTimeLocal.toUtc();
+      // CRITICAL: Always prefer dateUtc (UTC time) over dateLocal
+      // dateLocal is in airport timezone, which can cause incorrect conversion
+      // when user is in different timezone (e.g., Dubai vs New York)
+      DateTime departureTimeUtc;
+      if (departureDate['dateUtc'] != null) {
+        departureTimeUtc = DateTime.parse(departureDate['dateUtc']);
+        debugPrint('✅ Using departure dateUtc: $departureTimeUtc (UTC=${departureTimeUtc.isUtc})');
+      } else {
+        // FALLBACK: If dateUtc not available (shouldn't happen, but handle it)
+        debugPrint('⚠️ WARNING: departureDate missing dateUtc, using dateLocal (may be inaccurate)');
+        final departureTimeLocal = DateTime.parse(departureDate['dateLocal']);
+        departureTimeUtc = departureTimeLocal.toUtc();
+        debugPrint('   dateLocal: ${departureDate['dateLocal']}, converted to UTC: $departureTimeUtc');
+      }
+      
+      DateTime arrivalTimeUtc;
+      if (arrivalDate['dateUtc'] != null) {
+        arrivalTimeUtc = DateTime.parse(arrivalDate['dateUtc']);
+        debugPrint('✅ Using arrival dateUtc: $arrivalTimeUtc (UTC=${arrivalTimeUtc.isUtc})');
+      } else {
+        // FALLBACK: If dateUtc not available (shouldn't happen, but handle it)
+        debugPrint('⚠️ WARNING: arrivalDate missing dateUtc, using dateLocal (may be inaccurate)');
+        final arrivalTimeLocal = DateTime.parse(arrivalDate['dateLocal']);
+        arrivalTimeUtc = arrivalTimeLocal.toUtc();
+        debugPrint('   dateLocal: ${arrivalDate['dateLocal']}, converted to UTC: $arrivalTimeUtc');
+      }
       
       // Calculate duration using UTC times to get accurate flight duration
       final duration = arrivalTimeUtc.difference(departureTimeUtc);
       final flightDuration = '${duration.inHours}h ${duration.inMinutes % 60}m';
       
-      debugPrint('🕐 Cirium duration calculation: departure=$departureTimeUtc (local=$departureTimeLocal), arrival=$arrivalTimeUtc (local=$arrivalTimeLocal), duration=${duration.inHours}h ${duration.inMinutes % 60}m');
+      debugPrint('');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🕐 FLIGHT TIME PROCESSING OUTPUT');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📅 Departure Time (UTC): $departureTimeUtc');
+      debugPrint('   Source: ${departureDate['dateUtc'] != null ? 'dateUtc' : 'dateLocal (converted)'}');
+      debugPrint('📅 Arrival Time (UTC): $arrivalTimeUtc');
+      debugPrint('   Source: ${arrivalDate['dateUtc'] != null ? 'dateUtc' : 'dateLocal (converted)'}');
+      debugPrint('⏱️  Flight Duration: ${duration.inHours}h ${duration.inMinutes % 60}m');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('');
 
       // Create flight tracking model
       // Use UTC times for consistency with database storage
@@ -159,14 +185,194 @@ class CiriumFlightTrackingService {
         debugPrint('📡 Using REAL-TIME API for current/future flight');
       }
 
-      debugPrint('📡 Fetching flight status from: $url');
+      debugPrint('');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📡 CIRIUM API REQUEST');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🔗 URL: $url');
+      debugPrint('📋 Request Parameters:');
+      debugPrint('   Carrier: $carrier');
+      debugPrint('   Flight Number: $flightNumber');
+      debugPrint('   Flight Date: $flightDate');
+      debugPrint('   Departure Airport: $departureAirport');
+      debugPrint('   API Type: ${isPastFlight ? "PREMIUM HISTORICAL" : "REAL-TIME"}');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('');
 
       final response = await http.get(Uri.parse(url));
 
+      debugPrint('');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📡 CIRIUM API RESPONSE');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('📊 Status Code: ${response.statusCode}');
+      debugPrint('📏 Response Size: ${response.body.length} bytes');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('');
+
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final responseData = json.decode(response.body);
+        
+        // Log full response payload
+        debugPrint('');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('📦 FULL CIRIUM API RESPONSE PAYLOAD');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint(json.encode(responseData));
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('');
+        
+        // Parse and log structured response
+        if (responseData['flightStatuses'] != null) {
+          final flightStatuses = responseData['flightStatuses'] as List;
+          debugPrint('📊 Flight Statuses Count: ${flightStatuses.length}');
+          
+          if (flightStatuses.isNotEmpty) {
+            final flightStatus = flightStatuses[0] as Map<String, dynamic>;
+            
+            // Log flight basic info
+            final flight = flightStatus['flight'] as Map<String, dynamic>?;
+            debugPrint('');
+            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            debugPrint('✈️  FLIGHT INFORMATION');
+            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            if (flight != null) {
+              debugPrint('   Carrier: ${flight['carrierFsCode']}');
+              debugPrint('   Flight Number: ${flight['flightNumber']}');
+              debugPrint('   Aircraft Type: ${flight['aircraftType']}');
+            }
+            debugPrint('   Departure Airport: ${flightStatus['departureAirportFsCode']}');
+            debugPrint('   Arrival Airport: ${flightStatus['arrivalAirportFsCode']}');
+            debugPrint('   Status: ${flightStatus['status']}');
+            debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            debugPrint('');
+            
+            // Log departure date
+            final departureDate = flightStatus['departureDate'] as Map<String, dynamic>?;
+            if (departureDate != null) {
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('🛫 DEPARTURE DATE INFORMATION');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('   dateLocal: ${departureDate['dateLocal'] ?? 'null'}');
+              debugPrint('   dateUtc: ${departureDate['dateUtc'] ?? 'null'} ⚠️ PREFERRED FOR UTC');
+              debugPrint('   Gate: ${departureDate['gate'] ?? 'null'}');
+              debugPrint('   Terminal: ${departureDate['terminal'] ?? 'null'}');
+              debugPrint('   Delay Minutes: ${departureDate['delayMinutes'] ?? 'null'}');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('');
+            }
+            
+            // Log arrival date
+            final arrivalDate = flightStatus['arrivalDate'] as Map<String, dynamic>?;
+            if (arrivalDate != null) {
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('🛬 ARRIVAL DATE INFORMATION');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('   dateLocal: ${arrivalDate['dateLocal'] ?? 'null'}');
+              debugPrint('   dateUtc: ${arrivalDate['dateUtc'] ?? 'null'} ⚠️ PREFERRED FOR UTC');
+              debugPrint('   Gate: ${arrivalDate['gate'] ?? 'null'}');
+              debugPrint('   Terminal: ${arrivalDate['terminal'] ?? 'null'}');
+              debugPrint('   Delay Minutes: ${arrivalDate['delayMinutes'] ?? 'null'}');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('');
+            }
+            
+            // Log operational times (CRITICAL for landing time)
+            final operationalTimes = flightStatus['operationalTimes'] as Map<String, dynamic>? ?? {};
+            if (operationalTimes.isNotEmpty) {
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('🕐 OPERATIONAL TIMES (CRITICAL FOR LANDING TIME CALCULATION)');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
+              // Departure times
+              if (operationalTimes['actualGateDeparture'] != null) {
+                final agd = operationalTimes['actualGateDeparture'] as Map<String, dynamic>;
+                debugPrint('   actualGateDeparture:');
+                debugPrint('      dateLocal: ${agd['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${agd['dateUtc'] ?? 'null'} ⚠️ PREFERRED');
+              }
+              if (operationalTimes['actualRunwayDeparture'] != null) {
+                final ard = operationalTimes['actualRunwayDeparture'] as Map<String, dynamic>;
+                debugPrint('   actualRunwayDeparture:');
+                debugPrint('      dateLocal: ${ard['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${ard['dateUtc'] ?? 'null'} ⚠️ PREFERRED');
+              }
+              if (operationalTimes['estimatedGateDeparture'] != null) {
+                final egd = operationalTimes['estimatedGateDeparture'] as Map<String, dynamic>;
+                debugPrint('   estimatedGateDeparture:');
+                debugPrint('      dateLocal: ${egd['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${egd['dateUtc'] ?? 'null'} ⚠️ PREFERRED');
+              }
+              if (operationalTimes['scheduledGateDeparture'] != null) {
+                final sgd = operationalTimes['scheduledGateDeparture'] as Map<String, dynamic>;
+                debugPrint('   scheduledGateDeparture:');
+                debugPrint('      dateLocal: ${sgd['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${sgd['dateUtc'] ?? 'null'} ⚠️ PREFERRED');
+              }
+              
+              // Arrival times (CRITICAL FOR LANDING TIME)
+              if (operationalTimes['actualGateArrival'] != null) {
+                final aga = operationalTimes['actualGateArrival'] as Map<String, dynamic>;
+                debugPrint('   actualGateArrival: ⚠️ HIGHEST PRIORITY FOR LANDING TIME');
+                debugPrint('      dateLocal: ${aga['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${aga['dateUtc'] ?? 'null'} ✅ WILL USE THIS');
+              }
+              if (operationalTimes['actualRunwayArrival'] != null) {
+                final ara = operationalTimes['actualRunwayArrival'] as Map<String, dynamic>;
+                debugPrint('   actualRunwayArrival: ⚠️ SECOND PRIORITY FOR LANDING TIME');
+                debugPrint('      dateLocal: ${ara['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${ara['dateUtc'] ?? 'null'} ✅ WILL USE THIS');
+              }
+              if (operationalTimes['estimatedGateArrival'] != null) {
+                final ega = operationalTimes['estimatedGateArrival'] as Map<String, dynamic>;
+                debugPrint('   estimatedGateArrival: ⚠️ THIRD PRIORITY FOR LANDING TIME');
+                debugPrint('      dateLocal: ${ega['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${ega['dateUtc'] ?? 'null'} ✅ WILL USE THIS');
+              }
+              if (operationalTimes['scheduledGateArrival'] != null) {
+                final sga = operationalTimes['scheduledGateArrival'] as Map<String, dynamic>;
+                debugPrint('   scheduledGateArrival:');
+                debugPrint('      dateLocal: ${sga['dateLocal'] ?? 'null'}');
+                debugPrint('      dateUtc: ${sga['dateUtc'] ?? 'null'} ⚠️ PREFERRED');
+              }
+              
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('');
+            }
+            
+            // Log airport resources
+            final airportResources = flightStatus['airportResources'] as Map<String, dynamic>?;
+            if (airportResources != null) {
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('🏢 AIRPORT RESOURCES');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('   departureGate: ${airportResources['departureGate'] ?? 'null'}');
+              debugPrint('   departureTerminal: ${airportResources['departureTerminal'] ?? 'null'}');
+              debugPrint('   arrivalGate: ${airportResources['arrivalGate'] ?? 'null'}');
+              debugPrint('   arrivalTerminal: ${airportResources['arrivalTerminal'] ?? 'null'}');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('');
+            }
+            
+            // Log delays
+            final delays = flightStatus['delays'] as Map<String, dynamic>?;
+            if (delays != null && delays.isNotEmpty) {
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('⏱️  DELAYS');
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint(json.encode(delays));
+              debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              debugPrint('');
+            }
+          }
+        }
+        
+        return responseData;
       } else {
         debugPrint('❌ API returned status code: ${response.statusCode}');
+        debugPrint('❌ Response body: ${response.body}');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('');
         return {'error': 'Failed to fetch flight data: ${response.statusCode}'};
       }
     } catch (e) {
@@ -415,53 +621,134 @@ class CiriumFlightTrackingService {
   }
 
   /// Extract actual arrival time from Cirium flight status
-  /// Priority: actualGateArrival > actualRunwayArrival > scheduledArrival
+  /// Priority: actualGateArrival > actualRunwayArrival > estimatedGateArrival
+  /// CRITICAL: Always use UTC times to ensure correct landing time regardless of user's location
   DateTime? _extractActualArrivalTime(Map<String, dynamic> flightStatus) {
+    debugPrint('');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('🔍 EXTRACTING ACTUAL ARRIVAL TIME (LANDING TIME)');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     final operationalTimes = flightStatus['operationalTimes'] ?? {};
     
     // Check for actual gate arrival (most accurate)
     if (operationalTimes['actualGateArrival'] != null) {
       try {
-        final arrivalTime = DateTime.parse(
-          operationalTimes['actualGateArrival']['dateUtc'] ?? 
-          operationalTimes['actualGateArrival']['dateLocal']
-        );
-        debugPrint('✅ Found actual gate arrival time: $arrivalTime');
-        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+        final gateArrival = operationalTimes['actualGateArrival'] as Map<String, dynamic>;
+        
+        // CRITICAL: Always prefer dateUtc (UTC time) over dateLocal
+        // dateLocal is in airport timezone, which can cause incorrect conversion
+        // when user is in different timezone (e.g., Dubai vs New York)
+        debugPrint('🔍 Checking actualGateArrival (HIGHEST PRIORITY)...');
+        if (gateArrival['dateUtc'] != null) {
+          final arrivalTime = DateTime.parse(gateArrival['dateUtc']);
+          debugPrint('✅ Found actual gate arrival time (UTC): $arrivalTime');
+          debugPrint('   dateUtc: ${gateArrival['dateUtc']}');
+          debugPrint('   Is UTC: ${arrivalTime.isUtc}');
+          debugPrint('   ✅ SELECTED AS LANDING TIME');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          // Ensure it's UTC (should already be, but double-check)
+          return arrivalTime.isUtc ? arrivalTime : DateTime.parse(gateArrival['dateUtc'] + 'Z');
+        } else if (gateArrival['dateLocal'] != null) {
+          // FALLBACK: If dateUtc not available, parse dateLocal but warn
+          // NOTE: This is not ideal as dateLocal is in airport timezone, not device timezone
+          // But we have no way to know airport timezone, so we parse as-is and hope Cirium provides UTC
+          debugPrint('⚠️ WARNING: actualGateArrival missing dateUtc, using dateLocal (may be inaccurate)');
+          debugPrint('   dateLocal: ${gateArrival['dateLocal']}');
+          final arrivalTime = DateTime.parse(gateArrival['dateLocal']);
+          debugPrint('   Parsed as: $arrivalTime');
+          debugPrint('   Converted to UTC: ${arrivalTime.toUtc()}');
+          debugPrint('   ⚠️ SELECTED AS LANDING TIME (FALLBACK)');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          // This is a fallback - ideally Cirium should always provide dateUtc
+          return arrivalTime.toUtc();
+        } else {
+          debugPrint('❌ actualGateArrival exists but has no dateUtc or dateLocal');
+        }
       } catch (e) {
-        debugPrint('⚠️ Error parsing actualGateArrival: $e');
+        debugPrint('❌ Error parsing actualGateArrival: $e');
       }
     }
     
     // Check for actual runway arrival (landing time)
     if (operationalTimes['actualRunwayArrival'] != null) {
       try {
-        final arrivalTime = DateTime.parse(
-          operationalTimes['actualRunwayArrival']['dateUtc'] ?? 
-          operationalTimes['actualRunwayArrival']['dateLocal']
-        );
-        debugPrint('✅ Found actual runway arrival time: $arrivalTime');
-        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+        final runwayArrival = operationalTimes['actualRunwayArrival'] as Map<String, dynamic>;
+        
+        // CRITICAL: Always prefer dateUtc (UTC time) over dateLocal
+        debugPrint('🔍 Checking actualRunwayArrival (SECOND PRIORITY)...');
+        if (runwayArrival['dateUtc'] != null) {
+          final arrivalTime = DateTime.parse(runwayArrival['dateUtc']);
+          debugPrint('✅ Found actual runway arrival time (UTC): $arrivalTime');
+          debugPrint('   dateUtc: ${runwayArrival['dateUtc']}');
+          debugPrint('   Is UTC: ${arrivalTime.isUtc}');
+          debugPrint('   ✅ SELECTED AS LANDING TIME');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          return arrivalTime.isUtc ? arrivalTime : DateTime.parse(runwayArrival['dateUtc'] + 'Z');
+        } else if (runwayArrival['dateLocal'] != null) {
+          debugPrint('⚠️ WARNING: actualRunwayArrival missing dateUtc, using dateLocal (may be inaccurate)');
+          debugPrint('   dateLocal: ${runwayArrival['dateLocal']}');
+          final arrivalTime = DateTime.parse(runwayArrival['dateLocal']);
+          debugPrint('   Parsed as: $arrivalTime');
+          debugPrint('   Converted to UTC: ${arrivalTime.toUtc()}');
+          debugPrint('   ⚠️ SELECTED AS LANDING TIME (FALLBACK)');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          return arrivalTime.toUtc();
+        } else {
+          debugPrint('❌ actualRunwayArrival exists but has no dateUtc or dateLocal');
+        }
       } catch (e) {
-        debugPrint('⚠️ Error parsing actualRunwayArrival: $e');
+        debugPrint('❌ Error parsing actualRunwayArrival: $e');
       }
+    } else {
+      debugPrint('⏭️  actualRunwayArrival not available');
     }
     
     // Check for estimated gate arrival
     if (operationalTimes['estimatedGateArrival'] != null) {
       try {
-        final arrivalTime = DateTime.parse(
-          operationalTimes['estimatedGateArrival']['dateUtc'] ?? 
-          operationalTimes['estimatedGateArrival']['dateLocal']
-        );
-        debugPrint('✅ Found estimated gate arrival time: $arrivalTime');
-        return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+        final estimatedArrival = operationalTimes['estimatedGateArrival'] as Map<String, dynamic>;
+        
+        // CRITICAL: Always prefer dateUtc (UTC time) over dateLocal
+        debugPrint('🔍 Checking estimatedGateArrival (THIRD PRIORITY)...');
+        if (estimatedArrival['dateUtc'] != null) {
+          final arrivalTime = DateTime.parse(estimatedArrival['dateUtc']);
+          debugPrint('✅ Found estimated gate arrival time (UTC): $arrivalTime');
+          debugPrint('   dateUtc: ${estimatedArrival['dateUtc']}');
+          debugPrint('   Is UTC: ${arrivalTime.isUtc}');
+          debugPrint('   ✅ SELECTED AS LANDING TIME');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          return arrivalTime.isUtc ? arrivalTime : DateTime.parse(estimatedArrival['dateUtc'] + 'Z');
+        } else if (estimatedArrival['dateLocal'] != null) {
+          debugPrint('⚠️ WARNING: estimatedGateArrival missing dateUtc, using dateLocal (may be inaccurate)');
+          debugPrint('   dateLocal: ${estimatedArrival['dateLocal']}');
+          final arrivalTime = DateTime.parse(estimatedArrival['dateLocal']);
+          debugPrint('   Parsed as: $arrivalTime');
+          debugPrint('   Converted to UTC: ${arrivalTime.toUtc()}');
+          debugPrint('   ⚠️ SELECTED AS LANDING TIME (FALLBACK)');
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('');
+          return arrivalTime.toUtc();
+        } else {
+          debugPrint('❌ estimatedGateArrival exists but has no dateUtc or dateLocal');
+        }
       } catch (e) {
-        debugPrint('⚠️ Error parsing estimatedGateArrival: $e');
+        debugPrint('❌ Error parsing estimatedGateArrival: $e');
       }
+    } else {
+      debugPrint('⏭️  estimatedGateArrival not available');
     }
     
     // Return null if no actual/estimated time available (use scheduled)
+    debugPrint('⚠️ No actual/estimated arrival time found in operationalTimes');
+    debugPrint('   Will use scheduled arrival time from arrivalDate');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('');
     return null;
   }
 

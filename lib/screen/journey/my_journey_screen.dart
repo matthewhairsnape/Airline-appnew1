@@ -400,17 +400,18 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        'Arrival',
-                        style: AppStyles.textStyle_12_500
-                            .copyWith(color: Colors.grey[500]),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        _formatDateTime(flight.arrivalTime),
-                        style: AppStyles.textStyle_14_600
-                            .copyWith(color: Colors.black),
-                      ),
+                      // Landing time hidden per user request
+                      // Text(
+                      //   'Arrival',
+                      //   style: AppStyles.textStyle_12_500
+                      //       .copyWith(color: Colors.grey[500]),
+                      // ),
+                      // SizedBox(height: 4),
+                      // Text(
+                      //   _formatDateTime(flight.arrivalTime),
+                      //   style: AppStyles.textStyle_14_600
+                      //       .copyWith(color: Colors.black),
+                      // ),
                       Text(
                         flight.arrivalAirport,
                         style: AppStyles.textStyle_12_500
@@ -928,12 +929,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                                 style: AppStyles.textStyle_20_600
                                     .copyWith(color: Colors.blue[900]),
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                _formatDateTimeFull(flight.arrivalTime),
-                                style: AppStyles.textStyle_12_500
-                                    .copyWith(color: Colors.grey[700]),
-                              ),
+                              // Landing time hidden per user request
+                              // SizedBox(height: 4),
+                              // Text(
+                              //   _formatDateTimeFull(flight.arrivalTime),
+                              //   style: AppStyles.textStyle_12_500
+                              //       .copyWith(color: Colors.grey[700]),
+                              // ),
                             ],
                           ),
                         ),

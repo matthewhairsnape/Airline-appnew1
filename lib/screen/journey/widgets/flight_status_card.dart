@@ -38,6 +38,7 @@ class FlightStatusCard extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         _getAirlineName(),
@@ -45,6 +46,8 @@ class FlightStatusCard extends StatelessWidget {
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -52,6 +55,8 @@ class FlightStatusCard extends StatelessWidget {
                         style: AppStyles.textStyle_14_500.copyWith(
                           color: Colors.white.withAlpha(200),
                         ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ],
                   ),
@@ -146,30 +151,33 @@ class FlightStatusCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (!isCompleted) ...[
-                        Text(
-                          _getTimeRemaining(),
-                          style: AppStyles.textStyle_24_600.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Until Landing',
-                          style: AppStyles.textStyle_12_500.copyWith(
-                            color: Colors.white.withAlpha(200),
-                          ),
-                        ),
-                      ] else ...[
-                        Text(
-                          'Completed',
-                          style: AppStyles.textStyle_18_600.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                      // "Until Landing" time and "Completed" status hidden per user request
+                      // if (!isCompleted) ...[
+                      //   Text(
+                      //     _getTimeRemaining(),
+                      //     style: AppStyles.textStyle_24_600.copyWith(
+                      //       color: Colors.white,
+                      //       fontWeight: FontWeight.bold,
+                      //     ),
+                      //   ),
+                      //   SizedBox(height: 4),
+                      //   Text(
+                      //     'Until Landing',
+                      //     style: AppStyles.textStyle_12_500.copyWith(
+                      //       color: Colors.white.withAlpha(200),
+                      //     ),
+                      //   ),
+                      // ] else ...[
+                      //   if (isCompleted) ...[
+                      //     Text(
+                      //       'Completed',
+                      //       style: AppStyles.textStyle_18_600.copyWith(
+                      //         color: Colors.white,
+                      //         fontWeight: FontWeight.bold,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ],
                       SizedBox(height: 4),
                       Text(
                         flight.arrivalAirport,
@@ -178,6 +186,7 @@ class FlightStatusCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      // Landing time hidden per user request
                       SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,

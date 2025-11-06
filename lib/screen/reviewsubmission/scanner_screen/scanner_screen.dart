@@ -770,8 +770,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final result = await _boardingPassController.saveBoardingPass(newPass);
 
     // Save to Supabase if initialized
+    Map<String, dynamic>? journeyResult;
     if (SupabaseService.isInitialized) {
-      await SupabaseService.createJourney(
+      journeyResult = await SupabaseService.createJourney(
         userId: userId.toString(),
         pnr: pnr,
         carrier: carrier,
@@ -786,7 +787,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         gate: flightStatus['airportResources']?['departureGate'],
         aircraftType: flightStatus['flightEquipment']?['iata'],
       );
-      debugPrint('✅ Journey saved to Supabase');
+      
+      // Check if this is a duplicate (PNR + flight_id + seat_number all match)
+      if (journeyResult != null && journeyResult['duplicate'] == true) {
+        debugPrint('⚠️ Duplicate journey detected - cannot add the same flight');
+        if (mounted) {
+          _showDuplicateJourneyDialog(context);
+          return; // Don't proceed with tracking if it's a duplicate
+        }
+      } else {
+        debugPrint('✅ Journey saved to Supabase');
+      }
     }
 
     // Start real-time flight tracking with Cirium regardless of save result
@@ -840,6 +851,84 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
   String _formatTime(DateTime time) =>
       "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+  /// Show dialog when duplicate journey is detected (PNR + flight_id + seat_number all match)
+  void _showDuplicateJourneyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Warning Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange,
+                    size: 50,
+                  ),
+                ),
+
+                SizedBox(height: 24),
+
+                // Title
+                Text(
+                  'Cannot Add Flight',
+                  style: AppStyles.textStyle_24_600.copyWith(color: Colors.black),
+                  textAlign: TextAlign.center,
+                ),
+
+                SizedBox(height: 12),
+
+                // Description
+                Text(
+                  'This journey already exists in active mode.',
+                  style: AppStyles.textStyle_16_400.copyWith(color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+
+                SizedBox(height: 32),
+
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'OK',
+                      style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildBarcode(Barcode? value) {
     if (value == null) {

@@ -68,11 +68,11 @@ serve(async (req) => {
       )
     }
 
-    // Fetch journey details
+    // Fetch journey details with flight info to get original status
     console.log('🔍 Fetching journey:', request.journeyId)
     const { data: journey, error: journeyError } = await supabaseClient
       .from('journeys')
-      .select('*')
+      .select('*, flight:flights(*)')
       .eq('id', request.journeyId)
       .single()
 
@@ -248,9 +248,58 @@ serve(async (req) => {
             title = 'Flight Cancelled'
             body = `❌ ${flightCode} has been cancelled. Please contact airline for assistance.`
             break
-          default:
+          case 'diverted':
+            title = 'Flight Diverted'
+            body = `⚠️ ${flightCode} has been diverted. Please check with airline staff for updates.`
+            break
+          case 'unknown':
+            // When phase is unknown, try to get actual status from Cirium data in media column
+            let actualStatus = 'Status Updated'
+            try {
+              // Check if journey has Cirium data in media column
+              if (journey.media && typeof journey.media === 'object') {
+                const mediaData = journey.media as any
+                
+                // First try to get lastCiriumStatus (stored by check-flight-statuses)
+                if (mediaData.lastCiriumStatus && mediaData.lastCiriumStatus !== 'unknown') {
+                  actualStatus = mediaData.lastCiriumStatus
+                  console.log(`✅ Found lastCiriumStatus in media: "${actualStatus}"`)
+                } else {
+                  // Fallback: try to get from flightStatuses array
+                  const flightStatuses = mediaData?.flightStatuses
+                  if (flightStatuses && Array.isArray(flightStatuses) && flightStatuses.length > 0) {
+                    const flightStatus = flightStatuses[0]
+                    const ciriumStatus = flightStatus?.status
+                    if (ciriumStatus && ciriumStatus !== 'unknown') {
+                      actualStatus = ciriumStatus
+                      console.log(`✅ Found Cirium status in flightStatuses: "${ciriumStatus}"`)
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(`⚠️ Error extracting Cirium status from media: ${e}`)
+            }
+            
+            // Format the status for display (capitalize first letter of each word)
+            const formattedStatus = actualStatus
+              .split(/[_\s]+/)
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ')
+            
             title = 'Flight Status Update'
-            body = `📱 ${flightCode} status has been updated to ${phase || status}.`
+            body = `📱 ${flightCode} status has been updated: ${formattedStatus}.`
+            console.log(`⚠️ Unknown phase detected, using status: "${actualStatus}" -> "${formattedStatus}"`)
+            break
+          default:
+            // For other unrecognized phases, format them nicely
+            const formattedPhase = (phase || status || 'unknown')
+              .split(/[_\s]+/)
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ')
+            title = 'Flight Status Update'
+            body = `📱 ${flightCode} status has been updated: ${formattedPhase}.`
+            console.log(`⚠️ Unrecognized phase: "${phase}", status: "${status}" -> "${formattedPhase}"`)
         }
     }
 

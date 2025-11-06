@@ -45,32 +45,82 @@ interface JourneyResult {
 
 // Map Cirium status to our phase system
 function mapCiriumStatusToPhase(status: string | null | undefined): string {
-  if (!status) return 'unknown'
+  if (!status) {
+    console.log('⚠️ No status provided, returning unknown')
+    return 'unknown'
+  }
   
-  const statusLower = status.toLowerCase()
+  const statusLower = status.toLowerCase().trim()
+  console.log(`🔍 Mapping Cirium status: "${status}" (lowercase: "${statusLower}")`)
   
-  if (statusLower.includes('scheduled') || statusLower.includes('ontime')) {
+  // Scheduled/On-time statuses
+  if (statusLower.includes('scheduled') || 
+      statusLower.includes('ontime') || 
+      statusLower.includes('on-time') ||
+      statusLower === 's' ||
+      statusLower === 'ontime') {
     return 'pre_check_in'
   }
-  if (statusLower.includes('boarding') || statusLower.includes('gate')) {
+  
+  // Boarding statuses
+  if (statusLower.includes('boarding') || 
+      statusLower.includes('gate') ||
+      statusLower === 'b' ||
+      statusLower === 'boarding') {
     return 'boarding'
   }
-  if (statusLower.includes('departed') || statusLower.includes('inflight')) {
+  
+  // Departure/In-flight statuses
+  if (statusLower.includes('departed') || 
+      statusLower.includes('inflight') ||
+      statusLower.includes('in-flight') ||
+      statusLower.includes('in flight') ||
+      statusLower === 'd' ||
+      statusLower === 'departed' ||
+      statusLower === 'inflight') {
     return 'departed'
   }
-  if (statusLower.includes('landed')) {
+  
+  // Landing statuses
+  if (statusLower.includes('landed') || 
+      statusLower.includes('landing') ||
+      statusLower === 'l' ||
+      statusLower === 'landed') {
     return 'landed'
   }
-  if (statusLower.includes('arrived')) {
+  
+  // Arrival statuses
+  if (statusLower.includes('arrived') || 
+      statusLower.includes('arrival') ||
+      statusLower === 'a' ||
+      statusLower === 'arrived') {
     return 'arrived'
   }
-  if (statusLower.includes('cancelled') || statusLower.includes('canceled')) {
+  
+  // Cancellation statuses
+  if (statusLower.includes('cancelled') || 
+      statusLower.includes('canceled') ||
+      statusLower.includes('cancel') ||
+      statusLower === 'c' ||
+      statusLower === 'cancelled' ||
+      statusLower === 'canceled') {
     return 'cancelled'
   }
-  if (statusLower.includes('diverted')) {
+  
+  // Diverted statuses
+  if (statusLower.includes('diverted') || 
+      statusLower.includes('divert') ||
+      statusLower === 'diverted') {
     return 'diverted'
   }
   
+  // Delayed statuses
+  if (statusLower.includes('delayed') || 
+      statusLower.includes('delay')) {
+    return 'pre_check_in' // Keep in pre-check-in phase but notify about delay
+  }
+  
+  console.log(`⚠️ Unknown Cirium status: "${status}" - returning unknown`)
   return 'unknown'
 }
 
@@ -335,6 +385,11 @@ serve(async (req) => {
           const newGate = flightData.gate?.trim() || ''
           const newTerminal = flightData.terminal?.trim() || ''
 
+          console.log(`📊 Journey ${journey.id}:`)
+          console.log(`   Current: phase=${journey.current_phase}, status=${journey.status}, gate=${journey.gate}, terminal=${journey.terminal}`)
+          console.log(`   New: phase=${newPhase}, status=${newStatus}, gate=${newGate}, terminal=${newTerminal}`)
+          console.log(`   Cirium Status: "${flightData.status}"`)
+
           // Check if anything changed
           const phaseChanged = journey.current_phase !== newPhase
           const statusChanged = journey.status !== newStatus
@@ -358,6 +413,23 @@ serve(async (req) => {
           if (statusChanged) updateData.status = newStatus
           if (gateChanged) updateData.gate = newGate
           if (terminalChanged) updateData.terminal = newTerminal
+          
+          // Store original Cirium status in media column for better notifications
+          // This helps when phase is "unknown" - we can show the actual Cirium status
+          try {
+            const existingMedia = journey.media || {}
+            const updatedMedia = {
+              ...existingMedia,
+              lastCiriumStatus: flightData.status, // Store original Cirium status
+              lastCiriumUpdate: new Date().toISOString(),
+              flightStatuses: ciriumData?.flightStatuses || existingMedia.flightStatuses,
+            }
+            updateData.media = updatedMedia
+            console.log(`💾 Storing Cirium status "${flightData.status}" in media for future notifications`)
+          } catch (e) {
+            console.warn(`⚠️ Error updating media with Cirium status: ${e}`)
+            // Don't fail the update if media update fails
+          }
 
           // Update the journey (trigger will send notifications)
           const { error: updateError } = await supabaseClient

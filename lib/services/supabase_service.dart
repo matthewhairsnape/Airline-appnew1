@@ -90,20 +90,23 @@ class SupabaseService {
         gate: gate,
       );
 
-      // Check if journey already exists for this specific PNR + flight combination
-      // This allows multiple flights under the same PNR (connected flights)
-      if (flightResult != null) {
+      // Check if journey already exists for PNR + flight_id + seat_number combination
+      // All three must match for the same user to be considered a duplicate
+      // If any one doesn't match, allow the journey to be added
+      if (flightResult != null && seatNumber != null && seatNumber.isNotEmpty) {
         final existingJourney = await client
             .from('journeys')
-            .select('id')
+            .select('id, pnr, seat_number')
             .eq('pnr', pnr)
             .eq('passenger_id', userId)
             .eq('flight_id', flightResult['id'])
+            .eq('seat_number', seatNumber)
             .maybeSingle();
 
         if (existingJourney != null) {
-          debugPrint('⚠️ Journey already exists for PNR: $pnr + flight: ${flightResult['id']}');
-          return existingJourney;
+          debugPrint('⚠️ Duplicate journey detected: PNR=$pnr, flight_id=${flightResult['id']}, seat_number=$seatNumber all match for user=$userId');
+          // Return a special indicator that this is a duplicate (all three match)
+          return {'duplicate': true, 'existing_journey': existingJourney};
         }
       }
 
@@ -469,6 +472,26 @@ class SupabaseService {
             .single();
       }
 
+      // Check if journey already exists for PNR + flight_id + seat_number combination
+      // All three must match for the same user to be considered a duplicate
+      // If any one doesn't match, allow the journey to be added
+      if (flightData != null && seatNumber != null && seatNumber.isNotEmpty) {
+        final existingJourney = await client
+            .from('journeys')
+            .select('id, pnr, seat_number')
+            .eq('pnr', pnr)
+            .eq('passenger_id', userId)
+            .eq('flight_id', flightData['id'])
+            .eq('seat_number', seatNumber)
+            .maybeSingle();
+
+        if (existingJourney != null) {
+          debugPrint('⚠️ Duplicate journey detected: PNR=$pnr, flight_id=${flightData['id']}, seat_number=$seatNumber all match for user=$userId');
+          // Return a special indicator that this is a duplicate (all three match)
+          return {'duplicate': true, 'existing_journey': existingJourney};
+        }
+      }
+
       // Create journey
       final journey = await client
           .from('journeys')
@@ -817,20 +840,23 @@ class SupabaseService {
         arrivalAirportId: arrAirportId,
       );
 
-      // Check if journey already exists for this specific PNR + flight combination
-      // This allows multiple flights under the same PNR (connected flights)
-      if (flightResult != null) {
+      // Check if journey already exists for PNR + flight_id + seat_number combination
+      // All three must match for the same user to be considered a duplicate
+      // If any one doesn't match, allow the journey to be added
+      if (flightResult != null && seatNumber != null && seatNumber.isNotEmpty) {
         final existingJourney = await client
             .from('journeys')
-            .select('id')
+            .select('id, pnr, seat_number')
             .eq('pnr', pnr)
             .eq('passenger_id', userId)
             .eq('flight_id', flightResult['id'])
+            .eq('seat_number', seatNumber)
             .maybeSingle();
 
         if (existingJourney != null) {
-          debugPrint('⚠️ Journey already exists for PNR: $pnr + flight: ${flightResult['id']}');
-          return existingJourney;
+          debugPrint('⚠️ Duplicate journey detected: PNR=$pnr, flight_id=${flightResult['id']}, seat_number=$seatNumber all match for user=$userId');
+          // Return a special indicator that this is a duplicate (all three match)
+          return {'duplicate': true, 'existing_journey': existingJourney};
         }
       }
 
