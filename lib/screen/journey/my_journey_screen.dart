@@ -514,14 +514,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           FlightStatusCard(flight: flight),
 
           // Timeline Sections
-          // Show all three sections when flight is NOT landed, NOT completed, and NOT in flight
-          // (i.e., for phases: preCheckIn, checkInOpen, security, boarding, departed)
+          // Show all three sections when flight is NOT landed and NOT completed
+          // (i.e., for phases: preCheckIn, checkInOpen, security, boarding, departed, inFlight)
           
           // "At the Airport" section:
-          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed
-          // - HIDDEN for: inFlight, landed, completed
-          if (flight.currentPhase != FlightPhase.inFlight && 
-              flight.currentPhase != FlightPhase.landed &&
+          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed, inFlight
+          // - HIDDEN for: landed, completed
+          if (flight.currentPhase != FlightPhase.landed &&
               flight.currentPhase != FlightPhase.completed)
             TimelineSection(
               title: 'At the Airport',
