@@ -59,11 +59,15 @@ The system extracts landing time in this **priority order** (most accurate first
 
 ### Time Conversion
 
-All times are converted to **UTC** for consistency:
-- Cirium provides both `dateLocal` and `dateUtc`
-- System prefers `dateUtc` if available
-- If only `dateLocal` is available, it's converted to UTC using `.toUtc()`
+**CRITICAL: All times MUST be in UTC to UTC conversion**
+
+All times are converted to **UTC** for consistency and accuracy:
+- Cirium provides both `dateLocal` (airport timezone) and `dateUtc` (UTC timezone)
+- **System ALWAYS prefers `dateUtc`** to ensure correct landing time regardless of user's location
+- `dateLocal` is in the airport's local timezone (e.g., Dubai time), which can cause incorrect conversion when user is in different timezone
+- If `dateUtc` is missing (uncommon), system falls back to `dateLocal` with a warning
 - This ensures accurate duration calculations and prevents timezone offset errors
+- **Example**: User in Dubai viewing flight landing in New York - using UTC ensures correct time regardless of user location
 
 ### Real-Time Updates
 
@@ -86,30 +90,28 @@ DateTime? _extractActualArrivalTime(Map<String, dynamic> flightStatus) {
   
   // Priority 1: actualGateArrival (most accurate)
   if (operationalTimes['actualGateArrival'] != null) {
-    final arrivalTime = DateTime.parse(
-      operationalTimes['actualGateArrival']['dateUtc'] ?? 
-      operationalTimes['actualGateArrival']['dateLocal']
-    );
-    return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
+    final gateArrival = operationalTimes['actualGateArrival'] as Map<String, dynamic>;
+    
+    // CRITICAL: Always prefer dateUtc (UTC time) over dateLocal
+    // dateLocal is in airport timezone, which can cause incorrect conversion
+    // when user is in different timezone (e.g., Dubai vs New York)
+    if (gateArrival['dateUtc'] != null) {
+      final arrivalTime = DateTime.parse(gateArrival['dateUtc']);
+      // Ensure it's UTC (should already be, but double-check)
+      return arrivalTime.isUtc ? arrivalTime : DateTime.parse(gateArrival['dateUtc'] + 'Z');
+    } else if (gateArrival['dateLocal'] != null) {
+      // FALLBACK: If dateUtc not available, parse dateLocal but warn
+      debugPrint('⚠️ WARNING: actualGateArrival missing dateUtc, using dateLocal (may be inaccurate)');
+      final arrivalTime = DateTime.parse(gateArrival['dateLocal']);
+      return arrivalTime.toUtc();
+    }
   }
   
   // Priority 2: actualRunwayArrival (landing time)
-  if (operationalTimes['actualRunwayArrival'] != null) {
-    final arrivalTime = DateTime.parse(
-      operationalTimes['actualRunwayArrival']['dateUtc'] ?? 
-      operationalTimes['actualRunwayArrival']['dateLocal']
-    );
-    return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
-  }
+  // (similar logic - always prefer dateUtc)
   
   // Priority 3: estimatedGateArrival
-  if (operationalTimes['estimatedGateArrival'] != null) {
-    final arrivalTime = DateTime.parse(
-      operationalTimes['estimatedGateArrival']['dateUtc'] ?? 
-      operationalTimes['estimatedGateArrival']['dateLocal']
-    );
-    return arrivalTime.isUtc ? arrivalTime : arrivalTime.toUtc();
-  }
+  // (similar logic - always prefer dateUtc)
   
   // Return null if no actual/estimated time available (use scheduled)
   return null;
@@ -204,10 +206,13 @@ For a flight with scheduled arrival at `22:30:00`:
    - Landing time updates automatically when actual times become available
    - UI refreshes to show the latest landing time
 
-3. **UTC Time Handling:**
-   - All times are stored and calculated in UTC
+3. **UTC Time Handling (CRITICAL):**
+   - All times are stored and calculated in UTC (UTC to UTC conversion)
+   - System ALWAYS prefers `dateUtc` from Cirium API over `dateLocal`
+   - `dateLocal` is in airport timezone and can cause incorrect conversion when user is in different timezone
    - Prevents timezone offset errors in duration calculations
-   - UI displays in user's local timezone
+   - UI displays in user's local timezone (conversion happens at display time)
+   - **Example**: User in Dubai viewing flight landing in New York - using UTC ensures correct time
 
 4. **Visual Feedback:**
    - Update icon (🔄) indicates actual landing time is available
@@ -226,8 +231,10 @@ If landing time is not updating correctly, check logs for:
    - Look for: `🔄 Real-time update received: Landing time may have changed`
 
 3. **Is time conversion correct?**
-   - Verify times are in UTC format
+   - Verify times are in UTC format (check logs for "✅ Using arrival dateUtc")
    - Check for: `dateUtc` vs `dateLocal` in API response
+   - If you see "⚠️ WARNING: missing dateUtc", Cirium API may not be providing UTC time
+   - **CRITICAL**: Landing time must be in UTC to UTC to work correctly for users in different timezones
 
 4. **Is UI updating?**
    - Check for: `🕐 Landing time updated: ... → ...`
