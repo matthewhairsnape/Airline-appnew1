@@ -128,10 +128,9 @@ class _TimelineSectionState extends State<TimelineSection> {
 
   /// Check if feedback button should be hidden based on flight phase
   bool _shouldHideFeedbackButton() {
-    // Hide "At the Airport" feedback button when flight is in flight, landed, or completed
+    // Hide "At the Airport" feedback button when flight is landed or completed
     if (widget.title == 'At the Airport' &&
-        (widget.flight?.currentPhase == FlightPhase.inFlight ||
-         widget.flight?.currentPhase == FlightPhase.landed ||
+        (widget.flight?.currentPhase == FlightPhase.landed ||
          widget.flight?.currentPhase == FlightPhase.completed)) {
       return true;
     }
@@ -176,6 +175,34 @@ class _TimelineSectionState extends State<TimelineSection> {
   }
 
   void _showFeedbackModal() {
+    // Prevent opening modal for "At the Airport" when flight is landed or completed
+    if (widget.title == 'At the Airport' &&
+        (widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Airport feedback is not available at this stage of your journey.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    
+    // Prevent opening modal for "During the Flight" when flight is landed or completed
+    if (widget.title == 'During the Flight' &&
+        (widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('In-flight feedback is not available after the flight has landed.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final feedbackData = _getFeedbackData();
 
     showModalBottomSheet(
