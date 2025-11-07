@@ -105,6 +105,86 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
 
   @override
   Widget build(BuildContext context) {
+    // Safety check: Prevent "At the Airport" feedback when flight is landed or completed
+    if (widget.sectionName.toLowerCase() == 'at the airport' &&
+        (widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange, size: 48),
+            SizedBox(height: 16),
+            Text(
+              'Airport feedback is not available',
+              style: AppStyles.textStyle_18_600,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Airport feedback is not available at this stage of your journey.',
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: Text('Close', style: AppStyles.textStyle_14_600.copyWith(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Safety check: Prevent "During the Flight" feedback when flight is landed or completed
+    if (widget.sectionName.toLowerCase() == 'during the flight' &&
+        (widget.flight?.currentPhase == FlightPhase.landed ||
+         widget.flight?.currentPhase == FlightPhase.completed)) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange, size: 48),
+            SizedBox(height: 16),
+            Text(
+              'In-flight feedback is not available',
+              style: AppStyles.textStyle_18_600,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'In-flight feedback is not available after the flight has landed.',
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: Text('Close', style: AppStyles.textStyle_14_600.copyWith(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
+
     final keyboardPadding = MediaQuery.of(context).viewInsets.bottom;
 
     return GestureDetector(
@@ -731,10 +811,9 @@ class _SectionFeedbackModalState extends State<SectionFeedbackModal>
         final journeyId = widget.flight!.journeyId ?? widget.flight!.pnr; // Use journeyId if available, fallback to PNR
         final seat = widget.flight!.seatNumber ?? 'Unknown';
 
-        // Prevent "At the Airport" feedback when flight is in flight, landed, or completed
+        // Prevent "At the Airport" feedback when flight is landed or completed
         if (widget.sectionName.toLowerCase() == 'at the airport' &&
-            (widget.flight?.currentPhase == FlightPhase.inFlight ||
-             widget.flight?.currentPhase == FlightPhase.landed ||
+            (widget.flight?.currentPhase == FlightPhase.landed ||
              widget.flight?.currentPhase == FlightPhase.completed)) {
           _showErrorDialog(
               'Airport feedback is not available at this stage of your journey.');
