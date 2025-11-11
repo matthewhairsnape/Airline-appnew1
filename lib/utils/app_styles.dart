@@ -55,6 +55,13 @@ class AppStyles {
     color: Colors.black,
     fontStyle: FontStyle.normal,
   );
+  static TextStyle textStyle_16_500 = const TextStyle(
+    fontFamily: 'SF Pro',
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: Colors.black,
+    fontStyle: FontStyle.normal,
+  );
   static TextStyle textStyle_20_600 = const TextStyle(
     fontFamily: 'SF Pro',
     fontSize: 20,

@@ -40,159 +40,141 @@ class LeaderboardCategory {
 
 class LeaderboardCategoryService {
   static const List<LeaderboardCategory> categories = [
+    // All items are categories (swipeable tabs)
+    LeaderboardCategory(
+      tab: "First Class",
+      description:
+          "First class cabin rankings sourced directly from verified passenger scoring.",
+      sourceTags: [
+        "First Class",
+        "First cabin",
+        "Premium First",
+      ],
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "first",
+      isTravelClass: false,
+    ),
     LeaderboardCategory(
       tab: "Business Class",
       description:
-          "Business cabin rankings sourced directly from verified passenger scoring (top 10, verbatim).",
+          "Business cabin rankings sourced directly from verified passenger scoring.",
       sourceTags: [
         "Business Class",
         "Business cabin",
         "Premium cabin",
       ],
-      formula: "Verbatim seed scores from supplied business-class data.",
+      formula: "Positive Votes / (Positive + Negative Votes)",
       icon: "business",
-      isTravelClass: true,
+      isTravelClass: false,
     ),
     LeaderboardCategory(
-      tab: "Economy Class",
+      tab: "Premium Economy",
       description:
-          "Economy cabin rankings sourced directly from verified passenger scoring (top 10, verbatim).",
+          "Premium Economy cabin rankings sourced directly from verified passenger scoring.",
+      sourceTags: [
+        "Premium Economy",
+        "Premium Economy Class",
+        "Economy Plus",
+      ],
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "premium",
+      isTravelClass: false,
+    ),
+    LeaderboardCategory(
+      tab: "Economy",
+      description:
+          "Economy cabin rankings sourced directly from verified passenger scoring.",
       sourceTags: [
         "Economy Class",
+        "Economy",
         "Main cabin",
         "Coach",
       ],
-      formula: "Verbatim seed scores from supplied economy-class data.",
+      formula: "Positive Votes / (Positive + Negative Votes)",
       icon: "economy",
-      isTravelClass: true,
+      isTravelClass: false,
     ),
     LeaderboardCategory(
-      tab: "Wi-Fi Experience",
+      tab: "Airport Experience",
       description:
-          "Measures satisfaction with inflight internet quality and connectivity.",
+          "Measures satisfaction with airport facilities, check-in, security, boarding, and arrival processes.",
       sourceTags: [
-        "Good Wi-Fi",
-        "Poor Wi-Fi",
-        "Wi-Fi connectivity",
-        "Wi-Fi and IFE"
+        "Airport experience",
+        "Departure experience",
+        "Arrival experience",
+        "Check-in process",
+        "Security line wait time",
+        "Boarding process",
+        "Airport facilities",
+        "Arrival process",
       ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "wifi",
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "airport",
     ),
     LeaderboardCategory(
-      tab: "Crew Friendliness",
-      description:
-          "Evaluates the helpfulness and service quality of the cabin crew.",
-      sourceTags: [
-        "Crew helpful",
-        "Friendly service",
-        "Unfriendly crew",
-        "Cabin crew",
-        "Friendly and helpful service"
-      ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "people",
-    ),
-    LeaderboardCategory(
-      tab: "Seat Comfort",
-      description:
-          "Assesses passenger comfort and cabin conditions during the flight.",
-      sourceTags: [
-        "Comfortable seat",
-        "Uncomfortable seat",
-        "Clean cabin",
-        "Seat comfort",
-        "Cabin cleanliness",
-        "Onboard Comfort"
-      ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "chair",
-    ),
-    LeaderboardCategory(
-      tab: "Food & Beverage",
+      tab: "F&B",
       description: "Tracks satisfaction with meals and drinks onboard.",
       sourceTags: [
         "Good food",
         "Cold meal",
         "Poor quality beverage",
         "Food and beverage",
-        "Food and Beverage"
+        "Food and Beverage",
+        "F&B",
       ],
-      formula: "(likes - dislikes) / total_feedback",
+      formula: "Positive Votes / (Positive + Negative Votes)",
       icon: "restaurant",
     ),
     LeaderboardCategory(
-      tab: "Operations & Timeliness",
+      tab: "Seat Comfort",
       description:
-          "Reflects the smoothness of boarding, baggage handling, and punctuality.",
+          "Assesses passenger comfort and seat conditions during the flight.",
       sourceTags: [
-        "Smooth boarding",
-        "Delayed boarding",
-        "Gate chaos",
-        "Baggage delay",
-        "Check-in process",
-        "Security line wait time",
-        "Boarding process",
-        "Baggage delivery or ease of connection"
+        "Comfortable seat",
+        "Uncomfortable seat",
+        "Seat comfort",
+        "Onboard Comfort",
+        "Seat space",
+        "Legroom",
       ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "schedule",
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "chair",
     ),
     LeaderboardCategory(
-      tab: "Inflight Entertainment",
+      tab: "IFE and Wifi",
       description:
-          "Captures satisfaction with onboard movies, TV, and streaming options.",
+          "Measures satisfaction with inflight entertainment and internet connectivity.",
       sourceTags: [
         "Inflight entertainment",
         "IFE",
         "Movies",
         "Onboard entertainment",
-        "Seatback screen"
+        "Seatback screen",
+        "Good Wi-Fi",
+        "Poor Wi-Fi",
+        "Wi-Fi connectivity",
+        "Wi-Fi and IFE",
+        "Internet",
       ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "movie",
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "wifi",
     ),
     LeaderboardCategory(
-      tab: "Aircraft Condition",
+      tab: "Onboard Service",
       description:
-          "Tracks passenger perception of aircraft cleanliness, maintenance, and cabin condition.",
+          "Evaluates the helpfulness and service quality of the cabin crew and onboard service.",
       sourceTags: [
-        "Aircraft condition",
-        "Cabin condition",
-        "Cabin maintenance",
-        "Cabin cleanliness",
-        "Aircraft cleanliness"
+        "Crew helpful",
+        "Friendly service",
+        "Unfriendly crew",
+        "Cabin crew",
+        "Friendly and helpful service",
+        "Onboard service",
+        "Crew service",
+        "Service quality",
       ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "aircraft",
-    ),
-    LeaderboardCategory(
-      tab: "Arrival Experience",
-      description:
-          "Measures satisfaction with the post-flight experience, including arrival processes.",
-      sourceTags: [
-        "Arrival experience",
-        "Arrival process",
-        "Customs",
-        "Immigration",
-        "Post-flight"
-      ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "arrival",
-    ),
-    LeaderboardCategory(
-      tab: "Booking Experience",
-      description:
-          "Evaluates how passengers feel about the digital and offline booking journey.",
-      sourceTags: [
-        "Booking experience",
-        "Reservation system",
-        "Ticket booking",
-        "Website UX",
-        "App booking"
-      ],
-      formula: "(likes - dislikes) / total_feedback",
-      icon: "laptop",
+      formula: "Positive Votes / (Positive + Negative Votes)",
+      icon: "people",
     ),
     LeaderboardCategory(
       tab: "Cleanliness",
@@ -203,9 +185,11 @@ class LeaderboardCategoryService {
         "Cabin cleanliness",
         "Restroom cleanliness",
         "Sanitization",
-        "Hygiene"
+        "Hygiene",
+        "Aircraft cleanliness",
+        "Clean cabin",
       ],
-      formula: "(likes - dislikes) / total_feedback",
+      formula: "Positive Votes / (Positive + Negative Votes)",
       icon: "cleaning",
     ),
   ];
