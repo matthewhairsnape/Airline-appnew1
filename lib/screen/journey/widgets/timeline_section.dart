@@ -3,6 +3,7 @@ import '../../../models/flight_tracking_model.dart';
 import '../../../utils/app_styles.dart';
 import 'timeline_event_card.dart';
 import 'section_feedback_modal.dart';
+import 'comprehensive_feedback_modal.dart';
 
 class TimelineSection extends StatefulWidget {
   final String title;
@@ -203,6 +204,27 @@ class _TimelineSectionState extends State<TimelineSection> {
       return;
     }
 
+    // Use ComprehensiveFeedbackModal for "Overall Experience" to match Review Flight form
+    if (widget.title == 'Overall Experience' && widget.flight != null) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        enableDrag: true,
+        isDismissible: true,
+        useSafeArea: false,
+        builder: (context) => ComprehensiveFeedbackModal(
+          flight: widget.flight!,
+          onSubmitted: () {
+            debugPrint('Overall Experience feedback submitted');
+            Navigator.pop(context);
+          },
+        ),
+      );
+      return;
+    }
+
+    // Use SectionFeedbackModal for other sections (At the Airport, During the Flight)
     final feedbackData = _getFeedbackData();
 
     showModalBottomSheet(

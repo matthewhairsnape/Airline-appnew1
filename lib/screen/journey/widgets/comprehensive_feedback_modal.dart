@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 import '../../../utils/app_styles.dart';
 import '../../../models/flight_tracking_model.dart';
 import '../../../services/phase_feedback_service.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/media_service.dart';
 
 class ComprehensiveFeedbackModal extends StatefulWidget {
   final FlightTrackingModel flight;
@@ -32,25 +35,28 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
   Map<String, Set<String>> _postFlightLikes = {};
   Map<String, Set<String>> _postFlightDislikes = {};
 
+  // Media upload and comments
+  bool _showLikesCommentBox = false;
+  bool _showDislikesCommentBox = false;
+  TextEditingController _likesCommentController = TextEditingController();
+  TextEditingController _dislikesCommentController = TextEditingController();
+  List<String> _likesMediaFiles = [];
+  List<String> _dislikesMediaFiles = [];
+  ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
-    // Determine tab count based on flight phase:
-    // - Completed: Only "After Flight" (overall experience) = 1 tab
-    // - Landed: Only "After Flight" (overall experience) = 1 tab
-    // - In Flight: Only "In-Flight" and "After Flight" = 2 tabs (hide Pre-Flight/At Airport)
-    // - Other phases (preCheckIn, checkInOpen, security, boarding, departed): 
-    //   All 3 tabs (Pre-Flight, In-Flight, After Flight) = 3 tabs
-    final isCompleted = widget.flight.currentPhase == FlightPhase.completed;
-    final isLanded = widget.flight.currentPhase == FlightPhase.landed;
-    final isInFlight = widget.flight.currentPhase == FlightPhase.inFlight;
-    final tabCount = (isCompleted || isLanded) ? 1 : (isInFlight ? 2 : 3);
-    _tabController = TabController(length: tabCount, vsync: this);
+    // Tabs are now hidden - using unified form, but keeping TabController for compatibility
+    _tabController = TabController(length: 1, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _likesCommentController.dispose();
+    _dislikesCommentController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -102,98 +108,19 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
 
           SizedBox(height: 24),
 
+          // Pixar Image Header
+          _buildPixarImageHeader(),
+
+          SizedBox(height: 24),
+
           // Overall Rating Section
           _buildOverallRatingSection(),
 
           SizedBox(height: 24),
 
-          // Tab Bar - Only show for active flights, hide for completed/landed flights
-          if (widget.flight.currentPhase != FlightPhase.completed &&
-              widget.flight.currentPhase != FlightPhase.landed)
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 24),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                indicator: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey[600],
-                labelStyle: AppStyles.textStyle_14_600,
-                tabs: widget.flight.currentPhase == FlightPhase.inFlight
-                    ? [
-                        // Hide "Pre-Flight" when flight is in flight
-                        Tab(text: 'In-Flight'),
-                        Tab(text: 'After Flight'),
-                      ]
-                    : [
-                        // Show all 3 tabs for other phases (preCheckIn, checkInOpen, security, boarding, departed)
-                        Tab(text: 'Pre-Flight'),
-                        Tab(text: 'In-Flight'),
-                        Tab(text: 'After Flight'),
-                      ],
-              ),
-            ),
-
-          // For completed/landed flights, show a header explaining only overall review is available
-          if (widget.flight.currentPhase == FlightPhase.completed ||
-              widget.flight.currentPhase == FlightPhase.landed) ...[
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.flight.currentPhase == FlightPhase.completed
-                            ? 'Flight completed. Please share your overall experience.'
-                            : 'Flight landed. Please share your overall experience.',
-                        style: AppStyles.textStyle_14_500
-                            .copyWith(color: Colors.blue[800]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-          ],
-
-          SizedBox(height: 16),
-
-          // Tab Content
+          // Unified Feedback Form (tabs hidden, but backend still processes by phase)
           Expanded(
-            child: (widget.flight.currentPhase == FlightPhase.completed ||
-                    widget.flight.currentPhase == FlightPhase.landed)
-                ? _buildPostFlightFeedback() // Only show post-flight for completed/landed flights
-                : TabBarView(
-                    controller: _tabController,
-                    children: widget.flight.currentPhase == FlightPhase.inFlight
-                        ? [
-                            // Hide "Pre-Flight" when flight is in flight
-                            _buildInFlightFeedback(),
-                            _buildPostFlightFeedback(),
-                          ]
-                        : [
-                            // Show all tabs for other phases
-                            _buildPreFlightFeedback(),
-                            _buildInFlightFeedback(),
-                            _buildPostFlightFeedback(),
-                          ],
-                  ),
+            child: _buildUnifiedFeedback(),
           ),
 
           // Submit Button
@@ -216,6 +143,31 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPixarImageHeader() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 24),
+      height: 180,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.asset(
+          'assets/images/End of Flight.png',
+          fit: BoxFit.cover,
+          width: double.infinity,
+        ),
       ),
     );
   }
@@ -268,82 +220,114 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     );
   }
 
-  Widget _buildPreFlightFeedback() {
+  // Unified feedback form - combines all categories into one view
+  Widget _buildUnifiedFeedback() {
+    // Use unified options for all phases (backend still processes by phase)
+    final unifiedLikes = <String, Set<String>>{};
+    final unifiedDislikes = <String, Set<String>>{};
+    
     return SingleChildScrollView(
+      controller: _scrollController,
       padding: EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // What stands out? section
           _buildCategorySection(
             'What stands out?',
-            _preFlightLikes,
-            _getPreFlightLikes(),
+            unifiedLikes,
+            _getUnifiedLikes(),
             Icons.thumb_up,
             Colors.green,
+            true,
           ),
-          SizedBox(height: 24),
+          SizedBox(height: 32),
+          
+          // What can be better? section
           _buildCategorySection(
-            'What could be improved?',
-            _preFlightDislikes,
-            _getPreFlightDislikes(),
+            'What can be better?',
+            unifiedDislikes,
+            _getUnifiedDislikes(),
             Icons.thumb_down,
             Colors.red,
+            false,
           ),
+          SizedBox(height: 24),
         ],
       ),
     );
+  }
+  
+  // Store selections in all phase maps for backend compatibility
+  void _updateAllPhaseSelections(String category, String option, bool isLike) {
+    setState(() {
+      if (isLike) {
+        // Check if already selected in likes
+        final isAlreadySelected = _preFlightLikes.values.any((set) => set.contains(option)) ||
+                                  _inFlightLikes.values.any((set) => set.contains(option)) ||
+                                  _postFlightLikes.values.any((set) => set.contains(option));
+        
+        // Remove from dislikes if it was there
+        _preFlightDislikes.values.forEach((set) => set.remove(option));
+        _inFlightDislikes.values.forEach((set) => set.remove(option));
+        _postFlightDislikes.values.forEach((set) => set.remove(option));
+        
+        if (isAlreadySelected) {
+          // Toggle off - remove from likes
+          _preFlightLikes.values.forEach((set) => set.remove(option));
+          _inFlightLikes.values.forEach((set) => set.remove(option));
+          _postFlightLikes.values.forEach((set) => set.remove(option));
+        } else {
+          // Toggle on - add to all phase likes maps
+          if (_preFlightLikes[category] == null) _preFlightLikes[category] = <String>{};
+          if (_inFlightLikes[category] == null) _inFlightLikes[category] = <String>{};
+          if (_postFlightLikes[category] == null) _postFlightLikes[category] = <String>{};
+          
+          _preFlightLikes[category]!.add(option);
+          _inFlightLikes[category]!.add(option);
+          _postFlightLikes[category]!.add(option);
+        }
+      } else {
+        // Check if already selected in dislikes
+        final isAlreadySelected = _preFlightDislikes.values.any((set) => set.contains(option)) ||
+                                  _inFlightDislikes.values.any((set) => set.contains(option)) ||
+                                  _postFlightDislikes.values.any((set) => set.contains(option));
+        
+        // Remove from likes if it was there
+        _preFlightLikes.values.forEach((set) => set.remove(option));
+        _inFlightLikes.values.forEach((set) => set.remove(option));
+        _postFlightLikes.values.forEach((set) => set.remove(option));
+        
+        if (isAlreadySelected) {
+          // Toggle off - remove from dislikes
+          _preFlightDislikes.values.forEach((set) => set.remove(option));
+          _inFlightDislikes.values.forEach((set) => set.remove(option));
+          _postFlightDislikes.values.forEach((set) => set.remove(option));
+        } else {
+          // Toggle on - add to all phase dislikes maps
+          if (_preFlightDislikes[category] == null) _preFlightDislikes[category] = <String>{};
+          if (_inFlightDislikes[category] == null) _inFlightDislikes[category] = <String>{};
+          if (_postFlightDislikes[category] == null) _postFlightDislikes[category] = <String>{};
+          
+          _preFlightDislikes[category]!.add(option);
+          _inFlightDislikes[category]!.add(option);
+          _postFlightDislikes[category]!.add(option);
+        }
+      }
+    });
+  }
+
+  // Keep these methods for backend compatibility (not used in UI anymore)
+  Widget _buildPreFlightFeedback() {
+    return _buildUnifiedFeedback();
   }
 
   Widget _buildInFlightFeedback() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCategorySection(
-            'What stands out?',
-            _inFlightLikes,
-            _getInFlightLikes(),
-            Icons.thumb_up,
-            Colors.green,
-          ),
-          SizedBox(height: 24),
-          _buildCategorySection(
-            'What could be improved?',
-            _inFlightDislikes,
-            _getInFlightDislikes(),
-            Icons.thumb_down,
-            Colors.red,
-          ),
-        ],
-      ),
-    );
+    return _buildUnifiedFeedback();
   }
 
   Widget _buildPostFlightFeedback() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCategorySection(
-            'What stands out?',
-            _postFlightLikes,
-            _getPostFlightLikes(),
-            Icons.thumb_up,
-            Colors.green,
-          ),
-          SizedBox(height: 24),
-          _buildCategorySection(
-            'What could be improved?',
-            _postFlightDislikes,
-            _getPostFlightDislikes(),
-            Icons.thumb_down,
-            Colors.red,
-          ),
-        ],
-      ),
-    );
+    return _buildUnifiedFeedback();
   }
 
   Widget _buildCategorySection(
@@ -352,6 +336,7 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     List<String> options,
     IconData icon,
     Color color,
+    bool isLikes,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,33 +356,21 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
           spacing: 8,
           runSpacing: 8,
           children: options.map((option) {
-            final isSelected =
-                selections.values.any((set) => set.contains(option));
+            // Check if selected in the appropriate section (likes or dislikes)
+            final isSelected = isLikes
+                ? (_preFlightLikes.values.any((set) => set.contains(option)) ||
+                   _inFlightLikes.values.any((set) => set.contains(option)) ||
+                   _postFlightLikes.values.any((set) => set.contains(option)))
+                : (_preFlightDislikes.values.any((set) => set.contains(option)) ||
+                   _inFlightDislikes.values.any((set) => set.contains(option)) ||
+                   _postFlightDislikes.values.any((set) => set.contains(option)));
+            
             return GestureDetector(
               onTap: () {
-                setState(() {
-                  // Find which category this option belongs to
-                  String category = '';
-                  if (options == _getPreFlightLikes() ||
-                      options == _getPreFlightDislikes()) {
-                    category = _getPreFlightCategory(option);
-                  } else if (options == _getInFlightLikes() ||
-                      options == _getInFlightDislikes()) {
-                    category = _getInFlightCategory(option);
-                  } else {
-                    category = _getPostFlightCategory(option);
-                  }
-
-                  if (selections[category] == null) {
-                    selections[category] = <String>{};
-                  }
-
-                  if (isSelected) {
-                    selections[category]!.remove(option);
-                  } else {
-                    selections[category]!.add(option);
-                  }
-                });
+                HapticFeedback.selectionClick();
+                // Use the option as the category key
+                final category = option;
+                _updateAllPhaseSelections(category, option, isLikes);
               },
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -421,8 +394,388 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
             );
           }).toList(),
         ),
+
+        SizedBox(height: 12),
+
+        // Tell Us More and Media buttons
+        Row(
+          children: [
+            // Tell Us More button
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isLikes) {
+                      _showLikesCommentBox = !_showLikesCommentBox;
+                    } else {
+                      _showDislikesCommentBox = !_showDislikesCommentBox;
+                    }
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey[600]!, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.edit, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Tell Us More',
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(width: 8),
+
+            // Media button
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _showMediaOptions(isLikes),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey[600]!, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Media',
+                        style: AppStyles.textStyle_14_500
+                            .copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        // Comment box (if enabled)
+        if ((isLikes && _showLikesCommentBox) ||
+            (!isLikes && _showDislikesCommentBox))
+          Container(
+            margin: EdgeInsets.only(top: 12),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Share more about what you ${isLikes ? 'liked' : 'disliked'}...',
+                  style: AppStyles.textStyle_14_500
+                      .copyWith(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: isLikes
+                      ? _likesCommentController
+                      : _dislikesCommentController,
+                  maxLines: 3,
+                  maxLength: 250,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: color),
+                    ),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                  onChanged: (value) {
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+          ),
+
+        // Media upload section (if enabled)
+        if ((isLikes && _showLikesCommentBox) ||
+            (!isLikes && _showDislikesCommentBox))
+          Container(
+            margin: EdgeInsets.only(top: 12),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Media Upload',
+                  style:
+                      AppStyles.textStyle_14_600.copyWith(color: Colors.black),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Add photo or video (optional)',
+                  style: AppStyles.textStyle_12_400
+                      .copyWith(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _uploadImage(isLikes),
+                        icon: Icon(Icons.camera_alt, color: Colors.white),
+                        label: Text('Upload Image'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _recordVideo(isLikes),
+                        icon: Icon(Icons.videocam, color: Colors.white),
+                        label: Text('Record Video'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Display uploaded media
+                if ((isLikes ? _likesMediaFiles : _dislikesMediaFiles).isNotEmpty) ...[
+                  SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: (isLikes ? _likesMediaFiles : _dislikesMediaFiles)
+                        .map((file) => _buildMediaPreview(file, isLikes))
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
       ],
     );
+  }
+
+  Widget _buildMediaPreview(String filePath, bool isLikes) {
+    return Stack(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: filePath.endsWith('.mp4') || filePath.endsWith('.mov')
+                ? Container(
+                    color: Colors.black,
+                    child: Icon(Icons.videocam, color: Colors.white, size: 32),
+                  )
+                : Image.file(
+                    File(filePath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(Icons.image, color: Colors.grey[400]);
+                    },
+                  ),
+          ),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isLikes) {
+                  _likesMediaFiles.remove(filePath);
+                } else {
+                  _dislikesMediaFiles.remove(filePath);
+                }
+              });
+            },
+            child: Container(
+              padding: EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.close, color: Colors.white, size: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showMediaOptions(bool isLikes) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Add Media',
+              style: AppStyles.textStyle_20_600,
+            ),
+            SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _uploadImage(isLikes);
+                    },
+                    icon: Icon(Icons.camera_alt, color: Colors.white),
+                    label: Text('Upload Image'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _recordVideo(isLikes);
+                    },
+                    icon: Icon(Icons.videocam, color: Colors.white),
+                    label: Text('Record Video'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadImage(bool isLikes) async {
+    try {
+      final String? imagePath = await MediaService.pickImage(fromCamera: false);
+
+      if (imagePath != null) {
+        setState(() {
+          if (isLikes) {
+            _likesMediaFiles.add(imagePath);
+          } else {
+            _dislikesMediaFiles.add(imagePath);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Image added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding image'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _recordVideo(bool isLikes) async {
+    try {
+      final String? videoPath = await MediaService.recordVideo();
+
+      if (videoPath != null) {
+        setState(() {
+          if (isLikes) {
+            _likesMediaFiles.add(videoPath);
+          } else {
+            _dislikesMediaFiles.add(videoPath);
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Video added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error recording video: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error recording video'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   bool _canSubmit() {
@@ -497,6 +850,8 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                 ];
 
       bool allSuccess = true;
+      List<String> failedPhases = [];
+      
       for (final phaseData in phases) {
         final phase = phaseData['phase'] as String;
         final likes = phaseData['likes'] as Map<String, Set<String>>;
@@ -505,23 +860,63 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
         debugPrint('🔄 Processing phase: $phase');
         debugPrint('   Likes: $likes');
         debugPrint('   Dislikes: $dislikes');
+        debugPrint('   Likes comment: ${_likesCommentController.text}');
+        debugPrint('   Dislikes comment: ${_dislikesCommentController.text}');
 
-        final success = await PhaseFeedbackService.submitPhaseFeedback(
-          userId: userId,
-          journeyId: journeyId,
-          flightId: flightId,
-          seat: seat,
-          phase: phase,
-          overallRating: _overallRating,
-          likes: likes,
-          dislikes: dislikes,
-        );
+        // Combine text comments with selections
+        // Add comments to the appropriate map so they're included in submission
+        final likesWithComments = Map<String, Set<String>>.from(likes);
+        final dislikesWithComments = Map<String, Set<String>>.from(dislikes);
+        
+        // Include text comments in the feedback
+        if (_likesCommentController.text.isNotEmpty) {
+          if (!likesWithComments.containsKey('Additional Comments')) {
+            likesWithComments['Additional Comments'] = <String>{};
+          }
+          likesWithComments['Additional Comments']!.add(_likesCommentController.text);
+        }
+        
+        if (_dislikesCommentController.text.isNotEmpty) {
+          if (!dislikesWithComments.containsKey('Additional Comments')) {
+            dislikesWithComments['Additional Comments'] = <String>{};
+          }
+          dislikesWithComments['Additional Comments']!.add(_dislikesCommentController.text);
+        }
 
-        if (!success) {
+        // Check if there's any feedback to submit (at minimum, we have the overall rating)
+        final hasLikes = likesWithComments.values.any((set) => set.isNotEmpty);
+        final hasDislikes = dislikesWithComments.values.any((set) => set.isNotEmpty);
+        final hasComments = _likesCommentController.text.isNotEmpty || _dislikesCommentController.text.isNotEmpty;
+        
+        if (!hasLikes && !hasDislikes && !hasComments) {
+          debugPrint('⚠️ No feedback selections for phase: $phase, but submitting with overall rating only');
+        }
+
+        try {
+          final success = await PhaseFeedbackService.submitPhaseFeedback(
+            userId: userId,
+            journeyId: journeyId,
+            flightId: flightId,
+            seat: seat,
+            phase: phase,
+            overallRating: _overallRating,
+            likes: likesWithComments,
+            dislikes: dislikesWithComments,
+          );
+
+          if (!success) {
+            allSuccess = false;
+            failedPhases.add(phase);
+            debugPrint('❌ Failed to submit feedback for phase: $phase');
+          } else {
+            debugPrint('✅ Successfully submitted feedback for phase: $phase');
+          }
+        } catch (e, stackTrace) {
           allSuccess = false;
-          debugPrint('❌ Failed to submit feedback for phase: $phase');
-        } else {
-          debugPrint('✅ Successfully submitted feedback for phase: $phase');
+          failedPhases.add(phase);
+          debugPrint('❌ Exception submitting feedback for phase: $phase');
+          debugPrint('   Error: $e');
+          debugPrint('   Stack trace: $stackTrace');
         }
       }
 
@@ -535,7 +930,10 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
         // Call the callback
         widget.onSubmitted?.call();
       } else {
-        _showErrorDialog('Some feedback failed to submit. Please try again.');
+        final errorMessage = failedPhases.isEmpty
+            ? 'Some feedback failed to submit. Please try again.'
+            : 'Failed to submit feedback for: ${failedPhases.join(', ')}. Please try again.';
+        _showErrorDialog(errorMessage);
       }
     } catch (e) {
       debugPrint('❌ Error submitting feedback: $e');
@@ -720,94 +1118,39 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     }
   }
 
-  // Pre-Flight Categories
-  List<String> _getPreFlightLikes() {
+  // Unified categories for all phases
+  List<String> _getUnifiedLikes() {
     return [
-      'Check-in process',
-      'Security line wait time',
-      'Boarding process',
-      'Airport Facilities and Shops',
-      'Smooth Airport experience',
-      'Airline Lounge',
-      'Something else',
-    ];
-  }
-
-  List<String> _getPreFlightDislikes() {
-    return [
-      'Check-in process',
-      'Security line wait time',
-      'Boarding process',
-      'Airport Facilities and Shops',
-      'Smooth Airport experience',
-      'Airline Lounge',
-      'Something else',
-    ];
-  }
-
-  String _getPreFlightCategory(String option) {
-    // For simplicity, we'll use the option as the category key
-    return option;
-  }
-
-  // In-Flight Categories
-  List<String> _getInFlightLikes() {
-    return [
-      'Seat comfort',
-      'Cabin cleanliness',
-      'Cabin crew',
-      'In-flight entertainment',
+      'Airport Experience (Departure and Arrival)',
+      'F&B',
+      'Seat Comfort',
+      'Entertainment',
       'Wi-Fi',
-      'Food and beverage',
-      'Something else',
+      'Onboard Service',
+      'Cleanliness',
     ];
   }
 
-  List<String> _getInFlightDislikes() {
+  List<String> _getUnifiedDislikes() {
     return [
-      'Seat comfort',
-      'Cabin cleanliness',
-      'Cabin crew',
-      'In-flight entertainment',
+      'Airport Experience (Departure and Arrival)',
+      'F&B',
+      'Seat Comfort',
+      'Entertainment',
       'Wi-Fi',
-      'Food and beverage',
-      'Something else',
+      'Onboard Service',
+      'Cleanliness',
     ];
   }
 
-  String _getInFlightCategory(String option) {
-    return option;
-  }
-
-  // Post-Flight Categories
-  List<String> _getPostFlightLikes() {
-    return [
-      'Friendly and helpful service',
-      'Smooth and troublefree flight',
-      'Onboard Comfort',
-      'Food and Beverage',
-      'Wi-Fi and IFE',
-      'Communication from airline',
-      'Baggage delivery or ease of connection',
-      'Something else',
-    ];
-  }
-
-  List<String> _getPostFlightDislikes() {
-    return [
-      'Wi-Fi',
-      'Friendly and helpful service',
-      'Stressful and uneasy flight',
-      'Onboard Comfort',
-      'Food and Beverage',
-      'Wi-Fi and IFE',
-      'Communication from airline',
-      'Baggage delivery or ease of connection',
-      'Something else',
-    ];
-  }
-
-  String _getPostFlightCategory(String option) {
-    return option;
-  }
+  // Keep old methods for backward compatibility (not used in UI)
+  List<String> _getPreFlightLikes() => _getUnifiedLikes();
+  List<String> _getPreFlightDislikes() => _getUnifiedDislikes();
+  String _getPreFlightCategory(String option) => option;
+  List<String> _getInFlightLikes() => _getUnifiedLikes();
+  List<String> _getInFlightDislikes() => _getUnifiedDislikes();
+  String _getInFlightCategory(String option) => option;
+  List<String> _getPostFlightLikes() => _getUnifiedLikes();
+  List<String> _getPostFlightDislikes() => _getUnifiedDislikes();
+  String _getPostFlightCategory(String option) => option;
 }

@@ -39,8 +39,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   Map<String, Map<String, bool>> _feedbackStatus = {};
   Map<String, Map<String, Map<String, dynamic>?>> _existingFeedback = {};
   
-  // Complete journey loading state
-  bool _isCompletingJourney = false;
+  // Removed _isCompletingJourney - no longer needed as completion happens after review
   
   // Real-time updates
   Timer? _refreshTimer;
@@ -262,14 +261,6 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
 
   Widget _buildCompletedJourneyCard(FlightTrackingModel flight) {
     final journeyId = flight.journeyId;
-    final feedbackPercentage =
-        journeyId != null ? getFeedbackCompletionPercentage(journeyId) : 0;
-    final hasAnyFeedback = journeyId != null
-        ? _feedbackStatus[journeyId]
-                ?.values
-                .any((hasFeedback) => hasFeedback) ??
-            false
-        : false;
 
     return Container(
       margin: EdgeInsets.all(16),
@@ -326,24 +317,6 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                         style: AppStyles.textStyle_12_500
                             .copyWith(color: Colors.grey[500]),
                       ),
-                      if (hasAnyFeedback) ...[
-                        SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.feedback,
-                              size: 16,
-                              color: Colors.blue,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              'Feedback: $feedbackPercentage% Complete',
-                              style: AppStyles.textStyle_12_500
-                                  .copyWith(color: Colors.blue),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -429,73 +402,28 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           // Action Buttons
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: OutlinedButton(
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     onPressed: () {
-                      _showJourneyDetails(flight);
+                      _showJourneyDetailsWithFeedback(flight);
                     },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.grey[300]!),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: Text(
                       'View Details',
-                      style: AppStyles.textStyle_14_500
-                          .copyWith(color: Colors.grey[700]),
+                      style: AppStyles.textStyle_14_600
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
-                // Only show button if feedback exists (Rate Experience is commented out)
-                if (hasAnyFeedback)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Show read-only view of submitted feedback
-                        _showReadOnlyFeedback(flight);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'View Feedback',
-                        style: AppStyles.textStyle_14_600
-                            .copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                
-                /* 
-                // COMMENTED OUT: Rate Experience functionality
-                // Uncomment this to allow users to rate completed journeys without feedback
-                if (!hasAnyFeedback)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Allow rating for first time
-                        _showFeedbackForCompletedJourney(flight);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Rate Experience',
-                        style: AppStyles.textStyle_14_600
-                            .copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                */
+                // Review Flight button removed - journeys are only completed after review
               ],
             ),
           ),
@@ -558,26 +486,24 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
 
           SizedBox(height: 32),
 
-          // Complete Journey Button
+          // Review Journey Button (replaces Complete Journey)
+          // Journey will only move to Completed tab after review is submitted
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Builder(
               builder: (context) {
-                final canComplete = _canCompleteJourney(flight);
-                final isEnabled = canComplete && !_isCompletingJourney;
+                final canReview = _canCompleteJourney(flight);
                 
                 return ElevatedButton(
-                  onPressed: isEnabled
-                      ? () async {
-                          await _completeJourney();
+                  onPressed: canReview
+                      ? () {
+                          _showReviewFlightModal(flight);
                         }
-                      : canComplete
-                          ? null  // Disabled while loading
-                          : () {
-                              _showCannotCompleteDialog(context, flight);
-                            },
+                      : () {
+                          _showCannotCompleteDialog(context, flight);
+                        },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isEnabled 
+                    backgroundColor: canReview 
                         ? Colors.black 
                         : Colors.grey[400],
                     padding: EdgeInsets.symmetric(vertical: 16),
@@ -586,44 +512,22 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                     ),
                     elevation: 0,
                   ),
-                  child: _isCompletingJourney
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Completing...',
-                              style: AppStyles.textStyle_16_600
-                                  .copyWith(color: Colors.white),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              canComplete ? Icons.check_circle : Icons.schedule,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Complete Journey',
-                              style: AppStyles.textStyle_16_600
-                                  .copyWith(color: Colors.white),
-                            ),
-                          ],
-                        ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        canReview ? Icons.star : Icons.schedule,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'Review Journey',
+                        style: AppStyles.textStyle_16_600
+                            .copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -755,6 +659,415 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     final day = dateTime.day.toString().padLeft(2, '0');
     final month = dateTime.month.toString().padLeft(2, '0');
     return '$hour:$minute\n$day/$month';
+  }
+
+  /// Show journey details with feedback in a combined modal
+  void _showJourneyDetailsWithFeedback(FlightTrackingModel flight) async {
+    if (flight.journeyId == null) {
+      // If no journey ID, just show basic details
+      _showJourneyDetails(flight);
+      return;
+    }
+
+    // Show loading indicator while refreshing feedback
+    if (!mounted) return;
+    
+    // Show a loading dialog while we fetch the latest feedback
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Always refresh feedback to ensure we have the latest data
+      debugPrint('🔄 Refreshing feedback data for journey: ${flight.journeyId}');
+      await _loadFeedbackStatusForFlight(flight.journeyId!);
+      
+      // Small delay to ensure database has processed any recent submissions
+      await Future.delayed(Duration(milliseconds: 300));
+
+      // Get overall experience feedback (fresh from database)
+      final overallFeedback = getExistingFeedbackForStage(flight.journeyId!, 'overall');
+      
+      debugPrint('📊 Feedback loaded - Overall feedback exists: ${overallFeedback != null}');
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      if (!mounted) return;
+
+      showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: EdgeInsets.only(top: 12, bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.black),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Journey Details',
+                      style: AppStyles.textStyle_20_600
+                          .copyWith(color: Colors.black),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(width: 48), // Balance the close button
+                ],
+              ),
+            ),
+
+            SizedBox(height: 24),
+
+            // Flight Details Section
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Flight Info Card
+                    Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Flight Information',
+                            style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+                          ),
+                          SizedBox(height: 16),
+                          _buildDetailRow('Flight', '${flight.carrier}${flight.flightNumber}'),
+                          _buildDetailRow('Route', '${flight.departureAirport} → ${flight.arrivalAirport}'),
+                          _buildDetailRow('PNR', flight.pnr),
+                          _buildDetailRow('Departure', _formatDateTime(flight.departureTime)),
+                          _buildDetailRow('Arrival', _formatDateTime(flight.arrivalTime)),
+                          if (flight.seatNumber != null)
+                            _buildDetailRow('Seat', flight.seatNumber!),
+                          if (flight.gate != null)
+                            _buildDetailRow('Gate', flight.gate!),
+                          if (flight.terminal != null)
+                            _buildDetailRow('Terminal', flight.terminal!),
+                          _buildDetailRow('Status', 'Completed'),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 24),
+
+                    // Feedback Section (if exists)
+                    if (overallFeedback != null) ...[
+                      Text(
+                        'Your Feedback',
+                        style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+                      ),
+                      SizedBox(height: 16),
+                      // Show feedback in the same style as review form
+                      _buildFeedbackPreview(overallFeedback),
+                    ] else ...[
+                      Container(
+                        padding: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.grey[600], size: 20),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'No feedback submitted for this journey',
+                                style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+
+            // Close button
+            Padding(
+              padding: EdgeInsets.all(24),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Close',
+                  style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    } catch (e) {
+      // Close loading dialog if there's an error
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      debugPrint('❌ Error loading feedback: $e');
+      // Show error and fall back to basic details
+      if (mounted) {
+        _showJourneyDetails(flight);
+      }
+    }
+  }
+
+  /// Build feedback preview widget
+  Widget _buildFeedbackPreview(Map<String, dynamic> feedback) {
+    // Parse likes and dislikes from comment or tags
+    final tags = feedback['tags'] as List<dynamic>? ?? [];
+    final comment = feedback['comments']?.toString() ?? feedback['comment']?.toString() ?? '';
+    
+    final allOptions = [
+      'Airport Experience (Departure and Arrival)',
+      'F&B',
+      'Seat Comfort',
+      'Entertainment',
+      'Wi-Fi',
+      'Onboard Service',
+      'Cleanliness',
+    ];
+    
+    Set<String> likes = {};
+    Set<String> dislikes = {};
+    
+    // Parse from comment
+    if (comment.isNotEmpty) {
+      final parts = comment.split(';');
+      for (final part in parts) {
+        final trimmedPart = part.trim();
+        if (trimmedPart.contains('issues:')) {
+          final options = trimmedPart.split('issues:').last.trim();
+          final optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          for (final option in optionList) {
+            if (allOptions.contains(option)) {
+              dislikes.add(option);
+            } else {
+              for (final knownOption in allOptions) {
+                if (option.toLowerCase() == knownOption.toLowerCase() ||
+                    option.toLowerCase().contains(knownOption.toLowerCase()) || 
+                    knownOption.toLowerCase().contains(option.toLowerCase())) {
+                  dislikes.add(knownOption);
+                  break;
+                }
+              }
+            }
+          }
+        } else if (trimmedPart.contains(':')) {
+          final options = trimmedPart.split(':').last.trim();
+          final optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          for (final option in optionList) {
+            if (allOptions.contains(option) && !dislikes.contains(option)) {
+              likes.add(option);
+            } else {
+              for (final knownOption in allOptions) {
+                if (!dislikes.contains(knownOption) && 
+                    (option.toLowerCase() == knownOption.toLowerCase() ||
+                     option.toLowerCase().contains(knownOption.toLowerCase()) || 
+                     knownOption.toLowerCase().contains(option.toLowerCase()))) {
+                  likes.add(knownOption);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Fallback to tags if no likes/dislikes parsed
+    if (likes.isEmpty && dislikes.isEmpty && tags.isNotEmpty) {
+      for (final tag in tags) {
+        final tagString = tag.toString().trim();
+        if (allOptions.contains(tagString)) {
+          likes.add(tagString);
+        } else {
+          for (final knownOption in allOptions) {
+            if (tagString.toLowerCase().contains(knownOption.toLowerCase()) || 
+                knownOption.toLowerCase().contains(tagString.toLowerCase())) {
+              likes.add(knownOption);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    final rating = (feedback['rating'] ??
+            feedback['overall_rating'] ??
+            feedback['score'] ??
+            0)
+        .toInt();
+
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Star Rating
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              return Container(
+                margin: EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  index < rating ? Icons.star : Icons.star_border,
+                  color: index < rating ? Colors.amber : Colors.grey[400],
+                  size: 28,
+                ),
+              );
+            }),
+          ),
+          SizedBox(height: 8),
+          Center(
+            child: Text(
+              _getRatingText(rating),
+              style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+            ),
+          ),
+          
+          if (likes.isNotEmpty || dislikes.isNotEmpty) ...[
+            SizedBox(height: 24),
+            
+            // What stands out?
+            if (likes.isNotEmpty) ...[
+              Row(
+                children: [
+                  Icon(Icons.thumb_up, color: Colors.green, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'What stands out?',
+                    style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: allOptions.map((option) {
+                  final isSelected = likes.contains(option);
+                  if (!isSelected) return SizedBox.shrink();
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(25),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.green, width: 2),
+                    ),
+                    child: Text(
+                      option,
+                      style: AppStyles.textStyle_14_500.copyWith(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: 16),
+            ],
+
+            // What can be better?
+            if (dislikes.isNotEmpty) ...[
+              Row(
+                children: [
+                  Icon(Icons.thumb_down, color: Colors.red, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'What can be better?',
+                    style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: allOptions.map((option) {
+                  final isSelected = dislikes.contains(option);
+                  if (!isSelected) return SizedBox.shrink();
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withAlpha(25),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.red, width: 2),
+                    ),
+                    child: Text(
+                      option,
+                      style: AppStyles.textStyle_14_500.copyWith(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
   }
 
   void _showJourneyDetails(FlightTrackingModel flight) {
@@ -1107,11 +1420,13 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
       backgroundColor: Colors.transparent,
       builder: (context) => ComprehensiveFeedbackModal(
         flight: flight,
-        onSubmitted: () {
+        onSubmitted: () async {
           Navigator.pop(context);
-          // Reload feedback status
+          // Reload feedback status with a small delay to allow database to process
           if (flight.journeyId != null) {
-            _loadFeedbackStatusForFlight(flight.journeyId!);
+            await Future.delayed(Duration(milliseconds: 500));
+            await _loadFeedbackStatusForFlight(flight.journeyId!);
+            debugPrint('✅ Feedback status refreshed after submission');
           }
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1120,113 +1435,74 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
               backgroundColor: Colors.green,
             ),
           );
+          // Refresh the screen to update UI
+          if (mounted) {
+            setState(() {});
+          }
         },
       ),
     );
   }
 
-  /// Show read-only feedback view for completed journeys
-  void _showReadOnlyFeedback(FlightTrackingModel flight) {
+  /// Show read-only feedback view for completed journeys - matches review form design
+  void _showReadOnlyFeedback(FlightTrackingModel flight) async {
     if (flight.journeyId == null) return;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
+    // Ensure feedback is loaded
+    await _loadFeedbackStatusForFlight(flight.journeyId!);
+
+    // Get overall experience feedback
+    final overallFeedback = getExistingFeedbackForStage(flight.journeyId!, 'overall');
+    
+    // If no overall feedback exists, show empty state
+    if (overallFeedback == null) {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
           ),
-        ),
-        padding: EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Your Feedback',
-                  style: AppStyles.textStyle_24_600,
-                ),
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Thank you for sharing your experience!',
-              style: AppStyles.textStyle_14_500.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            SizedBox(height: 24),
-
-            // Airport Review (Pre-flight experience)
-            _buildReadOnlyFeedbackCard(
-              flight,
-              'Airport Review',
-              'airport_review',
-              flight.journeyId!,
-              Icons.location_city,
-              Colors.teal,
-            ),
-
-            SizedBox(height: 12),
-
-            // Airline Review (In-flight experience)
-            _buildReadOnlyFeedbackCard(
-              flight,
-              'Airline Review',
-              'airline_review',
-              flight.journeyId!,
-              Icons.airplanemode_active,
-              Colors.green,
-            ),
-
-            SizedBox(height: 12),
-
-            // Overall Experience (from feedback table)
-            _buildReadOnlyFeedbackCard(
-              flight,
-              'Overall Experience',
-              'overall',
-              flight.journeyId!,
-              Icons.star,
-              Colors.purple,
-            ),
-
-            SizedBox(height: 24),
-
-            // Overall completion status
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green, width: 1),
-              ),
-              child: Row(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(Icons.check_circle_outline, color: Colors.green),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Feedback Completed: ${getFeedbackCompletionPercentage(flight.journeyId!)}%',
-                      style: AppStyles.textStyle_14_600
-                          .copyWith(color: Colors.green[700]),
-                    ),
+                  Text(
+                    'Your Feedback',
+                    style: AppStyles.textStyle_24_600,
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.black),
                   ),
                 ],
               ),
-            ),
-          ],
+              SizedBox(height: 24),
+              Text(
+                'No feedback submitted yet',
+                style: AppStyles.textStyle_16_500.copyWith(color: Colors.grey[600]),
+              ),
+              SizedBox(height: 24),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    // Show overall experience feedback in review form style
+    if (mounted) {
+      _showDetailedFeedbackDialog('Overall Experience', overallFeedback, Colors.purple);
+    }
   }
 
   /// Deprecated: Old management function (replaced with read-only view)
@@ -1298,7 +1574,20 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
   String _getFeedbackSummary(Map<String, dynamic>? feedback) {
     if (feedback == null) return 'No feedback submitted';
 
-    // Show rating if available
+    // For Overall Experience, show rating and bubbles
+    if (feedback['rating'] != null || feedback['overall_rating'] != null) {
+      final rating = (feedback['rating'] ?? feedback['overall_rating'] ?? 0).toInt();
+      final tags = feedback['tags'] as List<dynamic>?;
+      
+      if (tags != null && tags.isNotEmpty) {
+        final bubbleText = tags.take(3).join(', ');
+        return '⭐ $rating/5 • $bubbleText${tags.length > 3 ? '...' : ''}';
+      }
+      
+      return '⭐ $rating/5 rating';
+    }
+
+    // Show rating if available (for other feedback types)
     if (feedback['overall_rating'] != null) {
       final rating = feedback['overall_rating'];
       return '⭐ ${rating}/5 rating';
@@ -1318,128 +1607,399 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     return 'Feedback submitted';
   }
 
-  /// Show detailed feedback in a dialog (read-only)
+  /// Show detailed feedback in a dialog (read-only) - matches review form design
   void _showDetailedFeedbackDialog(
       String title, Map<String, dynamic>? feedback, Color color) {
     if (feedback == null) return;
 
-    showDialog(
+    // Parse likes and dislikes from comment or tags
+    final tags = feedback['tags'] as List<dynamic>? ?? [];
+    final comment = feedback['comments']?.toString() ?? feedback['comment']?.toString() ?? '';
+    
+    // Parse comment to extract likes and dislikes
+    // Format: "category: option1, option2; category issues: option3, option4"
+    final allOptions = [
+      'Airport Experience (Departure and Arrival)',
+      'F&B',
+      'Seat Comfort',
+      'Entertainment',
+      'Wi-Fi',
+      'Onboard Service',
+      'Cleanliness',
+    ];
+    
+    Set<String> likes = {};
+    Set<String> dislikes = {};
+    
+    // Parse from comment if available
+    // Format from _createCommentFromSelections: "category: option1, option2; category issues: option3, option4"
+    // In unified form, category IS the option, so: "Airport Experience: Airport Experience; F&B issues: F&B"
+    if (comment.isNotEmpty) {
+      // Split by semicolon to get different parts
+      final parts = comment.split(';');
+      
+      for (final part in parts) {
+        final trimmedPart = part.trim();
+        
+        if (trimmedPart.contains('issues:')) {
+          // This is a dislike section: "category issues: option1, option2"
+          final options = trimmedPart.split('issues:').last.trim();
+          final optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          for (final option in optionList) {
+            // Direct match
+            if (allOptions.contains(option)) {
+              dislikes.add(option);
+            } else {
+              // Fuzzy match - find the closest matching option
+              for (final knownOption in allOptions) {
+                if (option.toLowerCase() == knownOption.toLowerCase() ||
+                    option.toLowerCase().contains(knownOption.toLowerCase()) || 
+                    knownOption.toLowerCase().contains(option.toLowerCase())) {
+                  dislikes.add(knownOption);
+                  break;
+                }
+              }
+            }
+          }
+        } else if (trimmedPart.contains(':')) {
+          // This is a like section: "category: option1, option2"
+          final options = trimmedPart.split(':').last.trim();
+          final optionList = options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+          for (final option in optionList) {
+            // Direct match
+            if (allOptions.contains(option) && !dislikes.contains(option)) {
+              likes.add(option);
+            } else {
+              // Fuzzy match - find the closest matching option
+              for (final knownOption in allOptions) {
+                if (!dislikes.contains(knownOption) && 
+                    (option.toLowerCase() == knownOption.toLowerCase() ||
+                     option.toLowerCase().contains(knownOption.toLowerCase()) || 
+                     knownOption.toLowerCase().contains(option.toLowerCase()))) {
+                  likes.add(knownOption);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // If no likes/dislikes from comment, use tags (assume all are likes for now)
+    // This is a fallback - tags don't distinguish between likes and dislikes
+    if (likes.isEmpty && dislikes.isEmpty && tags.isNotEmpty) {
+      for (final tag in tags) {
+        final tagString = tag.toString().trim();
+        // Try direct match first
+        if (allOptions.contains(tagString)) {
+          likes.add(tagString);
+        } else {
+          // Try fuzzy match
+          for (final knownOption in allOptions) {
+            if (tagString.toLowerCase().contains(knownOption.toLowerCase()) || 
+                knownOption.toLowerCase().contains(tagString.toLowerCase())) {
+              likes.add(knownOption);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          padding: EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.feedback, color: color, size: 24),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: AppStyles.textStyle_20_600,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                
-                // Rating
-                if (feedback['overall_rating'] != null ||
-                    feedback['score'] != null) ...[
-                  Text(
-                    'Rating',
-                    style: AppStyles.textStyle_14_600.copyWith(
-                      color: Colors.grey[600],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: EdgeInsets.only(top: 12, bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.black),
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppStyles.textStyle_20_600
+                          .copyWith(color: Colors.black),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(width: 48), // Balance the close button
+                ],
+              ),
+            ),
+
+            SizedBox(height: 24),
+
+            // Pixar Image Header
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 24),
+              height: 180,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/images/End of Flight.png',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+
+            SizedBox(height: 24),
+
+            // Overall Rating Section (matches review form)
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Overall Experience',
+                    style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+                  ),
+                  SizedBox(height: 12),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(5, (index) {
-                      final rating = (feedback['overall_rating'] ??
+                      final rating = (feedback['rating'] ??
+                              feedback['overall_rating'] ??
                               feedback['score'] ??
                               0)
                           .toInt();
-                      return Icon(
-                        index < rating ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
-                        size: 28,
+                      return Container(
+                        margin: EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          index < rating ? Icons.star : Icons.star_border,
+                          color: index < rating
+                              ? Colors.amber
+                              : Colors.grey[400],
+                          size: 32,
+                        ),
                       );
                     }),
                   ),
-                  SizedBox(height: 16),
-                ],
-
-                // Comments
-                if (feedback['comments'] != null &&
-                    feedback['comments'].isNotEmpty) ...[
-                  Text(
-                    'Comments',
-                    style: AppStyles.textStyle_14_600.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      feedback['comments'].toString(),
-                      style: AppStyles.textStyle_14_400,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                ],
-
-                // Submitted date
-                if (feedback['created_at'] != null) ...[
-                  Text(
-                    'Submitted',
-                    style: AppStyles.textStyle_14_600.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
                   SizedBox(height: 8),
                   Text(
-                    _formatFeedbackDate(feedback['created_at']),
-                    style: AppStyles.textStyle_14_400.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                    _getRatingText((feedback['rating'] ??
+                            feedback['overall_rating'] ??
+                            feedback['score'] ??
+                            0)
+                        .toInt()),
+                    style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
                   ),
-                  SizedBox(height: 16),
                 ],
-
-                // Close button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: color,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'Close',
-                      style: AppStyles.textStyle_14_600
-                          .copyWith(color: Colors.white),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+
+            SizedBox(height: 24),
+
+            // Feedback bubbles (matches review form design)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // What stands out? section
+                    if (likes.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.thumb_up, color: Colors.green, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'What stands out?',
+                            style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: allOptions.map((option) {
+                          final isSelected = likes.contains(option);
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.green.withAlpha(25) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? Colors.green : Colors.grey[300]!,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              option,
+                              style: AppStyles.textStyle_14_500.copyWith(
+                                color: isSelected ? Colors.green : Colors.black,
+                                fontWeight:
+                                    isSelected ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      SizedBox(height: 32),
+                    ],
+
+                    // What can be better? section
+                    if (dislikes.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.thumb_down, color: Colors.red, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'What can be better?',
+                            style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: allOptions.map((option) {
+                          final isSelected = dislikes.contains(option);
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.red.withAlpha(25) : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? Colors.red : Colors.grey[300]!,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              option,
+                              style: AppStyles.textStyle_14_500.copyWith(
+                                color: isSelected ? Colors.red : Colors.black,
+                                fontWeight:
+                                    isSelected ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      SizedBox(height: 24),
+                    ],
+
+                    // Show all tags if we couldn't parse likes/dislikes
+                    if (likes.isEmpty && dislikes.isEmpty && tags.isNotEmpty) ...[
+                      Text(
+                        'Selected Categories',
+                        style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                      ),
+                      SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: tags.map<Widget>((tag) {
+                          final tagString = tag.toString();
+                          return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Text(
+                              tagString,
+                              style: AppStyles.textStyle_14_500.copyWith(
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      SizedBox(height: 24),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            // Close button
+            Padding(
+              padding: EdgeInsets.all(24),
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Close',
+                  style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  String _getRatingText(int rating) {
+    switch (rating) {
+      case 1:
+        return 'Poor';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Very Good';
+      case 5:
+        return 'Excellent';
+      default:
+        return 'Rate your experience';
+    }
   }
 
   /// Format feedback date for display
@@ -1521,6 +2081,47 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         ),
       );
     }
+  }
+
+  /// Show review flight modal - after submission, complete the journey
+  void _showReviewFlightModal(FlightTrackingModel flight) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ComprehensiveFeedbackModal(
+        flight: flight,
+        onSubmitted: () async {
+          Navigator.pop(context);
+          
+          // After review is submitted, complete the journey
+          // This moves it from Active to Completed tab
+          if (flight.journeyId != null) {
+            await _completeJourneyAfterReview(flight);
+          }
+          
+          // Reload feedback status with a small delay to allow database to process
+          if (flight.journeyId != null) {
+            await Future.delayed(Duration(milliseconds: 500));
+            await _loadFeedbackStatusForFlight(flight.journeyId!);
+            debugPrint('✅ Feedback status refreshed after submission');
+          }
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Thank you for your review! Journey completed.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Refresh the screen to update UI
+          if (mounted) {
+            setState(() {});
+          }
+        },
+      ),
+    );
   }
 
   /// Sync journeys from database based on current user
@@ -1644,23 +2245,10 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
     );
   }
 
-  /// Complete the journey by updating its status
-  Future<void> _completeJourney() async {
-    // Set loading state
-    setState(() {
-      _isCompletingJourney = true;
-    });
-
+  /// Complete the journey after review is submitted
+  /// This is called automatically after the user submits their review
+  Future<void> _completeJourneyAfterReview(FlightTrackingModel flight) async {
     try {
-      final flightTrackingState = ref.read(flightTrackingProvider);
-      final trackedFlights = flightTrackingState.trackedFlights.values.toList();
-      
-      if (trackedFlights.isEmpty) {
-        debugPrint('❌ No tracked flights to complete');
-        return;
-      }
-
-      final flight = trackedFlights.first;
       final journeyId = flight.journeyId;
       
       if (journeyId == null) {
@@ -1668,22 +2256,7 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         return;
       }
 
-      debugPrint('🔄 Completing journey: $journeyId');
-
-      // Check if user can complete the journey based on flight arrival time
-      final now = DateTime.now();
-      if (!flight.arrivalTime.isBefore(now)) {
-        debugPrint('⚠️ Flight has not landed yet');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Flight has not landed yet. Please wait until arrival.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
+      debugPrint('🔄 Completing journey after review: $journeyId');
 
       // Mark journey as completed using helper method with fallback strategies
       // This handles schema errors gracefully by trying multiple update strategies
@@ -1708,16 +2281,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         // This will reload all journeys and properly separate active from completed
         await _syncJourneysFromDatabase();
 
-        // Show success message
+        // Switch to completed tab to show the newly completed journey
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Journey completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          
-          // Switch to completed tab to show the newly completed journey
           _tabController.animateTo(1);
         }
       } catch (updateError) {
@@ -1727,29 +2292,22 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to complete journey. Please try again.'),
-              backgroundColor: Colors.red,
+              content: Text('Review submitted, but failed to complete journey. Please try again.'),
+              backgroundColor: Colors.orange,
               duration: Duration(seconds: 5),
             ),
           );
         }
       }
     } catch (e) {
-      debugPrint('❌ Error completing journey: $e');
+      debugPrint('❌ Error completing journey after review: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to complete journey. Please try again.'),
-            backgroundColor: Colors.red,
+            content: Text('Review submitted, but failed to complete journey. Please try again.'),
+            backgroundColor: Colors.orange,
           ),
         );
-      }
-    } finally {
-      // Reset loading state
-      if (mounted) {
-        setState(() {
-          _isCompletingJourney = false;
-        });
       }
     }
   }
