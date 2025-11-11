@@ -1,7 +1,7 @@
 name: airline_app
 description: "Real-time airline feedback and review platform for passengers"
 publish_to: "none"
-version: 1.0.9+30
+version: 1.0.9+31
 
 environment:
   sdk: ^3.5.3
