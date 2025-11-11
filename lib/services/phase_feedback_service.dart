@@ -31,32 +31,62 @@ class PhaseFeedbackService {
         actualJourneyId = journeyId;
         
         // Get flight_id from journey record
-        journeyData = await _client
-            .from('journeys')
-            .select('flight_id')
-            .eq('id', journeyId)
-            .maybeSingle();
-        
-        actualFlightId = journeyData?['flight_id'];
+        try {
+          journeyData = await _client
+              .from('journeys')
+              .select('flight_id')
+              .eq('id', journeyId)
+              .maybeSingle();
+          
+          if (journeyData == null) {
+            debugPrint('❌ Journey not found in database for UUID: $journeyId');
+            // Still proceed - the journey might be created later or the UUID might be valid but not yet in DB
+            debugPrint('⚠️ Proceeding with journeyId as-is, flightId will be null');
+          } else {
+            actualFlightId = journeyData['flight_id'] as String?;
+            debugPrint('✅ Found journey in database, flight ID: $actualFlightId');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error looking up journey: $e');
+          debugPrint('⚠️ Proceeding with journeyId as-is');
+        }
       } else {
         // journeyId is PNR, need to look up the actual journey
         debugPrint('🔍 Journey ID is PNR, looking up journey');
         journeyData = await _getJourneyData(journeyId);
         if (journeyData == null) {
           debugPrint('❌ No journey found for PNR: $journeyId');
+          debugPrint('💡 Journey may not exist in database yet. Cannot submit feedback without journey record.');
           return false;
         }
         
         actualJourneyId = journeyData['id'] as String;
         actualFlightId = journeyData['flight_id'] as String?;
+        debugPrint('✅ Found journey for PNR, journey ID: $actualJourneyId, flight ID: $actualFlightId');
       }
 
-      debugPrint('✅ Found journey ID: $actualJourneyId, flight ID: $actualFlightId');
+      debugPrint('✅ Using journey ID: $actualJourneyId, flight ID: $actualFlightId');
 
       // Normalize phase names for better matching
       final normalizedPhase = phase.toLowerCase().trim();
 
-      if (normalizedPhase == 'pre-flight' ||
+      // Check post-flight FIRST (before in-flight) since "post-flight" contains "flight"
+      if (normalizedPhase == 'post-flight' ||
+          normalizedPhase.contains('post') ||
+          normalizedPhase.contains('overall') ||
+          normalizedPhase.contains('experience')) {
+        debugPrint('📝 Routing to overall feedback...');
+        return await _submitFeedback(
+          userId: userId,
+          journeyId: actualJourneyId,
+          flightId:
+              actualFlightId ?? actualJourneyId, // Use journey ID as fallback
+          seat: seat,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
+      } else if (normalizedPhase == 'pre-flight' ||
           normalizedPhase.contains('pre') ||
           normalizedPhase.contains('airport') ||
           normalizedPhase.contains('at the airport')) {
@@ -73,25 +103,10 @@ class PhaseFeedbackService {
         );
       } else if (normalizedPhase == 'in-flight' ||
           normalizedPhase.contains('in') ||
-          normalizedPhase.contains('flight') ||
+          (normalizedPhase.contains('flight') && !normalizedPhase.contains('post')) ||
           normalizedPhase.contains('during the flight')) {
         debugPrint('✈️ Routing to airline review...');
         return await _submitAirlineReview(
-          userId: userId,
-          journeyId: actualJourneyId,
-          flightId:
-              actualFlightId ?? actualJourneyId, // Use journey ID as fallback
-          seat: seat,
-          overallRating: overallRating,
-          likes: likes,
-          dislikes: dislikes,
-        );
-      } else if (normalizedPhase == 'post-flight' ||
-          normalizedPhase.contains('post') ||
-          normalizedPhase.contains('overall') ||
-          normalizedPhase.contains('experience')) {
-        debugPrint('📝 Routing to overall feedback...');
-        return await _submitFeedback(
           userId: userId,
           journeyId: actualJourneyId,
           flightId:
@@ -188,7 +203,6 @@ class PhaseFeedbackService {
           'accessibility': scores['accessibility'],
           'comments': _createCommentFromSelections(likes, dislikes),
           'would_recommend': overallRating >= 4,
-          'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', existingReview['id']);
         
         debugPrint('✅ Airport review updated successfully');
@@ -362,7 +376,6 @@ class PhaseFeedbackService {
             'value_for_money': scores['value_for_money'],
             'comments': _createCommentFromSelections(likes, dislikes),
             'would_recommend': overallRating >= 4,
-            'updated_at': DateTime.now().toIso8601String(),
           }).eq('id', existingReview['id']);
           
           debugPrint('✅ Airline review updated successfully');
@@ -418,8 +431,8 @@ class PhaseFeedbackService {
   /// Submit feedback for Post-Flight phase
   static Future<bool> _submitFeedback({
     required String userId,
-    required String journeyId, // This is now the actual database UUID
-    required String flightId, // This is now the actual database UUID
+    required String journeyId, // This could be UUID or PNR
+    required String flightId, // This could be UUID or PNR
     required String seat,
     required int overallRating,
     required Map<String, Set<String>> likes,
@@ -427,24 +440,61 @@ class PhaseFeedbackService {
   }) async {
     try {
       debugPrint('📝 Submitting overall feedback...');
+      debugPrint('   Input journeyId: $journeyId');
+      debugPrint('   Input flightId: $flightId');
+
+      // Resolve journeyId and flightId to actual UUIDs (same logic as submitPhaseFeedback)
+      final isJourneyUuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false).hasMatch(journeyId);
+      
+      String actualJourneyId;
+      String? actualFlightId;
+      
+      if (isJourneyUuid) {
+        actualJourneyId = journeyId;
+        // Get flight_id from journey record
+        final journeyLookup = await _client
+            .from('journeys')
+            .select('flight_id')
+            .eq('id', journeyId)
+            .maybeSingle();
+        actualFlightId = journeyLookup?['flight_id'] as String?;
+      } else {
+        // journeyId is PNR, need to look up the actual journey
+        debugPrint('🔍 Journey ID is PNR, looking up journey');
+        final journeyLookup = await _getJourneyData(journeyId);
+        if (journeyLookup == null) {
+          debugPrint('❌ No journey found for PNR: $journeyId');
+          return false;
+        }
+        actualJourneyId = journeyLookup['id'] as String;
+        actualFlightId = journeyLookup['flight_id'] as String?;
+      }
+      
+      debugPrint('✅ Resolved journey ID: $actualJourneyId, flight ID: $actualFlightId');
 
       // First check if journey is actually completed
-      final journeyData = await _client
+      final journeyStatusData = await _client
           .from('journeys')
           .select('current_phase, visit_status, status')
-          .eq('id', journeyId)
+          .eq('id', actualJourneyId)
           .maybeSingle();
 
-      if (journeyData == null) {
-        debugPrint('❌ Journey not found: $journeyId');
-        return false;
+      String? currentPhase;
+      String? visitStatus;
+      String? status;
+
+      if (journeyStatusData == null) {
+        debugPrint('❌ Journey not found: $actualJourneyId');
+        debugPrint('💡 This might happen if the journey was deleted or the ID is incorrect.');
+        // For Post-Flight feedback, we can still try to insert even if journey lookup fails
+        // The database foreign key constraint will handle validation
+        debugPrint('⚠️ Attempting to submit feedback anyway - database will validate');
+      } else {
+        currentPhase = journeyStatusData['current_phase'] as String?;
+        visitStatus = journeyStatusData['visit_status'] as String?;
+        status = journeyStatusData['status'] as String?;
+        debugPrint('🔍 Journey status - phase: $currentPhase, visit_status: $visitStatus, status: $status');
       }
-
-      final currentPhase = journeyData['current_phase'] as String?;
-      final visitStatus = journeyData['visit_status'] as String?;
-      final status = journeyData['status'] as String?;
-
-      debugPrint('🔍 Journey status - phase: $currentPhase, visit_status: $visitStatus, status: $status');
 
       // Note: Removed auto-completion functionality - journey completion is now manual only
       // Users must explicitly complete the journey, submitting overall review does not auto-complete
@@ -464,41 +514,71 @@ class PhaseFeedbackService {
 
       for (final phase in validPhases) {
         try {
-          await _client.from('feedback').insert({
-            'journey_id': journeyId,
-            'flight_id': flightId,
+          debugPrint('🔄 Attempting to insert feedback with phase: $phase');
+          debugPrint('   journey_id: $actualJourneyId');
+          debugPrint('   flight_id: ${actualFlightId ?? actualJourneyId}');
+          debugPrint('   rating: $overallRating');
+          
+          // Try with all fields first
+          final insertData = {
+            'journey_id': actualJourneyId,
+            'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
             'phase': phase,
-            'category': 'overall_experience',
             'rating': overallRating.toDouble(),
-            'sentiment': _getSentiment(overallRating),
             'comment': _createCommentFromSelections(likes, dislikes),
-            'timestamp': DateTime.now().toIso8601String(),
-            'tags': _extractTags(likes, dislikes),
             'created_at': DateTime.now().toIso8601String(),
-          });
+          };
+          
+          // Add optional fields if they exist in schema
+          try {
+            insertData['category'] = 'overall_experience';
+            insertData['sentiment'] = _getSentiment(overallRating);
+            insertData['timestamp'] = DateTime.now().toIso8601String();
+            final tags = _extractTags(likes, dislikes);
+            if (tags.isNotEmpty) {
+              insertData['tags'] = tags;
+            }
+          } catch (e) {
+            debugPrint('⚠️ Error adding optional fields: $e');
+            // Continue without optional fields
+          }
+          
+          await _client.from('feedback').insert(insertData);
           successfulPhase = phase;
+          debugPrint('✅ Successfully inserted feedback with phase: $phase');
           break;
-        } catch (e) {
+        } catch (e, stackTrace) {
           debugPrint('⚠️ Phase "$phase" failed: $e');
-          // If it's a schema error, try a different approach
-          if (e.toString().contains('schema "net"') || 
-              e.toString().contains('does not exist')) {
-            debugPrint('🔄 Schema error detected, trying fallback approach...');
-            // Try inserting without some fields that might cause schema issues
+          debugPrint('   Stack trace: $stackTrace');
+          
+          // If it's a foreign key constraint error, the journey/flight might not exist
+          if (e.toString().contains('foreign key') || 
+              e.toString().contains('violates foreign key constraint')) {
+            debugPrint('❌ Foreign key constraint violation - journey or flight may not exist');
+            debugPrint('   This might mean the journey_id or flight_id is invalid');
+            // Don't try other phases if it's a foreign key issue
+            throw Exception('Journey or flight not found in database: $e');
+          }
+          
+          // If it's a schema error, try minimal fields only
+          if (e.toString().contains('schema') || 
+              e.toString().contains('does not exist') ||
+              e.toString().contains('column') ||
+              e.toString().contains('unknown')) {
+            debugPrint('🔄 Schema error detected, trying minimal fields only...');
             try {
               await _client.from('feedback').insert({
-                'journey_id': journeyId,
-                'flight_id': flightId,
+                'journey_id': actualJourneyId,
+                'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
                 'phase': phase,
                 'rating': overallRating.toDouble(),
                 'comment': _createCommentFromSelections(likes, dislikes),
-                'created_at': DateTime.now().toIso8601String(),
               });
               successfulPhase = phase;
-              debugPrint('✅ Fallback insert successful for phase: $phase');
+              debugPrint('✅ Minimal fields insert successful for phase: $phase');
               break;
             } catch (fallbackError) {
-              debugPrint('⚠️ Fallback also failed: $fallbackError');
+              debugPrint('⚠️ Minimal fields also failed: $fallbackError');
               continue;
             }
           }
@@ -507,7 +587,8 @@ class PhaseFeedbackService {
       }
 
       if (successfulPhase == null) {
-        throw Exception('No valid phase found for feedback table');
+        debugPrint('❌ All phase attempts failed for feedback submission');
+        throw Exception('No valid phase found for feedback table. All attempts failed.');
       }
 
       debugPrint('✅ Used phase: $successfulPhase');

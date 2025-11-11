@@ -30,11 +30,19 @@ class FeedbackCheckingService {
           .eq('journey_id', journeyId)
           .limit(1);
 
+      // Check feedback table for overall experience
+      final overallResponse = await _client
+          .from('feedback')
+          .select('id')
+          .eq('journey_id', journeyId)
+          .or('phase.eq.landed,phase.eq.post-flight,phase.eq.arrival,phase.eq.overall,phase.eq.final')
+          .limit(1);
+
       final feedbackStages = <String, bool>{
         'pre_flight': false,
         'in_flight': false,
         'post_flight': false,
-        'overall': false, // Overall experience from feedback table
+        'overall': overallResponse.isNotEmpty, // Overall experience from feedback table
         'airline_review': airlineResponse.isNotEmpty,
         'airport_review': airportResponse.isNotEmpty,
       };
@@ -248,6 +256,21 @@ class FeedbackCheckingService {
 
       if (airportResponse != null) {
         feedbackMap['airport_review'] = airportResponse;
+      }
+
+      // Get overall experience feedback from feedback table
+      final overallResponse = await _client
+          .from('feedback')
+          .select('*')
+          .eq('journey_id', journeyId)
+          .or('phase.eq.landed,phase.eq.post-flight,phase.eq.arrival,phase.eq.overall,phase.eq.final')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (overallResponse != null) {
+        feedbackMap['overall'] = overallResponse;
+        debugPrint('✅ Found overall experience feedback');
       }
 
       debugPrint('✅ Retrieved feedback for ${feedbackMap.length} stages');
