@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:airline_app/services/supabase_leaderboard_service.dart';
 import 'package:airline_app/services/realtime_feedback_service.dart';
 import 'package:airline_app/models/leaderboard_category_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// State for leaderboard data
 class LeaderboardState {
@@ -57,49 +59,172 @@ class LeaderboardState {
 
 /// Provider for leaderboard state management
 class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
-  LeaderboardNotifier()
-      : super(
-          LeaderboardState(
-            airlines: [],
-            issues: [],
-            isLoading: true,
-            selectedCategory:
-                LeaderboardCategoryService.getDefaultCategory().tab,
-            selectedTravelClass:
-                LeaderboardCategoryService.getDefaultTravelClass().tab,
-            availableCategories: LeaderboardCategoryService.getAllTabs(),
-            availableTravelClasses:
-                LeaderboardCategoryService.getTravelClassTabs(),
-            lastUpdated: null,
-          ),
-        );
+  static const String _cacheKey = 'leaderboard_cache';
+  static const String _cacheTimestampKey = 'leaderboard_cache_timestamp';
+  static const String _stateKey = 'leaderboard_state';
+  static const Duration _cacheValidDuration = Duration(hours: 24);
 
-  /// Load initial leaderboard data
+  LeaderboardNotifier() : super(_loadInitialState()) {
+    // Load cached data immediately
+    _loadCachedData();
+  }
+
+  static LeaderboardState _loadInitialState() {
+    return LeaderboardState(
+      airlines: [],
+      issues: [],
+      isLoading: false, // Start with false - will show cached data instantly
+      selectedCategory:
+          LeaderboardCategoryService.getDefaultCategory().tab,
+      selectedTravelClass:
+          LeaderboardCategoryService.getDefaultTravelClass().tab,
+      availableCategories: LeaderboardCategoryService.getAllTabs(),
+      availableTravelClasses:
+          LeaderboardCategoryService.getTravelClassTabs(),
+      lastUpdated: null,
+    );
+  }
+
+  /// Load cached data instantly (offline-first)
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load cached airlines
+      final cachedAirlinesJson = prefs.getString('${_cacheKey}_airlines');
+      final cachedCategory = prefs.getString('${_stateKey}_category') ?? 
+          LeaderboardCategoryService.getDefaultCategory().tab;
+      final cachedTravelClass = prefs.getString('${_stateKey}_travelClass') ?? 
+          LeaderboardCategoryService.getDefaultTravelClass().tab;
+      final cacheTimestamp = prefs.getInt('${_cacheTimestampKey}_airlines');
+      
+      if (cachedAirlinesJson != null && cacheTimestamp != null) {
+        final cacheAge = DateTime.now().difference(
+          DateTime.fromMillisecondsSinceEpoch(cacheTimestamp)
+        );
+        
+        // Use cache if it's still valid
+        if (cacheAge < _cacheValidDuration) {
+          final cachedAirlines = (json.decode(cachedAirlinesJson) as List)
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+          
+          debugPrint('✅ Loaded ${cachedAirlines.length} airlines from cache (${cacheAge.inMinutes}m old)');
+          
+          state = state.copyWith(
+            airlines: cachedAirlines,
+            selectedCategory: cachedCategory,
+            selectedTravelClass: cachedTravelClass,
+            isLoading: false,
+            lastUpdated: DateTime.fromMillisecondsSinceEpoch(cacheTimestamp),
+          );
+          
+          // Update in background (non-blocking)
+          _refreshInBackground();
+          return;
+        }
+      }
+      
+      // No valid cache, load from local seed data instantly
+      _loadFromLocalSeed();
+      
+      // Then refresh in background
+      _refreshInBackground();
+    } catch (e) {
+      debugPrint('⚠️ Error loading cache: $e');
+      // Fallback to local seed data
+      _loadFromLocalSeed();
+    }
+  }
+
+  /// Load from local seed data instantly (offline)
+  void _loadFromLocalSeed() {
+    try {
+      final category = state.selectedCategory;
+      final localData = SupabaseLeaderboardService.getCategoryRankings(
+        category,
+        travelClass: state.selectedTravelClass,
+      );
+      
+      localData.then((airlines) {
+        if (airlines.isNotEmpty && mounted) {
+          final formattedAirlines = airlines.asMap().entries.map((entry) {
+            final index = entry.key;
+            final airlineData = entry.value;
+            final rank = airlineData['leaderboard_rank'] as int? ?? (index + 1);
+            return SupabaseLeaderboardService.formatAirlineData(
+              airlineData,
+              rank,
+              null,
+            );
+          }).toList();
+          
+          debugPrint('✅ Loaded ${formattedAirlines.length} airlines from local seed');
+          
+          state = state.copyWith(
+            airlines: formattedAirlines,
+            isLoading: false,
+            lastUpdated: DateTime.now(),
+          );
+          
+          // Cache the data
+          _saveToCache(formattedAirlines);
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ Error loading from local seed: $e');
+    }
+  }
+
+  /// Refresh data in background (non-blocking)
+  Future<void> _refreshInBackground() async {
+    try {
+      await loadLeaderboard();
+    } catch (e) {
+      debugPrint('⚠️ Background refresh failed: $e');
+      // Don't update state on error - keep cached data
+    }
+  }
+
+  /// Save data to cache
+  Future<void> _saveToCache(List<Map<String, dynamic>> airlines) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        '${_cacheKey}_airlines',
+        json.encode(airlines),
+      );
+      await prefs.setInt(
+        '${_cacheTimestampKey}_airlines',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      await prefs.setString('${_stateKey}_category', state.selectedCategory);
+      await prefs.setString('${_stateKey}_travelClass', state.selectedTravelClass);
+    } catch (e) {
+      debugPrint('⚠️ Error saving cache: $e');
+    }
+  }
+
+  bool get mounted => true; // Always mounted for StateNotifier
+
+  /// Load initial leaderboard data (background refresh)
   Future<void> loadLeaderboard() async {
     try {
-      state = state.copyWith(isLoading: true, error: null);
+      // Don't set loading to true if we already have cached data
+      final hasData = state.airlines.isNotEmpty;
+      if (!hasData) {
+        state = state.copyWith(isLoading: true, error: null);
+      }
 
-      debugPrint('🔄 Loading leaderboard data...');
+      debugPrint('🔄 Refreshing leaderboard data...');
 
-      // Initialize realtime feedback service
-      await RealtimeFeedbackService.initialize();
-
-      // Load airlines and issues in parallel
-      final results = await Future.wait([
-        SupabaseLeaderboardService.getCategoryRankings(
-          state
-              .selectedCategory, // Pass category directly (now uses leaderboard_rankings table)
-          travelClass: state.selectedTravelClass,
-        ),
-        RealtimeFeedbackService.getCombinedFeedbackStream()
-            .first, // NEW: Use combined feedback
-      ]);
-
-      final airlines = results[0] as List<Map<String, dynamic>>;
-      final issues = results[1] as List<Map<String, dynamic>>;
+      // Load airlines (skip issues for faster loading)
+      final airlines = await SupabaseLeaderboardService.getCategoryRankings(
+        state.selectedCategory,
+        travelClass: state.selectedTravelClass,
+      );
 
       // Format airline data with rankings
-      // Use leaderboard_rank from database if available, otherwise use index
       final formattedAirlines = airlines.asMap().entries.map((entry) {
         final index = entry.key;
         final airlineData = entry.value;
@@ -107,27 +232,48 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         return SupabaseLeaderboardService.formatAirlineData(
           airlineData,
           rank,
-          null, // No movement calculation for initial load
+          null,
         );
       }).toList();
 
-      // Format issues data from combined feedback
-      final formattedIssues = _formatIssuesData(issues);
+      // Save to cache
+      await _saveToCache(formattedAirlines);
 
       state = state.copyWith(
         airlines: formattedAirlines,
-        issues: formattedIssues,
         isLoading: false,
         lastUpdated: DateTime.now(),
       );
 
-      debugPrint('✅ Leaderboard data loaded successfully');
+      debugPrint('✅ Leaderboard data refreshed successfully');
+      
+      // Load issues in background (non-blocking)
+      _loadIssuesInBackground();
     } catch (e) {
       debugPrint('❌ Error loading leaderboard: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      // Don't update state on error - keep existing data
+      if (!state.airlines.isNotEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        );
+      }
+    }
+  }
+
+  /// Load issues in background (non-blocking)
+  Future<void> _loadIssuesInBackground() async {
+    try {
+      await RealtimeFeedbackService.initialize();
+      final issues = await RealtimeFeedbackService.getCombinedFeedbackStream().first;
+      final formattedIssues = _formatIssuesData(issues);
+      
+      if (mounted) {
+        state = state.copyWith(issues: formattedIssues);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error loading issues: $e');
+      // Don't update state - issues are optional
     }
   }
 
@@ -135,22 +281,42 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   Future<void> changeCategory(String category) async {
     if (category == state.selectedCategory) return;
 
-    try {
+    // Load from local seed instantly
+    final localData = await SupabaseLeaderboardService.getCategoryRankings(
+      category,
+      travelClass: state.selectedTravelClass,
+    );
+
+    if (localData.isNotEmpty) {
+      final formattedAirlines = localData.asMap().entries.map((entry) {
+        final index = entry.key;
+        final airlineData = entry.value;
+        final rank = airlineData['leaderboard_rank'] as int? ?? (index + 1);
+        return SupabaseLeaderboardService.formatAirlineData(
+          airlineData,
+          rank,
+          null,
+        );
+      }).toList();
+
       state = state.copyWith(
         selectedCategory: category,
-        isLoading: true,
-        error: null,
+        airlines: formattedAirlines,
+        isLoading: false,
+        lastUpdated: DateTime.now(),
       );
 
-      debugPrint('🔄 Loading $category rankings...');
+      await _saveToCache(formattedAirlines);
+      debugPrint('✅ Loaded ${formattedAirlines.length} airlines for $category (instant)');
+    }
 
+    // Refresh in background
+    try {
       final airlines = await SupabaseLeaderboardService.getCategoryRankings(
-        category, // Pass category directly (now uses leaderboard_rankings table)
+        category,
         travelClass: state.selectedTravelClass,
       );
 
-      // Format airline data with rankings
-      // Use leaderboard_rank from database if available, otherwise use index
       final formattedAirlines = airlines.asMap().entries.map((entry) {
         final index = entry.key;
         final airlineData = entry.value;
@@ -158,25 +324,18 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         return SupabaseLeaderboardService.formatAirlineData(
           airlineData,
           rank,
-          null, // No movement calculation for category change
+          null,
         );
       }).toList();
-      debugPrint(
-          '✅ Loaded ${formattedAirlines.length} airlines for $category (${state.selectedTravelClass})');
 
       state = state.copyWith(
         airlines: formattedAirlines,
-        isLoading: false,
         lastUpdated: DateTime.now(),
       );
 
-      debugPrint('✅ $category rankings loaded successfully');
+      await _saveToCache(formattedAirlines);
     } catch (e) {
-      debugPrint('❌ Error loading $category rankings: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      debugPrint('⚠️ Background refresh failed: $e');
     }
   }
 
@@ -184,22 +343,42 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
   Future<void> changeTravelClass(String travelClass) async {
     if (travelClass == state.selectedTravelClass) return;
 
-    try {
+    // Load from local seed instantly
+    final localData = await SupabaseLeaderboardService.getCategoryRankings(
+      state.selectedCategory,
+      travelClass: travelClass,
+    );
+
+    if (localData.isNotEmpty) {
+      final formattedAirlines = localData.asMap().entries.map((entry) {
+        final index = entry.key;
+        final airlineData = entry.value;
+        final rank = airlineData['leaderboard_rank'] as int? ?? (index + 1);
+        return SupabaseLeaderboardService.formatAirlineData(
+          airlineData,
+          rank,
+          null,
+        );
+      }).toList();
+
       state = state.copyWith(
         selectedTravelClass: travelClass,
-        isLoading: true,
-        error: null,
+        airlines: formattedAirlines,
+        isLoading: false,
+        lastUpdated: DateTime.now(),
       );
 
-      debugPrint(
-          '🔄 Loading ${state.selectedCategory} rankings for $travelClass...');
+      await _saveToCache(formattedAirlines);
+      debugPrint('✅ Loaded ${formattedAirlines.length} airlines for $travelClass (instant)');
+    }
 
+    // Refresh in background
+    try {
       final airlines = await SupabaseLeaderboardService.getCategoryRankings(
         state.selectedCategory,
         travelClass: travelClass,
       );
 
-      // Format airline data with rankings
       final formattedAirlines = airlines.asMap().entries.map((entry) {
         final index = entry.key;
         final airlineData = entry.value;
@@ -207,24 +386,18 @@ class LeaderboardNotifier extends StateNotifier<LeaderboardState> {
         return SupabaseLeaderboardService.formatAirlineData(
           airlineData,
           rank,
-          null, // No movement calculation for travel class change
+          null,
         );
       }).toList();
 
       state = state.copyWith(
         airlines: formattedAirlines,
-        isLoading: false,
         lastUpdated: DateTime.now(),
       );
 
-      debugPrint(
-          '✅ ${state.selectedCategory} rankings loaded for $travelClass');
+      await _saveToCache(formattedAirlines);
     } catch (e) {
-      debugPrint('❌ Error loading rankings for $travelClass: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      debugPrint('⚠️ Background refresh failed: $e');
     }
   }
 

@@ -29,14 +29,28 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   List<LeaderboardCategory> get travelClassCategories =>
       LeaderboardCategoryService.getTravelClassCategories();
 
+  // Rankings data - Top airline for each category
+  static const Map<String, String> _categoryRankings = {
+    'First Class': 'All Nippon Airways (ANA)',
+    'Business Class': 'Wizz Air Abu Dhabi',
+    'Premium Economy': 'El Al',
+    'Economy': 'Garuda Indonesia',
+    'Airport Experience': 'Nordwind Airlines',
+    'F&B': 'Jetstar Japan',
+    'Seat Comfort': 'Bulgaria Air',
+    'IFE and Wifi': 'StarLux',
+    'Onboard Service': 'Garuda Indonesia',
+    'Cleanliness': 'Garuda Indonesia',
+  };
+
+  String? _getTopAirlineForCategory(String categoryTab) {
+    return _categoryRankings[categoryTab];
+  }
+
   @override
   void initState() {
     super.initState();
-
-    // Load leaderboard data when screen initializes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(leaderboardProvider.notifier).loadLeaderboard();
-    });
+    // Data loads automatically from cache/local seed via provider
   }
 
   void _onWillPop() {
@@ -220,14 +234,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           const SizedBox(height: 16),
 
           // Airlines List
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: _buildLeaderboardContent(),
-            ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _buildLeaderboardContent(),
           ),
+        ),
         ],
       ),
     );
@@ -320,125 +334,117 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   medalEmoji = '🥉';
                 }
 
-                return TweenAnimationBuilder<double>(
-                  key: ValueKey('${airline['id']}_$index'),
-                  duration: const Duration(milliseconds: 260),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: Opacity(opacity: value, child: child),
-                    );
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.shade100,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                      width: 1,
                     ),
-                    child: Row(
-                      children: [
-                        // Rank Badge or Medal
-                        Container(
-                          width: 40,
-                          height: 40,
-                          margin: const EdgeInsets.only(right: 12),
-                          child: Center(
-                            child: medalEmoji != null
-                                ? Text(
-                                    medalEmoji,
-                                    style: const TextStyle(fontSize: 28),
-                                  )
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade100,
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Rank Badge or Medal
+                      Container(
+                        width: 40,
+                        height: 40,
+                        margin: const EdgeInsets.only(right: 12),
+                        child: Center(
+                          child: medalEmoji != null
+                              ? Text(
+                                  medalEmoji,
+                                  style: const TextStyle(fontSize: 28),
+                                )
                                 : Text(
                                     '$rank',
                                     style: AppStyles.textStyle_16_600.copyWith(
                                       color: Colors.grey.shade600,
                                     ),
                                   ),
-                          ),
                         ),
+                      ),
 
-                        // Airline Logo
-                        _buildAirlineLogo(airline),
+                      // Airline Logo
+                      _buildAirlineLogo(airline),
 
-                        const SizedBox(width: 16),
+                      const SizedBox(width: 16),
 
-                        // Airline Name and Movement + Score
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      airline['name'] ?? 'Unknown Airline',
-                                      style:
-                                          AppStyles.textStyle_16_600.copyWith(
-                                        color: Colors.black,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                      // Airline Name and Movement + Score
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    airline['name'] ?? 'Unknown Airline',
+                                    style:
+                                        AppStyles.textStyle_16_600.copyWith(
+                                      color: Colors.black,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (airline['movement'] != null) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: airline['movement'] == 'up'
-                                            ? Colors.green.withOpacity(0.1)
-                                            : Colors.red.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            airline['movement'] == 'up'
-                                                ? Icons.keyboard_arrow_up
-                                                : Icons.keyboard_arrow_down,
+                                ),
+                                if (airline['movement'] != null) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: airline['movement'] == 'up'
+                                          ? Colors.green.withOpacity(0.1)
+                                          : Colors.red.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          airline['movement'] == 'up'
+                                              ? Icons.keyboard_arrow_up
+                                              : Icons.keyboard_arrow_down,
+                                          color: airline['movement'] == 'up'
+                                              ? Colors.green
+                                              : Colors.red,
+                                          size: 16,
+                                        ),
+                                        Text(
+                                          '${airline['previousRank']}',
+                                          style: AppStyles.textStyle_12_600
+                                              .copyWith(
                                             color: airline['movement'] == 'up'
                                                 ? Colors.green
                                                 : Colors.red,
-                                            size: 16,
                                           ),
-                                          Text(
-                                            '${airline['previousRank']}',
-                                            style: AppStyles.textStyle_12_600
-                                                .copyWith(
-                                              color: airline['movement'] == 'up'
-                                                  ? Colors.green
-                                                  : Colors.red,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ],
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ),
+                      ),
 
-                        // Category Icon - uses selected category's icon
-                        Icon(
-                          _getIconForCategory(selectedCategory.icon),
-                          color: Colors.black,
-                          size: 20,
-                        ),
-                      ],
-                    ),
+                      // Category Icon - uses selected category's icon
+                      Icon(
+                        _getIconForCategory(selectedCategory.icon),
+                        color: Colors.black,
+                        size: 20,
+                      ),
+                    ],
                   ),
                 );
               },
@@ -713,14 +719,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   /// Build airline logo widget (network or fallback)
+  /// Uses multi-fallback: Supabase URL -> AirHex -> Daisycon -> Placeholder
   Widget _buildAirlineLogo(Map<String, dynamic> airline, {double size = 48}) {
-    final resolvedLogoUrl = _resolveLogoUrl(airline);
+    final logoUrls = _getLogoUrlsWithFallbacks(airline);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Colors.grey.shade300,
@@ -729,31 +736,71 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: resolvedLogoUrl != null
-            ? Image.network(
-                resolvedLogoUrl,
-                width: size,
-                height: size,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return _buildFallbackIcon(size);
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      strokeWidth: 2,
-                    ),
-                  );
-                },
+        child: logoUrls.isNotEmpty
+            ? _MultiSourceImage(
+                urls: logoUrls,
+                size: size,
+                fallback: _buildFallbackIcon(size),
               )
             : _buildFallbackIcon(size),
       ),
     );
+  }
+
+  /// Get list of logo URLs to try in order (with fallbacks)
+  List<String> _getLogoUrlsWithFallbacks(Map<String, dynamic> airline) {
+    final urls = <String>[];
+    
+    // Extract IATA and ICAO codes
+    final iataCode =
+        (airline['iataCode'] ?? airline['iata_code'])?.toString().toUpperCase();
+    final icaoCode =
+        (airline['icaoCode'] ?? airline['icao_code'])?.toString().toUpperCase();
+    
+    // 1. Primary: Supabase logo_url (if valid)
+    final rawLogo = airline['logo']?.toString() ?? airline['logo_url']?.toString();
+    if (rawLogo != null && rawLogo.isNotEmpty && _isValidHttpUrl(rawLogo)) {
+      // Replace kiwi.com URLs (404) with AirHex (high quality)
+      if (rawLogo.contains('kiwi.com') && iataCode != null && iataCode.length >= 2) {
+        urls.add('https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png');
+      } else if (!rawLogo.contains('kiwi.com')) {
+        urls.add(rawLogo);
+      }
+    }
+    
+    // 2. Override map (if available)
+    if (iataCode != null && _airlineLogoOverrides.containsKey(iataCode)) {
+      final overrideUrl = _airlineLogoOverrides[iataCode];
+      if (overrideUrl != null && !urls.contains(overrideUrl)) {
+        urls.add(overrideUrl);
+      }
+    }
+    
+    // 3. AirHex CDN (_512_512_s.png format - high quality, public, no auth)
+    if (iataCode != null && iataCode.length >= 2) {
+      final airhexUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+      if (!urls.contains(airhexUrl)) {
+        urls.add(airhexUrl);
+      }
+    }
+    
+    // 4. Daisycon (free public API - high quality)
+    if (iataCode != null && iataCode.length >= 2) {
+      final daisyconUrl = 'https://images.daisycon.io/airline/?width=600&height=300&color=ffffff&iata=$iataCode';
+      if (!urls.contains(daisyconUrl)) {
+        urls.add(daisyconUrl);
+      }
+    }
+    
+    // 5. Try ICAO-based AirHex as last resort (high quality)
+    if (icaoCode != null && icaoCode.length >= 2) {
+      final airhexIcaoUrl = 'https://content.airhex.com/content/logos/airlines_${icaoCode}_512_512_s.png';
+      if (!urls.contains(airhexIcaoUrl)) {
+        urls.add(airhexIcaoUrl);
+      }
+    }
+    
+    return urls;
   }
 
   Widget _buildFallbackIcon(double size) {
@@ -764,21 +811,40 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
   }
 
+
   String? _resolveLogoUrl(Map<String, dynamic> airline) {
-    final rawLogo = airline['logo']?.toString();
+    // Check both 'logo' and 'logo_url' fields first
+    final rawLogo = airline['logo']?.toString() ?? airline['logo_url']?.toString();
+    
+    // Extract IATA and ICAO codes first (needed for airhex.com replacement)
     final iataCode =
         (airline['iataCode'] ?? airline['iata_code'])?.toString().toUpperCase();
     final icaoCode =
         (airline['icaoCode'] ?? airline['icao_code'])?.toString().toUpperCase();
-
-    // 1. If Supabase already returns a full URL, use it directly.
-    if (rawLogo != null && rawLogo.isNotEmpty) {
+    
+    // 1. If we already have a valid HTTP URL, use it directly.
+    // But replace airhex.com URLs (require auth) with kiwi.com
+    if (rawLogo != null && rawLogo.isNotEmpty && rawLogo.trim().isNotEmpty) {
       if (_isValidHttpUrl(rawLogo)) {
+        // If it's a kiwi.com URL (404 errors), replace with airhex.com
+        if (rawLogo.contains('kiwi.com')) {
+          if (iataCode != null && iataCode.length >= 2) {
+            final airhexUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+            debugPrint('🔄 Replacing kiwi.com URL with airhex.com: $airhexUrl for ${airline['name']}');
+            return airhexUrl;
+          }
+        }
+        debugPrint('✅ Using logo from airline data: $rawLogo for ${airline['name']}');
         return rawLogo;
+      } else {
+        debugPrint('⚠️ Logo is not a valid URL: $rawLogo for ${airline['name']}');
       }
+    }
+    
+    debugPrint('🔍 Resolving logo for airline: ${airline['name']}, IATA: $iataCode, ICAO: $icaoCode, rawLogo: $rawLogo');
 
-      // If it's a storage path, attempt to build a public URL.
-      if (SupabaseService.isInitialized && rawLogo.contains('/')) {
+    // If it's a storage path, attempt to build a public URL.
+    if (rawLogo != null && rawLogo.isNotEmpty && SupabaseService.isInitialized && rawLogo.contains('/')) {
         final parts = rawLogo.split('/');
         if (parts.length >= 2) {
           final bucket = parts.first;
@@ -794,28 +860,35 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           }
         }
       }
-    }
 
     // 2. Use an override map if we have an exact match.
     if (iataCode != null && _airlineLogoOverrides.containsKey(iataCode)) {
-      return _airlineLogoOverrides[iataCode];
+      final overrideUrl = _airlineLogoOverrides[iataCode];
+      debugPrint('✅ Using logo override for $iataCode: $overrideUrl');
+      return overrideUrl;
     }
     if (icaoCode != null && _airlineLogoOverrides.containsKey(icaoCode)) {
-      return _airlineLogoOverrides[icaoCode];
+      final overrideUrl = _airlineLogoOverrides[icaoCode];
+      debugPrint('✅ Using logo override for ICAO $icaoCode: $overrideUrl');
+      return overrideUrl;
     }
 
     // 3. Fall back to a public CDN that serves logos by IATA code.
+    // Use airhex.com CDN with _512_512_s.png format (high quality, public, no auth needed)
     if (iataCode != null && iataCode.length >= 2) {
-      final cdnUrl = 'https://images.kiwi.com/airlines/64/$iataCode.png';
+      final cdnUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+      debugPrint('✅ Using airhex.com CDN logo for $iataCode: $cdnUrl');
       return cdnUrl;
     }
 
     // 4. As a last resort, try ICAO on the same CDN.
     if (icaoCode != null && icaoCode.length >= 2) {
-      final cdnUrl = 'https://images.kiwi.com/airlines/64/$icaoCode.png';
+      final cdnUrl = 'https://content.airhex.com/content/logos/airlines_${icaoCode}_512_512_s.png';
+      debugPrint('✅ Using airhex.com CDN logo for ICAO $icaoCode: $cdnUrl');
       return cdnUrl;
     }
 
+    debugPrint('❌ No logo found for airline: ${airline['name']}');
     return null;
   }
 
@@ -824,37 +897,38 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     return value.startsWith('http://') || value.startsWith('https://');
   }
 
+  // Use airhex.com CDN with _512_512_s.png format (public, no auth needed)
   static const Map<String, String> _airlineLogoOverrides = {
-    'EK': 'https://images.kiwi.com/airlines/256/EK.png',
-    'QR': 'https://images.kiwi.com/airlines/256/QR.png',
-    'AA': 'https://images.kiwi.com/airlines/256/AA.png',
-    'UA': 'https://images.kiwi.com/airlines/256/UA.png',
-    'DL': 'https://images.kiwi.com/airlines/256/DL.png',
-    'LH': 'https://images.kiwi.com/airlines/256/LH.png',
-    'BA': 'https://images.kiwi.com/airlines/256/BA.png',
-    'TK': 'https://images.kiwi.com/airlines/256/TK.png',
-    'EY': 'https://images.kiwi.com/airlines/256/EY.png',
-    'AF': 'https://images.kiwi.com/airlines/256/AF.png',
-    'SQ': 'https://images.kiwi.com/airlines/256/SQ.png',
-    'CX': 'https://images.kiwi.com/airlines/256/CX.png',
-    'NH': 'https://images.kiwi.com/airlines/256/NH.png',
-    'QF': 'https://images.kiwi.com/airlines/256/QF.png',
-    'AC': 'https://images.kiwi.com/airlines/256/AC.png',
-    'WN': 'https://images.kiwi.com/airlines/256/WN.png',
-    'B6': 'https://images.kiwi.com/airlines/256/B6.png',
-    'VS': 'https://images.kiwi.com/airlines/256/VS.png',
-    'AZ': 'https://images.kiwi.com/airlines/256/AZ.png',
-    'IB': 'https://images.kiwi.com/airlines/256/IB.png',
-    'AY': 'https://images.kiwi.com/airlines/256/AY.png',
-    'SK': 'https://images.kiwi.com/airlines/256/SK.png',
-    'KL': 'https://images.kiwi.com/airlines/256/KL.png',
-    'OS': 'https://images.kiwi.com/airlines/256/OS.png',
-    'SN': 'https://images.kiwi.com/airlines/256/SN.png',
-    'TP': 'https://images.kiwi.com/airlines/256/TP.png',
-    'ET': 'https://images.kiwi.com/airlines/256/ET.png',
-    'SA': 'https://images.kiwi.com/airlines/256/SA.png',
-    'MS': 'https://images.kiwi.com/airlines/256/MS.png',
-    'KQ': 'https://images.kiwi.com/airlines/256/KQ.png',
+    'EK': 'https://content.airhex.com/content/logos/airlines_EK_512_512_s.png',
+    'QR': 'https://content.airhex.com/content/logos/airlines_QR_512_512_s.png',
+    'AA': 'https://content.airhex.com/content/logos/airlines_AA_512_512_s.png',
+    'UA': 'https://content.airhex.com/content/logos/airlines_UA_512_512_s.png',
+    'DL': 'https://content.airhex.com/content/logos/airlines_DL_512_512_s.png',
+    'LH': 'https://content.airhex.com/content/logos/airlines_LH_512_512_s.png',
+    'BA': 'https://content.airhex.com/content/logos/airlines_BA_512_512_s.png',
+    'TK': 'https://content.airhex.com/content/logos/airlines_TK_512_512_s.png',
+    'EY': 'https://content.airhex.com/content/logos/airlines_EY_512_512_s.png',
+    'AF': 'https://content.airhex.com/content/logos/airlines_AF_512_512_s.png',
+    'SQ': 'https://content.airhex.com/content/logos/airlines_SQ_512_512_s.png',
+    'CX': 'https://content.airhex.com/content/logos/airlines_CX_512_512_s.png',
+    'NH': 'https://content.airhex.com/content/logos/airlines_NH_512_512_s.png',
+    'QF': 'https://content.airhex.com/content/logos/airlines_QF_512_512_s.png',
+    'AC': 'https://content.airhex.com/content/logos/airlines_AC_512_512_s.png',
+    'WN': 'https://content.airhex.com/content/logos/airlines_WN_512_512_s.png',
+    'B6': 'https://content.airhex.com/content/logos/airlines_B6_512_512_s.png',
+    'VS': 'https://content.airhex.com/content/logos/airlines_VS_512_512_s.png',
+    'AZ': 'https://content.airhex.com/content/logos/airlines_AZ_512_512_s.png',
+    'IB': 'https://content.airhex.com/content/logos/airlines_IB_512_512_s.png',
+    'AY': 'https://content.airhex.com/content/logos/airlines_AY_512_512_s.png',
+    'SK': 'https://content.airhex.com/content/logos/airlines_SK_512_512_s.png',
+    'KL': 'https://content.airhex.com/content/logos/airlines_KL_512_512_s.png',
+    'OS': 'https://content.airhex.com/content/logos/airlines_OS_512_512_s.png',
+    'SN': 'https://content.airhex.com/content/logos/airlines_SN_512_512_s.png',
+    'TP': 'https://content.airhex.com/content/logos/airlines_TP_512_512_s.png',
+    'ET': 'https://content.airhex.com/content/logos/airlines_ET_512_512_s.png',
+    'SA': 'https://content.airhex.com/content/logos/airlines_SA_512_512_s.png',
+    'MS': 'https://content.airhex.com/content/logos/airlines_MS_512_512_s.png',
+    'KQ': 'https://content.airhex.com/content/logos/airlines_KQ_512_512_s.png',
   };
 
   /// Show feedback details modal
@@ -1066,6 +1140,78 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Widget that tries multiple image URLs in sequence until one succeeds
+class _MultiSourceImage extends StatefulWidget {
+  final List<String> urls;
+  final double size;
+  final Widget fallback;
+  final int currentIndex;
+
+  const _MultiSourceImage({
+    required this.urls,
+    required this.size,
+    required this.fallback,
+    this.currentIndex = 0,
+  });
+
+  @override
+  State<_MultiSourceImage> createState() => _MultiSourceImageState();
+}
+
+class _MultiSourceImageState extends State<_MultiSourceImage> {
+  @override
+  Widget build(BuildContext context) {
+    if (widget.currentIndex >= widget.urls.length) {
+      return widget.fallback;
+    }
+
+    final currentUrl = widget.urls[widget.currentIndex];
+    debugPrint('🔄 Trying logo URL ${widget.currentIndex + 1}/${widget.urls.length}: $currentUrl');
+
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        child: Image.network(
+          currentUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('❌ Image.network failed for $currentUrl: $error');
+            // Try next URL in the list
+            if (widget.currentIndex + 1 < widget.urls.length) {
+              return _MultiSourceImage(
+                urls: widget.urls,
+                size: widget.size,
+                fallback: widget.fallback,
+                currentIndex: widget.currentIndex + 1,
+              );
+            }
+            // All URLs failed, show fallback
+            return widget.fallback;
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              debugPrint('✅ Image loaded successfully: $currentUrl');
+              return child;
+            }
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                    : null,
+                strokeWidth: 2,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
