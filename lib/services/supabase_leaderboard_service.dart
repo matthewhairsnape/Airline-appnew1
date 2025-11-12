@@ -7,37 +7,38 @@ import 'package:airline_app/services/supabase_service.dart';
 /// Service to handle leaderboard data from Supabase
 class SupabaseLeaderboardService {
   static final SupabaseClient _client = SupabaseService.client;
+  // Use airhex.com CDN with _512_512_s.png format (public, no auth needed)
   static const Map<String, String> _airlineLogoOverrides = {
-    'EK': 'https://images.kiwi.com/airlines/256/EK.png',
-    'QR': 'https://images.kiwi.com/airlines/256/QR.png',
-    'AA': 'https://images.kiwi.com/airlines/256/AA.png',
-    'UA': 'https://images.kiwi.com/airlines/256/UA.png',
-    'DL': 'https://images.kiwi.com/airlines/256/DL.png',
-    'LH': 'https://images.kiwi.com/airlines/256/LH.png',
-    'BA': 'https://images.kiwi.com/airlines/256/BA.png',
-    'TK': 'https://images.kiwi.com/airlines/256/TK.png',
-    'EY': 'https://images.kiwi.com/airlines/256/EY.png',
-    'AF': 'https://images.kiwi.com/airlines/256/AF.png',
-    'SQ': 'https://images.kiwi.com/airlines/256/SQ.png',
-    'CX': 'https://images.kiwi.com/airlines/256/CX.png',
-    'NH': 'https://images.kiwi.com/airlines/256/NH.png',
-    'QF': 'https://images.kiwi.com/airlines/256/QF.png',
-    'AC': 'https://images.kiwi.com/airlines/256/AC.png',
-    'WN': 'https://images.kiwi.com/airlines/256/WN.png',
-    'B6': 'https://images.kiwi.com/airlines/256/B6.png',
-    'VS': 'https://images.kiwi.com/airlines/256/VS.png',
-    'AZ': 'https://images.kiwi.com/airlines/256/AZ.png',
-    'IB': 'https://images.kiwi.com/airlines/256/IB.png',
-    'AY': 'https://images.kiwi.com/airlines/256/AY.png',
-    'SK': 'https://images.kiwi.com/airlines/256/SK.png',
-    'KL': 'https://images.kiwi.com/airlines/256/KL.png',
-    'OS': 'https://images.kiwi.com/airlines/256/OS.png',
-    'SN': 'https://images.kiwi.com/airlines/256/SN.png',
-    'TP': 'https://images.kiwi.com/airlines/256/TP.png',
-    'ET': 'https://images.kiwi.com/airlines/256/ET.png',
-    'SA': 'https://images.kiwi.com/airlines/256/SA.png',
-    'MS': 'https://images.kiwi.com/airlines/256/MS.png',
-    'KQ': 'https://images.kiwi.com/airlines/256/KQ.png',
+    'EK': 'https://content.airhex.com/content/logos/airlines_EK_512_512_s.png',
+    'QR': 'https://content.airhex.com/content/logos/airlines_QR_512_512_s.png',
+    'AA': 'https://content.airhex.com/content/logos/airlines_AA_512_512_s.png',
+    'UA': 'https://content.airhex.com/content/logos/airlines_UA_512_512_s.png',
+    'DL': 'https://content.airhex.com/content/logos/airlines_DL_512_512_s.png',
+    'LH': 'https://content.airhex.com/content/logos/airlines_LH_512_512_s.png',
+    'BA': 'https://content.airhex.com/content/logos/airlines_BA_512_512_s.png',
+    'TK': 'https://content.airhex.com/content/logos/airlines_TK_512_512_s.png',
+    'EY': 'https://content.airhex.com/content/logos/airlines_EY_512_512_s.png',
+    'AF': 'https://content.airhex.com/content/logos/airlines_AF_512_512_s.png',
+    'SQ': 'https://content.airhex.com/content/logos/airlines_SQ_512_512_s.png',
+    'CX': 'https://content.airhex.com/content/logos/airlines_CX_512_512_s.png',
+    'NH': 'https://content.airhex.com/content/logos/airlines_NH_512_512_s.png',
+    'QF': 'https://content.airhex.com/content/logos/airlines_QF_512_512_s.png',
+    'AC': 'https://content.airhex.com/content/logos/airlines_AC_512_512_s.png',
+    'WN': 'https://content.airhex.com/content/logos/airlines_WN_512_512_s.png',
+    'B6': 'https://content.airhex.com/content/logos/airlines_B6_512_512_s.png',
+    'VS': 'https://content.airhex.com/content/logos/airlines_VS_512_512_s.png',
+    'AZ': 'https://content.airhex.com/content/logos/airlines_AZ_512_512_s.png',
+    'IB': 'https://content.airhex.com/content/logos/airlines_IB_512_512_s.png',
+    'AY': 'https://content.airhex.com/content/logos/airlines_AY_512_512_s.png',
+    'SK': 'https://content.airhex.com/content/logos/airlines_SK_512_512_s.png',
+    'KL': 'https://content.airhex.com/content/logos/airlines_KL_512_512_s.png',
+    'OS': 'https://content.airhex.com/content/logos/airlines_OS_512_512_s.png',
+    'SN': 'https://content.airhex.com/content/logos/airlines_SN_512_512_s.png',
+    'TP': 'https://content.airhex.com/content/logos/airlines_TP_512_512_s.png',
+    'ET': 'https://content.airhex.com/content/logos/airlines_ET_512_512_s.png',
+    'SA': 'https://content.airhex.com/content/logos/airlines_SA_512_512_s.png',
+    'MS': 'https://content.airhex.com/content/logos/airlines_MS_512_512_s.png',
+    'KQ': 'https://content.airhex.com/content/logos/airlines_KQ_512_512_s.png',
   };
 
   /// Get leaderboard rankings from Supabase
@@ -102,8 +103,7 @@ class SupabaseLeaderboardService {
         final filteredRows = rows.where((entry) {
           final matchesActive = entry['is_active'] == true;
           final matchesCategory = entry['category'] == category;
-          final entryClass =
-              entry['travel_class']?.toString().toLowerCase();
+          final entryClass = entry['travel_class']?.toString().toLowerCase();
           final matchesTravelClass = travelClassMatches.isEmpty ||
               entryClass == null ||
               entryClass == 'all' ||
@@ -193,25 +193,212 @@ class SupabaseLeaderboardService {
   /// Now uses leaderboard_rankings table for better performance and consistency
   static Future<List<Map<String, dynamic>>> getCategoryRankings(String category,
       {String? travelClass}) async {
-    final travelClassValues = _mapTravelClassToDbValues(travelClass);
+    // For experience categories (non-travel-class), ignore travel class filter
+    final isExperienceCategory = !_isTravelClassCategory(category);
+    
+    // For travel class categories, extract the travel class from the category name
+    // and use that instead of the travelClass parameter
+    String? effectiveTravelClass = travelClass;
+    if (!isExperienceCategory) {
+      // Extract travel class from category name
+      final categoryLower = category.toLowerCase();
+      if (categoryLower.contains('first class')) {
+        effectiveTravelClass = 'first';
+      } else if (categoryLower.contains('business class')) {
+        effectiveTravelClass = 'business';
+      } else if (categoryLower.contains('premium economy')) {
+        effectiveTravelClass = 'premium';
+      } else if (categoryLower == 'economy') {
+        effectiveTravelClass = 'economy';
+      }
+    }
+    
+    final travelClassValues = isExperienceCategory 
+        ? const <String>[] 
+        : _mapTravelClassToDbValues(effectiveTravelClass);
     final travelClassMatchSet =
         travelClassValues.map((value) => value.toLowerCase()).toSet();
+
+    // Always check local seed data first for exact rankings
+    final localData = LocalLeaderboardSeed.getCategoryRankings(category);
+    if (localData.isNotEmpty) {
+      final filteredLocal = localData.where((entry) {
+        final entryClass = entry['travel_class']?.toString().toLowerCase();
+        // For experience categories, always include entries with travel_class: 'all'
+        if (isExperienceCategory && (entryClass == 'all' || entryClass == null)) {
+          return true;
+        }
+        return travelClassMatchSet.isEmpty ||
+            entryClass == null ||
+            entryClass == 'all' ||
+            travelClassMatchSet.contains(entryClass);
+      }).toList();
+
+      if (filteredLocal.isNotEmpty) {
+        debugPrint(
+            '✅ Using local seed data for $category: ${filteredLocal.length} entries');
+        return filteredLocal
+            .map((entry) => {
+                  ...entry,
+                  'score_type': mapCategoryToScoreType(category),
+                  'score_value':
+                      entry['leaderboard_score'] ?? entry['score_value'],
+                })
+            .toList();
+      }
+    }
 
     try {
       debugPrint('📊 Fetching $category rankings from leaderboard_rankings...');
 
+      // Normalize category name to match database
+      final normalizedCategory = normalizeCategoryName(category);
+      debugPrint(
+          '📝 Normalized category: "$category" -> "$normalizedCategory"');
+
       // Try to get from leaderboard_rankings first
+      // Try multiple category name variations
+      final categoryVariations = [
+        normalizedCategory,
+        category, // Original category name
+        // Try alternative names
+        if (category == 'Airport Experience')
+          'Airport Experience (Departure and Arrival)',
+        if (category == 'F&B') 'Food & Beverage',
+        if (category == 'IFE and Wifi') 'Entertainment and Wi-Fi',
+        if (category == 'Onboard Service') 'Onboard Service',
+      ];
+
+      List<Map<String, dynamic>>? rankings;
+      String? successfulCategory;
+
+      for (final categoryVar in categoryVariations) {
+        try {
+          final queryBuilder = _client.from('leaderboard_rankings');
+          var filterBuilder = queryBuilder.select('''
+                id,
+                airline_id,
+                category,
+                travel_class,
+                leaderboard_rank,
+                leaderboard_score,
+                avg_rating,
+                review_count,
+                airlines!inner(
+                  id,
+                  name,
+                  iata_code,
+                  icao_code,
+                  logo_url
+                )
+              ''').eq('category', categoryVar).eq('is_active', true);
+
+          final rankingsResponse = filterBuilder
+              .order('leaderboard_rank', ascending: true)
+              .limit(50);
+
+          final testRankings = await rankingsResponse;
+          if (testRankings.isNotEmpty) {
+            rankings = testRankings;
+            successfulCategory = categoryVar;
+            debugPrint(
+                '✅ Found ${testRankings.length} rankings using category: "$categoryVar"');
+            break;
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error trying category "$categoryVar": $e');
+          continue;
+        }
+      }
+
+      if (rankings == null || rankings.isEmpty) {
+        debugPrint(
+            '⚠️ No rankings found for any category variation. Trying case-insensitive search...');
+        // Try case-insensitive search as last resort
+        try {
+          final allRankings = await _client
+              .from('leaderboard_rankings')
+              .select('category')
+              .eq('is_active', true)
+              .limit(100);
+
+          final availableCategories = allRankings
+              .map((r) => r['category'] as String?)
+              .where((c) => c != null)
+              .toSet()
+              .toList();
+
+          debugPrint(
+              '📋 Available categories in database: $availableCategories');
+        } catch (e) {
+          debugPrint('⚠️ Could not fetch available categories: $e');
+        }
+
+        throw Exception('No rankings found for category: $category');
+      }
+
+      debugPrint(
+          '✅ Using category: "$successfulCategory" with ${rankings.length} rankings');
+
+      final filteredResults = travelClassMatchSet.isEmpty
+          ? rankings!
+          : rankings!.where((entry) {
+              final entryClass =
+                  entry['travel_class']?.toString().toLowerCase();
+              // For experience categories, always include entries with travel_class: 'all'
+              if (isExperienceCategory && (entryClass == 'all' || entryClass == null)) {
+                return true;
+              }
+              return entryClass == null ||
+                  entryClass == 'all' ||
+                  travelClassMatchSet.contains(entryClass);
+            }).toList();
+
+      debugPrint(
+          '✅ Filtered to ${filteredResults.length} rankings after travel class filter');
+
+      if (filteredResults.isNotEmpty) {
+        // Convert to expected format
+        return filteredResults
+            .map((entry) => {
+                  'id': entry['id'],
+                  'airline_id': entry['airline_id'],
+                  'score_type': mapCategoryToScoreType(category),
+                  'score_value': entry['leaderboard_score'],
+                  'leaderboard_rank': entry['leaderboard_rank'],
+                  'avg_rating': entry['avg_rating'],
+                  'review_count': entry['review_count'],
+                  'airlines': {
+                    ...entry['airlines'],
+                    'logo': _resolveLogoUrl(
+                      entry['airlines'] as Map<String, dynamic>?,
+                    ),
+                    'logo_url': (entry['airlines'] as Map?)?['logo_url'] ??
+                        _resolveLogoUrl(
+                          entry['airlines'] as Map<String, dynamic>?,
+                        ),
+                  },
+                  'travel_class': entry['travel_class'],
+                })
+            .toList();
+      }
+
+      // If no results from leaderboard_rankings, return empty and let catch handle fallback
+      return [];
+    } catch (e) {
+      debugPrint(
+          '⚠️ Error fetching from leaderboard_rankings, falling back to leaderboard_scores: $e');
+
+      // Fallback to leaderboard_scores
       try {
-        final queryBuilder = _client.from('leaderboard_rankings');
-        var filterBuilder = queryBuilder.select('''
+        debugPrint('📊 Falling back to leaderboard_scores for $category...');
+        final scoreType = mapCategoryToScoreType(category);
+        var filterBuilder = _client.from('leaderboard_scores').select('''
               id,
               airline_id,
-              category,
+              score_type,
               travel_class,
-              leaderboard_rank,
-              leaderboard_score,
-              avg_rating,
-              review_count,
+              score_value,
               airlines!inner(
                 id,
                 name,
@@ -219,145 +406,51 @@ class SupabaseLeaderboardService {
                 icao_code,
                 logo_url
               )
-            ''').eq('category', category).eq('is_active', true);
+            ''').eq('score_type', scoreType);
 
-        final rankingsResponse =
-            filterBuilder.order('leaderboard_rank', ascending: true).limit(50);
+        final response = await filterBuilder
+            .order('score_value', ascending: false)
+            .limit(50);
 
-        final rankings = await rankingsResponse;
-
-        final filteredResults = travelClassMatchSet.isEmpty
-            ? rankings
-            : rankings
-                .where((entry) {
-                  final entryClass =
-                      entry['travel_class']?.toString().toLowerCase();
-                  return entryClass == null ||
-                      entryClass == 'all' ||
-                      travelClassMatchSet.contains(entryClass);
-                })
-                .toList();
-
-        if (filteredResults.isNotEmpty) {
-          // Convert to expected format
-          return filteredResults
-              .map((entry) => {
-                    'id': entry['id'],
-                    'airline_id': entry['airline_id'],
-                    'score_type': mapCategoryToScoreType(category),
-                    'score_value': entry['leaderboard_score'],
-                    'leaderboard_rank': entry['leaderboard_rank'],
-                    'avg_rating': entry['avg_rating'],
-                    'review_count': entry['review_count'],
-                    'airlines': {
-                      ...entry['airlines'],
-                      'logo': _resolveLogoUrl(
-                        entry['airlines'] as Map<String, dynamic>?,
-                      ),
-                      'logo_url': (entry['airlines'] as Map?)?['logo_url'] ??
-                          _resolveLogoUrl(
-                            entry['airlines'] as Map<String, dynamic>?,
-                          ),
-                    },
-                    'travel_class': entry['travel_class'],
-                  })
-              .toList();
-        }
-      } catch (e) {
         debugPrint(
-            '⚠️ Error fetching from leaderboard_rankings, falling back to leaderboard_scores: $e');
-      }
+            '✅ Fetched ${response.length} $category rankings from leaderboard_scores');
 
-      // Fallback to leaderboard_scores if leaderboard_rankings is not available
-      debugPrint('📊 Falling back to leaderboard_scores for $category...');
-      final scoreType = mapCategoryToScoreType(category);
-      var filterBuilder = _client.from('leaderboard_scores').select('''
-            id,
-            airline_id,
-            score_type,
-            travel_class,
-            score_value,
-            airlines!inner(
-              id,
-              name,
-              iata_code,
-              icao_code,
-              logo_url
-            )
-          ''').eq('score_type', scoreType);
-
-      final response = await filterBuilder
-          .order('score_value', ascending: false)
-          .limit(50); // Increased from 10 to 50 to show more airlines
-
-      debugPrint(
-          '✅ Fetched ${response.length} $category rankings from leaderboard_scores');
-
-      // Debug: Log first entry to see structure
-      if (response.isNotEmpty) {
-        final firstEntry = response.first;
-        debugPrint('🔍 First leaderboard_scores entry structure:');
-        debugPrint('   airline_id: ${firstEntry['airline_id']}');
-        debugPrint('   airlines: ${firstEntry['airlines']}');
-        if (firstEntry['airlines'] != null) {
-          final airlines = firstEntry['airlines'] as Map?;
-          debugPrint('   airlines.logo_url: ${airlines?['logo_url']}');
-        }
-      }
-
-      final filteredResponse = travelClassMatchSet.isEmpty
-          ? response
-          : response
-              .where((entry) {
+        final filteredResponse = travelClassMatchSet.isEmpty
+            ? response
+            : response.where((entry) {
                 final entryClass =
                     entry['travel_class']?.toString().toLowerCase();
+                // For experience categories, always include entries with travel_class: 'all'
+                if (isExperienceCategory && (entryClass == 'all' || entryClass == null)) {
+                  return true;
+                }
                 return entryClass == null ||
                     entryClass == 'all' ||
                     travelClassMatchSet.contains(entryClass);
-              })
-              .toList();
+              }).toList();
 
-      if (filteredResponse.isNotEmpty) {
-        return filteredResponse
-            .map((entry) {
-              final airlines = entry['airlines'] as Map<String, dynamic>?;
-              final resolvedLogo = _resolveLogoUrl(airlines);
-              return {
-                ...entry,
-                'airlines': {
-                  if (airlines != null) ...airlines,
-                  'logo': resolvedLogo,
-                  'logo_url': airlines?['logo_url'] ?? resolvedLogo,
-                },
-              };
-            })
-            .toList()
-            .cast<Map<String, dynamic>>();
+        if (filteredResponse.isNotEmpty) {
+          return filteredResponse
+              .map((entry) {
+                final airlines = entry['airlines'] as Map<String, dynamic>?;
+                final resolvedLogo = _resolveLogoUrl(airlines);
+                return {
+                  ...entry,
+                  'airlines': {
+                    if (airlines != null) ...airlines,
+                    'logo': resolvedLogo,
+                    'logo_url': airlines?['logo_url'] ?? resolvedLogo,
+                  },
+                };
+              })
+              .toList()
+              .cast<Map<String, dynamic>>();
+        }
+      } catch (e2) {
+        debugPrint('❌ Error fetching $category rankings: $e2');
       }
 
-      final localFallback = LocalLeaderboardSeed.getCategoryRankings(category)
-          .where((entry) {
-            final entryClass = entry['travel_class']?.toString().toLowerCase();
-            return travelClassMatchSet.isEmpty ||
-                entryClass == null ||
-                entryClass == 'all' ||
-                travelClassMatchSet.contains(entryClass);
-          })
-          .map((entry) => {
-                ...entry,
-                'score_type': mapCategoryToScoreType(category),
-                'score_value':
-                    entry['leaderboard_score'] ?? entry['score_value'],
-              })
-          .toList();
-      if (localFallback.isNotEmpty) {
-        debugPrint('ℹ️ Using local leaderboard seed data for $category');
-        return localFallback;
-      }
-
-      return [];
-    } catch (e) {
-      debugPrint('❌ Error fetching $category rankings: $e');
+      // Final fallback to local seed data
       final localFallback = LocalLeaderboardSeed.getCategoryRankings(category)
           .where((entry) {
             final entryClass = entry['travel_class']?.toString().toLowerCase();
@@ -486,6 +579,12 @@ class SupabaseLeaderboardService {
     Map<String, dynamic>? movement,
   ) {
     final airline = leaderboardEntry['airlines'] as Map<String, dynamic>?;
+    
+    debugPrint('🔍 formatAirlineData - Entry keys: ${leaderboardEntry.keys}');
+    debugPrint('🔍 formatAirlineData - Airline: ${airline?.keys}');
+    if (airline != null) {
+      debugPrint('🔍 formatAirlineData - Airline logo_url: ${airline['logo_url']}, logo: ${airline['logo']}, iata_code: ${airline['iata_code']}');
+    }
 
     // Use leaderboard_rank if available (from leaderboard_rankings table)
     final displayRank = leaderboardEntry['leaderboard_rank'] ?? rank;
@@ -494,22 +593,97 @@ class SupabaseLeaderboardService {
     final displayScore = leaderboardEntry['leaderboard_score'] ??
         leaderboardEntry['score_value'];
 
-    final logoUrl = _resolveLogoUrl(airline);
-
-    return {
+    // Resolve logo URL - prioritize logo_url from airlines object, then fallback to IATA-based URL
+    String? logoUrl;
+    final iataCode = airline?['iata_code']?.toString().toUpperCase();
+    final icaoCode = airline?['icao_code']?.toString().toUpperCase();
+    
+    debugPrint('🔍 Logo resolution - IATA: $iataCode, ICAO: $icaoCode');
+    
+    if (airline != null) {
+      // First try to use the logo_url from the airlines object
+      final logoFromAirline = airline['logo_url']?.toString() ?? airline['logo']?.toString();
+      debugPrint('🔍 Logo from airline object: $logoFromAirline');
+      
+      if (logoFromAirline != null && logoFromAirline.isNotEmpty) {
+        if (_isValidHttpUrl(logoFromAirline)) {
+          // If Supabase has kiwi.com URL (404 errors), replace with airhex.com
+          if (logoFromAirline.contains('kiwi.com')) {
+            if (iataCode != null && iataCode.length >= 2) {
+              logoUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+              debugPrint('🔄 Replacing kiwi.com URL with airhex.com: $logoUrl for ${airline['name']}');
+            } else {
+              logoUrl = logoFromAirline; // Keep original if no IATA
+            }
+          } else {
+            logoUrl = logoFromAirline;
+            debugPrint('✅ Using logo from airlines object: $logoUrl for ${airline['name']}');
+          }
+        } else {
+          debugPrint('⚠️ Logo from airline is not a valid URL: $logoFromAirline');
+        }
+      }
+      
+      // If no valid logo from airline object, try IATA-based fallback
+      // Use airhex.com with _512_512_s.png format (working URLs)
+      if (logoUrl == null && iataCode != null && iataCode.length >= 2) {
+        if (_airlineLogoOverrides.containsKey(iataCode)) {
+          logoUrl = _airlineLogoOverrides[iataCode];
+          debugPrint('✅ Using logo from overrides for $iataCode: $logoUrl');
+        } else {
+          // Use airhex.com with _512_512_s.png format (public, no auth needed)
+          logoUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+          debugPrint('✅ Using airhex.com CDN for $iataCode: $logoUrl');
+        }
+      }
+      
+      // If still no logo, try ICAO-based fallback
+      if (logoUrl == null && icaoCode != null && icaoCode.length >= 2) {
+        logoUrl = 'https://content.airhex.com/content/logos/airlines_${icaoCode}_512_512_s.png';
+        debugPrint('✅ Using airhex.com CDN for ICAO $icaoCode: $logoUrl');
+      }
+    }
+    
+    // Final fallback: if we have IATA but no logo, use airhex.com CDN
+    if (logoUrl == null && iataCode != null && iataCode.length >= 2) {
+      logoUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+      debugPrint('⚠️ Final fallback: Using airhex.com CDN for $iataCode: $logoUrl');
+    }
+    
+    // CRITICAL: Ensure logo is never null if we have IATA code
+    // Use AirHex as primary fallback, Daisycon as secondary
+    if (logoUrl == null || logoUrl.isEmpty) {
+      if (iataCode != null && iataCode.length >= 2) {
+        logoUrl = 'https://content.airhex.com/content/logos/airlines_${iataCode}_512_512_s.png';
+        debugPrint('🚨 CRITICAL FIX: Setting logo from IATA $iataCode: $logoUrl');
+      } else {
+        debugPrint('❌ ERROR: No logo and no IATA code for ${airline?['name']}');
+      }
+    }
+    
+    debugPrint('📸 Formatting airline: ${airline?['name']}, IATA: $iataCode, Logo: $logoUrl');
+    
+    final result = {
       'id': leaderboardEntry['airline_id'],
       'name': airline?['name'] ?? 'Unknown Airline',
-      'iataCode': airline?['iata_code'],
-      'icaoCode': airline?['icao_code'],
-      'logo': logoUrl ?? 'assets/images/airline_logo.png',
+      'iataCode': iataCode,
+      'iata_code': iataCode, // Also include as iata_code for UI compatibility
+      'icaoCode': icaoCode,
+      'icao_code': icaoCode, // Also include as icao_code for UI compatibility
+      'logo': logoUrl ?? '', // Ensure it's never null
+      'logo_url': logoUrl ?? '', // Ensure it's never null
       'score': displayScore,
       'avgRating': leaderboardEntry['avg_rating'],
       'reviewCount': leaderboardEntry['review_count'],
       'rank': displayRank,
       'movement': movement?['movement'],
       'previousRank': movement?['previousRank'],
-      'color': Colors.grey.shade100,
+      // Removed 'color' field - not JSON serializable and not needed
     };
+    
+    debugPrint('📦 Final formatted data - logo: ${result['logo']}, logo_url: ${result['logo_url']}');
+    
+    return result;
   }
 
   static String? _resolveLogoUrl(Map<String, dynamic>? airline) {
@@ -523,10 +697,8 @@ class SupabaseLeaderboardService {
       return logoUrl;
     }
 
-    final iata =
-        airline['iata_code']?.toString().toUpperCase();
-    final icao =
-        airline['icao_code']?.toString().toUpperCase();
+    final iata = airline['iata_code']?.toString().toUpperCase();
+    final icao = airline['icao_code']?.toString().toUpperCase();
 
     if (iata != null && _airlineLogoOverrides.containsKey(iata)) {
       return _airlineLogoOverrides[iata];
@@ -536,11 +708,12 @@ class SupabaseLeaderboardService {
     }
 
     if (iata != null && iata.length >= 2) {
-      return 'https://images.kiwi.com/airlines/256/$iata.png';
+      // Use airhex.com CDN with _512_512_s.png format (public, no auth needed)
+      return 'https://content.airhex.com/content/logos/airlines_${iata}_512_512_s.png';
     }
 
     if (icao != null && icao.length >= 2) {
-      return 'https://images.kiwi.com/airlines/256/$icao.png';
+      return 'https://content.airhex.com/content/logos/airlines_${icao}_512_512_s.png';
     }
 
     return null;
@@ -551,21 +724,67 @@ class SupabaseLeaderboardService {
     return value.startsWith('http://') || value.startsWith('https://');
   }
 
+  /// Map UI category names to database category names
+  /// This handles variations in category naming between UI and database
+  static String normalizeCategoryName(String uiCategory) {
+    switch (uiCategory) {
+      case 'First Class':
+        return 'First Class';
+      case 'Business Class':
+        return 'Business Class';
+      case 'Premium Economy':
+        return 'Premium Economy';
+      case 'Economy':
+      case 'Economy Class':
+        return 'Economy';
+      case 'Airport Experience':
+        return 'Airport Experience';
+      case 'F&B':
+      case 'Food & Beverage':
+        return 'F&B';
+      case 'Seat Comfort':
+        return 'Seat Comfort';
+      case 'IFE and Wifi':
+      case 'IFE and Wifi':
+      case 'Wi-Fi Experience':
+        return 'IFE and Wifi';
+      case 'Onboard Service':
+        return 'Onboard Service';
+      case 'Cleanliness':
+        return 'Cleanliness';
+      default:
+        return uiCategory; // Return as-is if no mapping found
+    }
+  }
+
   /// Map UI categories to database score types
   static String mapCategoryToScoreType(String uiCategory) {
     switch (uiCategory) {
+      case 'First Class':
+        return 'first_class';
       case 'Business Class':
         return 'business_class';
+      case 'Premium Economy':
+        return 'premium_economy';
+      case 'Economy':
       case 'Economy Class':
         return 'economy_class';
-      case 'Wi-Fi Experience':
-        return 'wifi_experience';
-      case 'Crew Friendliness':
-        return 'crew_friendliness';
-      case 'Seat Comfort':
-        return 'seat_comfort';
+      case 'Airport Experience':
+        return 'airport_experience';
+      case 'F&B':
       case 'Food & Beverage':
         return 'food_beverage';
+      case 'Seat Comfort':
+        return 'seat_comfort';
+      case 'IFE and Wifi':
+      case 'Wi-Fi Experience':
+        return 'wifi_experience';
+      case 'Onboard Service':
+        return 'onboard_service';
+      case 'Cleanliness':
+        return 'cleanliness';
+      case 'Crew Friendliness':
+        return 'crew_friendliness';
       case 'Operations & Timeliness':
         return 'operations_timeliness';
       case 'Inflight Entertainment':
@@ -574,8 +793,6 @@ class SupabaseLeaderboardService {
         return 'arrival_experience';
       case 'Booking Experience':
         return 'booking_experience';
-      case 'Cleanliness':
-        return 'cleanliness';
       case 'Aircraft Condition':
         return 'aircraft_condition';
       default:
@@ -626,6 +843,14 @@ class SupabaseLeaderboardService {
         'premium business',
       ];
     }
+    if (normalized.contains('premium')) {
+      return const [
+        'premium',
+        'premium economy',
+        'premium_economy',
+        'economy plus',
+      ];
+    }
     if (normalized.contains('economy')) {
       return const [
         'economy',
@@ -643,5 +868,15 @@ class SupabaseLeaderboardService {
       ];
     }
     return [travelClass];
+  }
+
+  /// Check if a category is a travel class category (First Class, Business Class, etc.)
+  /// vs an experience category (Airport Experience, F&B, etc.)
+  static bool _isTravelClassCategory(String category) {
+    final normalized = category.toLowerCase();
+    return normalized.contains('first class') ||
+        normalized.contains('business class') ||
+        normalized.contains('premium economy') ||
+        normalized == 'economy';
   }
 }
