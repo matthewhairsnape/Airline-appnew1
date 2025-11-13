@@ -149,7 +149,14 @@ class SupabaseService {
     }
   }
 
+  // ============================================================================
+  // OLD HELPER METHOD - Part of airline/airport creation flow
+  // ============================================================================
+  // This method is kept for reference but is not used in the new simplified flow
+  // ============================================================================
+  
   // Helper method to create or get flight
+  /// OLD METHOD - Not used in new simplified flow
   static Future<Map<String, dynamic>?> _createOrGetFlight({
     required String carrier,
     required String flightNumber,
@@ -767,7 +774,15 @@ class SupabaseService {
     }
   }
 
+  // ============================================================================
+  // OLD METHOD - COMMENTED OUT (Part of Cirium flow with airline/airport creation)
+  // ============================================================================
+  // This method is kept for reference but is not used in the new simplified flow
+  // The new flow uses saveSimpleJourney() which doesn't create airline/airport records
+  // ============================================================================
+  
   /// Enhanced method to save flight data with comprehensive airport information
+  /// OLD METHOD - Not used in new simplified flow
   static Future<Map<String, dynamic>?> saveFlightDataWithAirportDetails({
     required String userId,
     required String pnr,
@@ -908,7 +923,14 @@ class SupabaseService {
     }
   }
 
+  // ============================================================================
+  // OLD HELPER METHOD - Part of airline/airport creation flow
+  // ============================================================================
+  // This method is kept for reference but is not used in the new simplified flow
+  // ============================================================================
+  
   /// Get or create airport with comprehensive details
+  /// OLD METHOD - Not used in new simplified flow
   static Future<String?> _getOrCreateAirportWithDetails({
     required String iataCode,
     Map<String, dynamic>? airportData,
@@ -1831,5 +1853,109 @@ class SupabaseService {
       return 'Cannot insert journey events. Check RLS policies for INSERT on journey_events table.';
     }
     return 'Unknown issue. Check detailed diagnostics.';
+  }
+
+  // ============================================================================
+  // NEW SIMPLIFIED JOURNEY SAVE METHOD - Saves directly after scanning
+  // ============================================================================
+  // This method saves journey data directly to simple_journeys table
+  // without Cirium verification or airline/airport table creation
+  // ============================================================================
+  
+  /// Save journey data directly to simple_journeys table after boarding pass scan
+  /// This bypasses Cirium API and airline/airport table creation
+  static Future<Map<String, dynamic>?> saveSimpleJourney({
+    required String userId,
+    required String pnr,
+    String? carrierCode,
+    String? flightNumber,
+    String? airlineName,
+    String? departureAirportCode,
+    String? departureAirportName,
+    String? departureCity,
+    String? departureCountry,
+    String? arrivalAirportCode,
+    String? arrivalAirportName,
+    String? arrivalCity,
+    String? arrivalCountry,
+    required DateTime flightDate,
+    DateTime? scheduledDeparture,
+    DateTime? scheduledArrival,
+    String? seatNumber,
+    String? classOfTravel,
+    String? terminal,
+    String? gate,
+    String? aircraftType,
+    Map<String, dynamic>? boardingPassData,
+  }) async {
+    if (!isInitialized) {
+      debugPrint('❌ Supabase not initialized');
+      return null;
+    }
+
+    // Validate required fields
+    if (userId.isEmpty || pnr.isEmpty) {
+      debugPrint('❌ Missing required fields: userId or pnr');
+      return null;
+    }
+
+    try {
+      // Check for duplicate (PNR + passenger_id)
+      final existingJourney = await client
+          .from('simple_journeys')
+          .select('id, pnr')
+          .eq('pnr', pnr)
+          .eq('passenger_id', userId)
+          .maybeSingle();
+
+      if (existingJourney != null) {
+        debugPrint('⚠️ Duplicate journey detected: PNR=$pnr for user=$userId');
+        return {'duplicate': true, 'existing_journey': existingJourney};
+      }
+
+      // Prepare journey data
+      final journeyData = {
+        'passenger_id': userId,
+        'pnr': pnr,
+        'carrier_code': carrierCode,
+        'flight_number': flightNumber,
+        'airline_name': airlineName,
+        'departure_airport_code': departureAirportCode,
+        'departure_airport_name': departureAirportName,
+        'departure_city': departureCity,
+        'departure_country': departureCountry,
+        'arrival_airport_code': arrivalAirportCode,
+        'arrival_airport_name': arrivalAirportName,
+        'arrival_city': arrivalCity,
+        'arrival_country': arrivalCountry,
+        'flight_date': flightDate.toIso8601String().split('T')[0], // Date only
+        'scheduled_departure': scheduledDeparture?.toIso8601String(),
+        'scheduled_arrival': scheduledArrival?.toIso8601String(),
+        'seat_number': seatNumber,
+        'class_of_travel': classOfTravel,
+        'terminal': terminal,
+        'gate': gate,
+        'aircraft_type': aircraftType,
+        'visit_status': 'Upcoming',
+        'status': 'active',
+        'current_phase': 'pre_check_in',
+        'boarding_pass_data': boardingPassData, // Store raw boarding pass data
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Insert journey
+      final journey = await client
+          .from('simple_journeys')
+          .insert(journeyData)
+          .select()
+          .single();
+
+      debugPrint('✅ Simple journey saved successfully: ${journey['id']}');
+      return journey;
+    } catch (e) {
+      debugPrint('❌ Error saving simple journey: $e');
+      return null;
+    }
   }
 }

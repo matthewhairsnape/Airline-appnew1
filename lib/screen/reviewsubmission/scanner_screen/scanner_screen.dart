@@ -345,25 +345,149 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         return;
       }
 
+      // ============================================================================
+      // OLD CIRIUM FLOW - COMMENTED OUT
+      // ============================================================================
       // Validate flight identifiers before Cirium lookup
-      if (!_isValidFlightIdentifier(carrier, flightNumber)) {
-        debugPrint(
-            "❌ Invalid flight identifier: carrier='$carrier', flight='$flightNumber'");
+      // if (!_isValidFlightIdentifier(carrier, flightNumber)) {
+      //   debugPrint(
+      //       "❌ Invalid flight identifier: carrier='$carrier', flight='$flightNumber'");
+      //   if (mounted) {
+      //     CustomSnackBar.error(
+      //         context, 'Invalid flight data extracted from boarding pass');
+      //     _restartScanner();
+      //     return;
+      //   }
+      // }
+
+      // debugPrint(
+      //     "➡️ Cirium lookup: ${carrier}${flightNumber} on ${date.toIso8601String().split('T')[0]} from $departureAirport");
+
+      // final authState = ref.read(authProvider);
+      // final userId = authState.user.value?.id ?? '';
+      // final airlineName = _getAirlineNameFromCode(carrier);
+      // final fallbackBoardingPass = _buildOfflineBoardingPass(
+      //   userId: userId,
+      //   pnr: pnr,
+      //   airlineName: airlineName,
+      //   carrier: carrier,
+      //   flightNumber: flightNumber,
+      //   departureAirport: departureAirport,
+      //   arrivalAirport: arrivalAirport,
+      //   classOfService: classOfService,
+      //   flightDate: date,
+      // );
+
+      // Future<void> _handleOfflineFallback(String message) async {
+      //   await _handleOfflineBoardingPass(
+      //     boardingPass: fallbackBoardingPass,
+      //     seatNumber: seatNumber,
+      //     flightDate: date,
+      //     statusMessage: message,
+      //   );
+      // }
+
+      // // Try the scanned date first
+      // try {
+      //   Map<String, dynamic> flightInfo =
+      //       await _fetchFlightInfo.fetchFlightInfo(
+      //     carrier: carrier,
+      //     flightNumber: flightNumber,
+      //     flightDate: date,
+      //     departureAirport: departureAirport,
+      //   );
+
+      //   String responseStr = flightInfo.toString();
+      //   debugPrint(
+      //       "📦 Cirium response: ${responseStr.length > 200 ? responseStr.substring(0, 200) + '...' : responseStr}");
+
+      //   // Check if flight data was found
+      //   if (flightInfo['flightStatuses']?.isEmpty ?? true) {
+      //     debugPrint("❌ No flight found in Cirium");
+      //     if (mounted) {
+      //       await _handleOfflineFallback(
+      //           'Live flight status is unavailable. We\'re showing the details from your boarding pass only.');
+      //     }
+      //     return;
+      //   }
+
+      //   debugPrint(
+      //       "✅ Found flight data with ${flightInfo['flightStatuses'].length} status(es)");
+
+      //   await _processFetchedFlightInfo(flightInfo, pnr, classOfService,
+      //       carrier, flightNumber, date, departureAirport, seatNumber);
+      // } catch (e) {
+      //   debugPrint(
+      //       "⚠️ Cirium lookup failed, falling back to offline boarding pass data: $e");
+      //   if (mounted) {
+      //     await _handleOfflineFallback(
+      //         'Live flight status couldn\'t be reached. Showing your boarding pass details for confirmation.');
+      //   }
+      //   return;
+      // }
+      // ============================================================================
+      // END OF OLD CIRIUM FLOW
+      // ============================================================================
+
+      // ============================================================================
+      // NEW SIMPLIFIED FLOW - Save directly after scanning
+      // ============================================================================
+      final authState = ref.read(authProvider);
+      final userId = authState.user.value?.id ?? '';
+      
+      if (userId.isEmpty) {
+        debugPrint('❌ No authenticated user found');
         if (mounted) {
-          CustomSnackBar.error(
-              context, 'Invalid flight data extracted from boarding pass');
-          _restartScanner();
+          CustomSnackBar.error(context, 'Please log in to save your journey');
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      // Get airline name from carrier code
+      final airlineName = _getAirlineNameFromCode(carrier);
+
+      // Save directly to simple_journeys table
+      debugPrint('💾 Saving journey directly after scan (no Cirium verification)');
+      
+      if (SupabaseService.isInitialized) {
+        final journeyResult = await SupabaseService.saveSimpleJourney(
+          userId: userId,
+          pnr: pnr,
+          carrierCode: carrier,
+          flightNumber: flightNumber,
+          airlineName: airlineName,
+          departureAirportCode: departureAirport,
+          arrivalAirportCode: arrivalAirport.isNotEmpty ? arrivalAirport : null,
+          flightDate: date,
+          seatNumber: seatNumber.isNotEmpty ? seatNumber : null,
+          classOfTravel: classOfService,
+          boardingPassData: {
+            'pnr': pnr,
+            'carrier': carrier,
+            'flight_number': flightNumber,
+            'departure_airport': departureAirport,
+            'arrival_airport': arrivalAirport,
+            'flight_date': date.toIso8601String(),
+            'seat_number': seatNumber,
+            'class_of_service': classOfService,
+            'scanned_at': DateTime.now().toIso8601String(),
+          },
+        );
+
+        if (journeyResult != null && journeyResult['duplicate'] == true) {
+          debugPrint('⚠️ Duplicate journey detected');
+          if (mounted) {
+            _showDuplicateJourneyDialog(context);
+          }
           return;
+        } else if (journeyResult != null) {
+          debugPrint('✅ Journey saved successfully: ${journeyResult['id']}');
         }
       }
 
-      debugPrint(
-          "➡️ Cirium lookup: ${carrier}${flightNumber} on ${date.toIso8601String().split('T')[0]} from $departureAirport");
-
-      final authState = ref.read(authProvider);
-      final userId = authState.user.value?.id ?? '';
-      final airlineName = _getAirlineNameFromCode(carrier);
-      final fallbackBoardingPass = _buildOfflineBoardingPass(
+      // Save to local storage
+      final boardingPass = _buildOfflineBoardingPass(
         userId: userId,
         pnr: pnr,
         airlineName: airlineName,
@@ -374,54 +498,31 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
         classOfService: classOfService,
         flightDate: date,
       );
+      
+      final result = await _boardingPassController.saveBoardingPass(boardingPass);
 
-      Future<void> _handleOfflineFallback(String message) async {
-        await _handleOfflineBoardingPass(
-          boardingPass: fallbackBoardingPass,
-          seatNumber: seatNumber,
-          flightDate: date,
-          statusMessage: message,
-        );
-      }
-
-      // Try the scanned date first
-      try {
-        Map<String, dynamic> flightInfo =
-            await _fetchFlightInfo.fetchFlightInfo(
-          carrier: carrier,
-          flightNumber: flightNumber,
-          flightDate: date,
-          departureAirport: departureAirport,
-        );
-
-        String responseStr = flightInfo.toString();
-        debugPrint(
-            "📦 Cirium response: ${responseStr.length > 200 ? responseStr.substring(0, 200) + '...' : responseStr}");
-
-        // Check if flight data was found
-        if (flightInfo['flightStatuses']?.isEmpty ?? true) {
-          debugPrint("❌ No flight found in Cirium");
-          if (mounted) {
-            await _handleOfflineFallback(
-                'Live flight status is unavailable. We\'re showing the details from your boarding pass only.');
-          }
-          return;
+      // Show success message and confirmation dialog
+      if (mounted) {
+        if (result) {
+          CustomSnackBar.success(context,
+              '✅ Boarding pass scanned! Your journey has been saved.');
+        } else {
+          CustomSnackBar.success(
+              context, '✅ Journey saved!');
         }
 
-        debugPrint(
-            "✅ Found flight data with ${flightInfo['flightStatuses'].length} status(es)");
-
-        await _processFetchedFlightInfo(flightInfo, pnr, classOfService,
-            carrier, flightNumber, date, departureAirport, seatNumber);
-      } catch (e) {
-        debugPrint(
-            "⚠️ Cirium lookup failed, falling back to offline boarding pass data: $e");
-        if (mounted) {
-          await _handleOfflineFallback(
-              'Live flight status couldn\'t be reached. Showing your boarding pass details for confirmation.');
-        }
-        return;
+        // Show confirmation dialog
+        FlightConfirmationDialog.show(
+          context,
+          boardingPass,
+          seatNumber: seatNumber.isNotEmpty ? seatNumber : null,
+          scheduledDeparture: date,
+          scheduledArrival: date.add(const Duration(hours: 2)), // Estimated
+        );
       }
+      // ============================================================================
+      // END OF NEW SIMPLIFIED FLOW
+      // ============================================================================
     } catch (e, stackTrace) {
       debugPrint("❌ Error processing boarding pass: $e");
       debugPrint("Stack trace: $stackTrace");
