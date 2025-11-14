@@ -62,8 +62,24 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenHeight < 700;
+    final isTablet = screenWidth > 600;
+    
+    // Responsive height: 90% for normal, 95% for small screens, 85% for tablets
+    final modalHeight = isSmallScreen 
+        ? screenHeight * 0.95 
+        : isTablet 
+            ? screenHeight * 0.85 
+            : screenHeight * 0.9;
+    
+    // Responsive padding
+    final horizontalPadding = isTablet ? 32.0 : 24.0;
+    final verticalPadding = isSmallScreen ? 16.0 : 24.0;
+    
     return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
+      height: modalHeight,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -77,68 +93,86 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
           Container(
             width: 40,
             height: 4,
-            margin: EdgeInsets.only(top: 12, bottom: 20),
+            margin: EdgeInsets.only(
+              top: isSmallScreen ? 8 : 12, 
+              bottom: isSmallScreen ? 16 : 20,
+            ),
             decoration: BoxDecoration(
               color: Colors.grey[300],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
 
-          // Header
+          // Header - Responsive
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: Row(
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(Icons.close, color: Colors.black),
+                  icon: Icon(
+                    Icons.close, 
+                    color: Colors.black,
+                    size: isSmallScreen ? 20 : 24,
+                  ),
+                  padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
                 ),
                 Expanded(
                   child: Text(
                     'Share Your Experience',
-                    style: AppStyles.textStyle_20_600
-                        .copyWith(color: Colors.black),
+                    style: AppStyles.textStyle_20_600.copyWith(
+                      color: Colors.black,
+                      fontSize: isSmallScreen ? 18 : 20,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-                SizedBox(width: 48), // Balance the close button
+                SizedBox(width: isSmallScreen ? 40 : 48), // Balance the close button
               ],
             ),
           ),
 
-          SizedBox(height: 24),
+          SizedBox(height: isSmallScreen ? 16 : 24),
 
-          // Pixar Image Header
-          _buildPixarImageHeader(),
+          // Pixar Image Header - Responsive
+          _buildPixarImageHeader(isSmallScreen, horizontalPadding),
 
-          SizedBox(height: 24),
+          SizedBox(height: isSmallScreen ? 16 : 24),
 
-          // Overall Rating Section
-          _buildOverallRatingSection(),
+          // Overall Rating Section - Responsive
+          _buildOverallRatingSection(isSmallScreen, horizontalPadding),
 
-          SizedBox(height: 24),
+          SizedBox(height: isSmallScreen ? 16 : 24),
 
-          // Unified Feedback Form (tabs hidden, but backend still processes by phase)
+          // Unified Feedback Form - Responsive
           Expanded(
-            child: _buildUnifiedFeedback(),
+            child: _buildUnifiedFeedback(horizontalPadding),
           ),
 
-          // Submit Button
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: ElevatedButton(
-              onPressed: _canSubmit() ? _submitFeedback : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                padding: EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          // Submit Button - Responsive
+          Container(
+            padding: EdgeInsets.all(horizontalPadding),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _canSubmit() ? _submitFeedback : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(
+                    vertical: isSmallScreen ? 14 : 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
                 ),
-                elevation: 0,
-              ),
-              child: Text(
-                'Submit Feedback',
-                style: AppStyles.textStyle_16_600.copyWith(color: Colors.white),
+                child: Text(
+                  'Submit Feedback',
+                  style: AppStyles.textStyle_16_600.copyWith(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 14 : 16,
+                  ),
+                ),
               ),
             ),
           ),
@@ -147,10 +181,12 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     );
   }
 
-  Widget _buildPixarImageHeader() {
+  Widget _buildPixarImageHeader(bool isSmallScreen, double horizontalPadding) {
+    final imageHeight = isSmallScreen ? 140.0 : 180.0;
+    
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24),
-      height: 180,
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      height: imageHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -172,10 +208,13 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     );
   }
 
-  Widget _buildOverallRatingSection() {
+  Widget _buildOverallRatingSection(bool isSmallScreen, double horizontalPadding) {
+    final starSize = isSmallScreen ? 28.0 : 32.0;
+    final padding = isSmallScreen ? 16.0 : 20.0;
+    
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 24),
-      padding: EdgeInsets.all(20),
+      margin: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(16),
@@ -185,9 +224,12 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
         children: [
           Text(
             'Overall Experience',
-            style: AppStyles.textStyle_18_600.copyWith(color: Colors.black),
+            style: AppStyles.textStyle_18_600.copyWith(
+              color: Colors.black,
+              fontSize: isSmallScreen ? 16 : 18,
+            ),
           ),
-          SizedBox(height: 12),
+          SizedBox(height: isSmallScreen ? 10 : 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(5, (index) {
@@ -198,22 +240,25 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
                   });
                 },
                 child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 4),
+                  margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 3 : 4),
                   child: Icon(
                     index < _overallRating ? Icons.star : Icons.star_border,
                     color: index < _overallRating
                         ? Colors.amber
                         : Colors.grey[400],
-                    size: 32,
+                    size: starSize,
                   ),
                 ),
               );
             }),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: isSmallScreen ? 6 : 8),
           Text(
             _getRatingText(_overallRating),
-            style: AppStyles.textStyle_14_500.copyWith(color: Colors.grey[600]),
+            style: AppStyles.textStyle_14_500.copyWith(
+              color: Colors.grey[600],
+              fontSize: isSmallScreen ? 12 : 14,
+            ),
           ),
         ],
       ),
@@ -221,14 +266,14 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
   }
 
   // Unified feedback form - combines all categories into one view
-  Widget _buildUnifiedFeedback() {
+  Widget _buildUnifiedFeedback(double horizontalPadding) {
     // Use unified options for all phases (backend still processes by phase)
     final unifiedLikes = <String, Set<String>>{};
     final unifiedDislikes = <String, Set<String>>{};
     
     return SingleChildScrollView(
       controller: _scrollController,
-      padding: EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -240,8 +285,9 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
             Icons.thumb_up,
             Colors.green,
             true,
+            horizontalPadding,
           ),
-          SizedBox(height: 32),
+          SizedBox(height: horizontalPadding),
           
           // What can be better? section
           _buildCategorySection(
@@ -251,8 +297,9 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
             Icons.thumb_down,
             Colors.red,
             false,
+            horizontalPadding,
           ),
-          SizedBox(height: 24),
+          SizedBox(height: horizontalPadding),
         ],
       ),
     );
@@ -319,15 +366,15 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
 
   // Keep these methods for backend compatibility (not used in UI anymore)
   Widget _buildPreFlightFeedback() {
-    return _buildUnifiedFeedback();
+    return _buildUnifiedFeedback(24.0); // Default padding
   }
 
   Widget _buildInFlightFeedback() {
-    return _buildUnifiedFeedback();
+    return _buildUnifiedFeedback(24.0); // Default padding
   }
 
   Widget _buildPostFlightFeedback() {
-    return _buildUnifiedFeedback();
+    return _buildUnifiedFeedback(24.0); // Default padding
   }
 
   Widget _buildCategorySection(
@@ -337,6 +384,7 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
     IconData icon,
     Color color,
     bool isLikes,
+    double horizontalPadding,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

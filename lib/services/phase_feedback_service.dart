@@ -30,24 +30,51 @@ class PhaseFeedbackService {
         debugPrint('🔍 Journey ID is UUID, using directly');
         actualJourneyId = journeyId;
         
-        // Get flight_id from journey record
+        // ============================================================================
+        // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+        // ============================================================================
+        // // Get flight_id from journey record
+        // try {
+        //   journeyData = await _client
+        //       .from('journeys')
+        //       .select('flight_id')
+        //       .eq('id', journeyId)
+        //       .maybeSingle();
+        //   
+        //   if (journeyData == null) {
+        //     debugPrint('❌ Journey not found in database for UUID: $journeyId');
+        //     // Still proceed - the journey might be created later or the UUID might be valid but not yet in DB
+        //     debugPrint('⚠️ Proceeding with journeyId as-is, flightId will be null');
+        //   } else {
+        //     actualFlightId = journeyData['flight_id'] as String?;
+        //     debugPrint('✅ Found journey in database, flight ID: $actualFlightId');
+        //   }
+        // } catch (e) {
+        //   debugPrint('⚠️ Error looking up journey: $e');
+        //   debugPrint('⚠️ Proceeding with journeyId as-is');
+        // }
+        // ============================================================================
+        // END OF OLD CODE
+        // ============================================================================
+        
+        // NEW CODE - Check simple_journeys table
         try {
           journeyData = await _client
-              .from('journeys')
-              .select('flight_id')
+              .from('simple_journeys')
+              .select('id')
               .eq('id', journeyId)
               .maybeSingle();
           
           if (journeyData == null) {
-            debugPrint('❌ Journey not found in database for UUID: $journeyId');
-            // Still proceed - the journey might be created later or the UUID might be valid but not yet in DB
+            debugPrint('❌ Journey not found in simple_journeys for UUID: $journeyId');
             debugPrint('⚠️ Proceeding with journeyId as-is, flightId will be null');
           } else {
-            actualFlightId = journeyData['flight_id'] as String?;
-            debugPrint('✅ Found journey in database, flight ID: $actualFlightId');
+            debugPrint('✅ Found journey in simple_journeys table');
+            // simple_journeys doesn't have flight_id, so actualFlightId stays null
+            actualFlightId = null;
           }
         } catch (e) {
-          debugPrint('⚠️ Error looking up journey: $e');
+          debugPrint('⚠️ Error looking up journey in simple_journeys: $e');
           debugPrint('⚠️ Proceeding with journeyId as-is');
         }
       } else {
@@ -129,19 +156,45 @@ class PhaseFeedbackService {
   /// Get journey data by PNR
   static Future<Map<String, dynamic>?> _getJourneyData(String pnr) async {
     try {
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+      // ============================================================================
+      // final response = await _client
+      //     .from('journeys')
+      //     .select('id, flight_id, pnr')
+      //     .eq('pnr', pnr)
+      //     .maybeSingle();
+
+      // if (response == null) {
+      //   debugPrint('❌ No journey found for PNR: $pnr');
+      //   return null;
+      // }
+
+      // debugPrint('✅ Found journey data: $response');
+      // return response;
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Check simple_journeys table
       final response = await _client
-          .from('journeys')
-          .select('id, flight_id, pnr')
+          .from('simple_journeys')
+          .select('id, pnr')
           .eq('pnr', pnr)
           .maybeSingle();
 
       if (response == null) {
-        debugPrint('❌ No journey found for PNR: $pnr');
+        debugPrint('❌ No journey found for PNR in simple_journeys: $pnr');
         return null;
       }
 
-      debugPrint('✅ Found journey data: $response');
-      return response;
+      debugPrint('✅ Found journey data in simple_journeys: $response');
+      // Return with id only (simple_journeys doesn't have flight_id)
+      return {
+        'id': response['id'],
+        'pnr': response['pnr'],
+        'flight_id': null, // simple_journeys doesn't have flight_id
+      };
     } catch (e) {
       debugPrint('❌ Error getting journey data for PNR $pnr: $e');
       return null;
@@ -270,20 +323,42 @@ class PhaseFeedbackService {
                 if (airlineId == null) {
                   final carrierCode = flightData['carrier_code'];
                   
-                  // Get Cirium data from journeys table (stored in media column)
+                  // ============================================================================
+                  // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+                  // ============================================================================
+                  // // Get Cirium data from journeys table (stored in media column)
+                  // Map<String, dynamic>? apiData;
+                  // try {
+                  //   final journeyData = await _client
+                  //       .from('journeys')
+                  //       .select('media')
+                  //       .eq('id', journeyId)
+                  //       .maybeSingle();
+                  //   apiData = journeyData?['media'] as Map<String, dynamic>?;
+                  //   if (apiData != null) {
+                  //     debugPrint('✅ Found Cirium API data in journey');
+                  //   }
+                  // } catch (e) {
+                  //   debugPrint('⚠️ Could not fetch API data from journey: $e');
+                  // }
+                  // ============================================================================
+                  // END OF OLD CODE
+                  // ============================================================================
+                  
+                  // NEW CODE - Get boarding pass data from simple_journeys table
                   Map<String, dynamic>? apiData;
                   try {
                     final journeyData = await _client
-                        .from('journeys')
-                        .select('media')
+                        .from('simple_journeys')
+                        .select('boarding_pass_data')
                         .eq('id', journeyId)
                         .maybeSingle();
-                    apiData = journeyData?['media'] as Map<String, dynamic>?;
+                    apiData = journeyData?['boarding_pass_data'] as Map<String, dynamic>?;
                     if (apiData != null) {
-                      debugPrint('✅ Found Cirium API data in journey');
+                      debugPrint('✅ Found boarding pass data in simple_journey');
                     }
                   } catch (e) {
-                    debugPrint('⚠️ Could not fetch API data from journey: $e');
+                    debugPrint('⚠️ Could not fetch boarding pass data from simple_journey: $e');
                   }
                   
                   debugPrint('🔍 No airline_id in flight, looking up by carrier_code: $carrierCode');
@@ -451,13 +526,28 @@ class PhaseFeedbackService {
       
       if (isJourneyUuid) {
         actualJourneyId = journeyId;
-        // Get flight_id from journey record
+        // ============================================================================
+        // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+        // ============================================================================
+        // // Get flight_id from journey record
+        // final journeyLookup = await _client
+        //     .from('journeys')
+        //     .select('flight_id')
+        //     .eq('id', journeyId)
+        //     .maybeSingle();
+        // actualFlightId = journeyLookup?['flight_id'] as String?;
+        // ============================================================================
+        // END OF OLD CODE
+        // ============================================================================
+        
+        // NEW CODE - Check simple_journeys table
         final journeyLookup = await _client
-            .from('journeys')
-            .select('flight_id')
+            .from('simple_journeys')
+            .select('id')
             .eq('id', journeyId)
             .maybeSingle();
-        actualFlightId = journeyLookup?['flight_id'] as String?;
+        // simple_journeys doesn't have flight_id
+        actualFlightId = null;
       } else {
         // journeyId is PNR, need to look up the actual journey
         debugPrint('🔍 Journey ID is PNR, looking up journey');
@@ -472,9 +562,22 @@ class PhaseFeedbackService {
       
       debugPrint('✅ Resolved journey ID: $actualJourneyId, flight ID: $actualFlightId');
 
-      // First check if journey is actually completed
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+      // ============================================================================
+      // // First check if journey is actually completed
+      // final journeyStatusData = await _client
+      //     .from('journeys')
+      //     .select('current_phase, visit_status, status')
+      //     .eq('id', actualJourneyId)
+      //     .maybeSingle();
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Check simple_journeys table
       final journeyStatusData = await _client
-          .from('journeys')
+          .from('simple_journeys')
           .select('current_phase, visit_status, status')
           .eq('id', actualJourneyId)
           .maybeSingle();
@@ -500,98 +603,137 @@ class PhaseFeedbackService {
       // Users must explicitly complete the journey, submitting overall review does not auto-complete
       debugPrint('ℹ️ Journey status will not be changed by feedback submission');
 
-      // Use feedback table for overall experience
-      // Try different phase values that might be valid
-      // Note: 'completed' phase violates database constraint, using alternatives
-      final validPhases = [
-        'landed',      // Most common valid phase
-        'post-flight',
-        'arrival',
-        'overall',
-        'final'
-      ];
-      String? successfulPhase;
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses 'feedback' table with foreign key to 'journeys')
+      // ============================================================================
+      // // Use feedback table for overall experience
+      // // Try different phase values that might be valid
+      // // Note: 'completed' phase violates database constraint, using alternatives
+      // final validPhases = [
+      //   'landed',      // Most common valid phase
+      //   'post-flight',
+      //   'arrival',
+      //   'overall',
+      //   'final'
+      // ];
+      // String? successfulPhase;
 
-      for (final phase in validPhases) {
-        try {
-          debugPrint('🔄 Attempting to insert feedback with phase: $phase');
-          debugPrint('   journey_id: $actualJourneyId');
-          debugPrint('   flight_id: ${actualFlightId ?? actualJourneyId}');
-          debugPrint('   rating: $overallRating');
-          
-          // Try with all fields first
-          final insertData = {
-            'journey_id': actualJourneyId,
-            'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
-            'phase': phase,
-            'rating': overallRating.toDouble(),
-            'comment': _createCommentFromSelections(likes, dislikes),
-            'created_at': DateTime.now().toIso8601String(),
-          };
-          
-          // Add optional fields if they exist in schema
-          try {
-            insertData['category'] = 'overall_experience';
-            insertData['sentiment'] = _getSentiment(overallRating);
-            insertData['timestamp'] = DateTime.now().toIso8601String();
-            final tags = _extractTags(likes, dislikes);
-            if (tags.isNotEmpty) {
-              insertData['tags'] = tags;
-            }
-          } catch (e) {
-            debugPrint('⚠️ Error adding optional fields: $e');
-            // Continue without optional fields
-          }
-          
-          await _client.from('feedback').insert(insertData);
-          successfulPhase = phase;
-          debugPrint('✅ Successfully inserted feedback with phase: $phase');
-          break;
-        } catch (e, stackTrace) {
-          debugPrint('⚠️ Phase "$phase" failed: $e');
-          debugPrint('   Stack trace: $stackTrace');
-          
-          // If it's a foreign key constraint error, the journey/flight might not exist
-          if (e.toString().contains('foreign key') || 
-              e.toString().contains('violates foreign key constraint')) {
-            debugPrint('❌ Foreign key constraint violation - journey or flight may not exist');
-            debugPrint('   This might mean the journey_id or flight_id is invalid');
-            // Don't try other phases if it's a foreign key issue
-            throw Exception('Journey or flight not found in database: $e');
-          }
-          
-          // If it's a schema error, try minimal fields only
-          if (e.toString().contains('schema') || 
-              e.toString().contains('does not exist') ||
-              e.toString().contains('column') ||
-              e.toString().contains('unknown')) {
-            debugPrint('🔄 Schema error detected, trying minimal fields only...');
-            try {
-              await _client.from('feedback').insert({
-                'journey_id': actualJourneyId,
-                'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
-                'phase': phase,
-                'rating': overallRating.toDouble(),
-                'comment': _createCommentFromSelections(likes, dislikes),
-              });
-              successfulPhase = phase;
-              debugPrint('✅ Minimal fields insert successful for phase: $phase');
-              break;
-            } catch (fallbackError) {
-              debugPrint('⚠️ Minimal fields also failed: $fallbackError');
-              continue;
-            }
-          }
-          continue;
+      // for (final phase in validPhases) {
+      //   try {
+      //     debugPrint('🔄 Attempting to insert feedback with phase: $phase');
+      //     debugPrint('   journey_id: $actualJourneyId');
+      //     debugPrint('   flight_id: ${actualFlightId ?? actualJourneyId}');
+      //     debugPrint('   rating: $overallRating');
+      //     
+      //     // Try with all fields first
+      //     final insertData = {
+      //       'journey_id': actualJourneyId,
+      //       'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
+      //       'phase': phase,
+      //       'rating': overallRating.toDouble(),
+      //       'comment': _createCommentFromSelections(likes, dislikes),
+      //       'created_at': DateTime.now().toIso8601String(),
+      //     };
+      //     
+      //     // Add optional fields if they exist in schema
+      //     try {
+      //       insertData['category'] = 'overall_experience';
+      //       insertData['sentiment'] = _getSentiment(overallRating);
+      //       insertData['timestamp'] = DateTime.now().toIso8601String();
+      //       final tags = _extractTags(likes, dislikes);
+      //       if (tags.isNotEmpty) {
+      //         insertData['tags'] = tags;
+      //       }
+      //     } catch (e) {
+      //       debugPrint('⚠️ Error adding optional fields: $e');
+      //       // Continue without optional fields
+      //     }
+      //     
+      //     await _client.from('feedback').insert(insertData);
+      //     successfulPhase = phase;
+      //     debugPrint('✅ Successfully inserted feedback with phase: $phase');
+      //     break;
+      //   } catch (e, stackTrace) {
+      //     debugPrint('⚠️ Phase "$phase" failed: $e');
+      //     debugPrint('   Stack trace: $stackTrace');
+      //     
+      //     // If it's a foreign key constraint error, the journey/flight might not exist
+      //     if (e.toString().contains('foreign key') || 
+      //         e.toString().contains('violates foreign key constraint')) {
+      //       debugPrint('❌ Foreign key constraint violation - journey or flight may not exist');
+      //       debugPrint('   This might mean the journey_id or flight_id is invalid');
+      //       // Don't try other phases if it's a foreign key issue
+      //       throw Exception('Journey or flight not found in database: $e');
+      //     }
+      //     
+      //     // If it's a schema error, try minimal fields only
+      //     if (e.toString().contains('schema') || 
+      //         e.toString().contains('does not exist') ||
+      //         e.toString().contains('column') ||
+      //         e.toString().contains('unknown')) {
+      //       debugPrint('🔄 Schema error detected, trying minimal fields only...');
+      //       try {
+      //         await _client.from('feedback').insert({
+      //           'journey_id': actualJourneyId,
+      //           'flight_id': actualFlightId ?? actualJourneyId, // Use journey ID as fallback if flight_id is null
+      //           'phase': phase,
+      //           'rating': overallRating.toDouble(),
+      //           'comment': _createCommentFromSelections(likes, dislikes),
+      //         });
+      //         successfulPhase = phase;
+      //         debugPrint('✅ Minimal fields insert successful for phase: $phase');
+      //         break;
+      //       } catch (fallbackError) {
+      //         debugPrint('⚠️ Minimal fields also failed: $fallbackError');
+      //         continue;
+      //       }
+      //     }
+      //     continue;
+      //   }
+      // }
+
+      // if (successfulPhase == null) {
+      //   debugPrint('❌ All phase attempts failed for feedback submission');
+      //   throw Exception('No valid phase found for feedback table. All attempts failed.');
+      // }
+
+      // debugPrint('✅ Used phase: $successfulPhase');
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Use stage_feedback table instead (works with simple_journeys)
+      debugPrint('📝 Submitting overall feedback to stage_feedback table...');
+      try {
+        // Get current user
+        final session = SupabaseService.client.auth.currentSession;
+        final userId = session?.user.id ?? '';
+        
+        if (userId.isEmpty) {
+          debugPrint('❌ No authenticated user found');
+          return false;
         }
+        
+        // Extract tags from likes/dislikes
+        final tags = _extractTags(likes, dislikes);
+        
+        // Submit to stage_feedback table with 'overall' stage
+        await _client.from('stage_feedback').upsert({
+          'journey_id': actualJourneyId,
+          'user_id': userId,
+          'stage': 'overall',
+          'positive_selections': _convertLikesToMap(likes),
+          'negative_selections': _convertDislikesToMap(dislikes),
+          'overall_rating': overallRating,
+          'additional_comments': _createCommentFromSelections(likes, dislikes),
+          'feedback_timestamp': DateTime.now().toIso8601String(),
+        });
+        
+        debugPrint('✅ Successfully submitted overall feedback to stage_feedback table');
+      } catch (e) {
+        debugPrint('❌ Error submitting to stage_feedback: $e');
+        throw Exception('Failed to submit overall feedback: $e');
       }
-
-      if (successfulPhase == null) {
-        debugPrint('❌ All phase attempts failed for feedback submission');
-        throw Exception('No valid phase found for feedback table. All attempts failed.');
-      }
-
-      debugPrint('✅ Used phase: $successfulPhase');
 
       debugPrint('✅ Overall feedback submitted successfully');
       return true;
@@ -740,6 +882,24 @@ class PhaseFeedbackService {
     }
 
     return tags.take(10).toList(); // Limit to 10 tags
+  }
+
+  /// Convert likes Map<String, Set<String>> to Map<String, dynamic> for JSONB storage
+  static Map<String, dynamic> _convertLikesToMap(Map<String, Set<String>> likes) {
+    final result = <String, dynamic>{};
+    for (final entry in likes.entries) {
+      result[entry.key] = entry.value.toList();
+    }
+    return result;
+  }
+
+  /// Convert dislikes Map<String, Set<String>> to Map<String, dynamic> for JSONB storage
+  static Map<String, dynamic> _convertDislikesToMap(Map<String, Set<String>> dislikes) {
+    final result = <String, dynamic>{};
+    for (final entry in dislikes.entries) {
+      result[entry.key] = entry.value.toList();
+    }
+    return result;
   }
 
   /// Update leaderboard_scores table with in-flight feedback scores

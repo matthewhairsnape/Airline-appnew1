@@ -6,89 +6,223 @@ import '../models/flight_tracking_model.dart';
 class JourneyDatabaseService {
   static final SupabaseClient _client = SupabaseService.client;
 
-  /// Fetch journeys for a specific user from the database
+  // ============================================================================
+  // OLD METHOD - COMMENTED OUT (Fetches from old 'journeys' table with joins)
+  // ============================================================================
+  // /// Fetch journeys for a specific user from the database
+  // static Future<List<Map<String, dynamic>>> getUserJourneys(
+  //     String userId) async {
+  //   try {
+  //     debugPrint('🔍 Fetching journeys for user: $userId');
+
+  //     // First try with the join query
+  //     try {
+  //       final response = await _client
+  //           .from('journeys')
+  //           .select('''
+  //             *,
+  //             flight:flights (
+  //               *
+  //             )
+  //           ''')
+  //           .eq('passenger_id', userId)
+  //           .order('created_at', ascending: false);
+
+  //       debugPrint('✅ Found ${response.length} journeys in database with join');
+
+  //       // Debug: Log the structure of the first journey if available
+  //       if (response.isNotEmpty) {
+  //         debugPrint('🔍 Sample journey data: ${response.first}');
+  //       }
+
+  //       return List<Map<String, dynamic>>.from(response);
+  //     } catch (joinError) {
+  //       debugPrint('⚠️ Join query failed, trying simple query: $joinError');
+
+  //       // Fallback: Simple query without joins
+  //       final response = await _client
+  //           .from('journeys')
+  //           .select('*')
+  //           .eq('passenger_id', userId)
+  //           .order('created_at', ascending: false);
+
+  //       debugPrint(
+  //           '✅ Found ${response.length} journeys in database (simple query)');
+
+  //       // Debug: Log the structure of the first journey if available
+  //       if (response.isNotEmpty) {
+  //         debugPrint('🔍 Sample journey data: ${response.first}');
+  //       }
+
+  //       return List<Map<String, dynamic>>.from(response);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('❌ Error fetching journeys from database: $e');
+  //     return [];
+  //   }
+  // }
+  // ============================================================================
+  // END OF OLD METHOD
+  // ============================================================================
+
+  // ============================================================================
+  // NEW METHOD - Fetches from 'simple_journeys' table
+  // ============================================================================
+  /// Fetch journeys for a specific user from the simple_journeys table
   static Future<List<Map<String, dynamic>>> getUserJourneys(
       String userId) async {
     try {
-      debugPrint('🔍 Fetching journeys for user: $userId');
+      debugPrint('🔍 Fetching journeys from simple_journeys for user: $userId');
 
-      // First try with the join query
-      try {
-        final response = await _client
-            .from('journeys')
-            .select('''
-              *,
-              flight:flights (
-                *
-              )
-            ''')
-            .eq('passenger_id', userId)
-            .order('created_at', ascending: false);
+      final response = await _client
+          .from('simple_journeys')
+          .select('*')
+          .eq('passenger_id', userId)
+          .order('created_at', ascending: false);
 
-        debugPrint('✅ Found ${response.length} journeys in database with join');
+      debugPrint('✅ Found ${response.length} journeys in simple_journeys table');
 
-        // Debug: Log the structure of the first journey if available
-        if (response.isNotEmpty) {
-          debugPrint('🔍 Sample journey data: ${response.first}');
-        }
-
-        return List<Map<String, dynamic>>.from(response);
-      } catch (joinError) {
-        debugPrint('⚠️ Join query failed, trying simple query: $joinError');
-
-        // Fallback: Simple query without joins
-        final response = await _client
-            .from('journeys')
-            .select('*')
-            .eq('passenger_id', userId)
-            .order('created_at', ascending: false);
-
-        debugPrint(
-            '✅ Found ${response.length} journeys in database (simple query)');
-
-        // Debug: Log the structure of the first journey if available
-        if (response.isNotEmpty) {
-          debugPrint('🔍 Sample journey data: ${response.first}');
-        }
-
-        return List<Map<String, dynamic>>.from(response);
+      // Debug: Log the structure of the first journey if available
+      if (response.isNotEmpty) {
+        debugPrint('🔍 Sample journey data: ${response.first}');
       }
+
+      return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      debugPrint('❌ Error fetching journeys from database: $e');
+      debugPrint('❌ Error fetching journeys from simple_journeys: $e');
       return [];
     }
   }
+  // ============================================================================
+  // END OF NEW METHOD
+  // ============================================================================
 
-  /// Convert database journey data to FlightTrackingModel
+  // ============================================================================
+  // OLD METHOD - COMMENTED OUT (Works with old journeys table with flight joins)
+  // ============================================================================
+  // /// Convert database journey data to FlightTrackingModel
+  // static Future<FlightTrackingModel?> convertToFlightTrackingModel(
+  //     Map<String, dynamic> journeyData) async {
+  //   try {
+  //     final flight = journeyData['flight'];
+  //     if (flight == null) {
+  //       debugPrint('⚠️ No flight data found for journey: ${journeyData['id']}');
+  //       debugPrint('🔍 Journey data structure: $journeyData');
+
+  //       // Try to create a basic flight model from journey data only
+  //       return _createBasicFlightModel(journeyData);
+  //     }
+
+  //     debugPrint('🔍 Flight data structure: $flight');
+
+  //     // Determine flight phase based on journey status or flight data
+  //     FlightPhase currentPhase =
+  //         await _determinePhaseFromJourney(journeyData, flight);
+
+  //     // Parse departure and arrival times
+  //     // CRITICAL: Times from database are stored in UTC, must parse as UTC
+  //     DateTime departureTime;
+  //     DateTime arrivalTime;
+
+  //     try {
+  //       final departureTimeStr = flight['departure_time'] ?? flight['scheduled_departure'] ?? '';
+  //       if (departureTimeStr.toString().isEmpty) {
+  //         departureTime = DateTime.now().toUtc();
+  //       } else {
+  //         departureTime = _parseDateTimeAsUtc(departureTimeStr.toString());
+  //       }
+  //     } catch (e) {
+  //       debugPrint('❌ Error parsing departure time: $e');
+  //       departureTime = DateTime.now().toUtc();
+  //     }
+
+  //     try {
+  //       final arrivalTimeStr = flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '';
+  //       if (arrivalTimeStr.toString().isEmpty) {
+  //         arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+  //       } else {
+  //         arrivalTime = _parseDateTimeAsUtc(arrivalTimeStr.toString());
+  //       }
+  //     } catch (e) {
+  //       debugPrint('❌ Error parsing arrival time: $e');
+  //       arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+  //     }
+
+  //     // Extract airport codes - these should be stored as strings in the flights table
+  //     String departureAirport = flight['departure_airport']?.toString() ?? '';
+  //     String arrivalAirport = flight['arrival_airport']?.toString() ?? '';
+
+  //     // Extract airline code - this should be stored as string in the flights table
+  //     String carrier = flight['carrier_code']?.toString() ??
+  //         flight['airline']?.toString() ??
+  //         '';
+
+  //     final flightTrackingModel = FlightTrackingModel(
+  //       flightId: journeyData['id'], // Use journey ID as flight ID
+  //       journeyId: journeyData['id'], // Store journey ID separately
+  //       pnr: journeyData['pnr'] ?? '',
+  //       carrier: carrier,
+  //       flightNumber: flight['flight_number']?.toString() ?? '',
+  //       departureTime: departureTime,
+  //       arrivalTime: arrivalTime,
+  //       departureAirport: departureAirport,
+  //       arrivalAirport: arrivalAirport,
+  //       currentPhase: currentPhase,
+  //       phaseStartTime: journeyData['created_at'] != null
+  //           ? DateTime.parse(journeyData['created_at'])
+  //           : DateTime.now(),
+  //       ciriumData: flight, // Store the full flight data
+  //       events: _extractEventsFromJourney(journeyData),
+  //       isVerified: true,
+  //       seatNumber: journeyData['seat_number']?.toString(),
+  //       terminal: journeyData['terminal']?.toString() ?? flight['terminal']?.toString(),
+  //       gate: journeyData['gate']?.toString() ?? flight['gate']?.toString(),
+  //       aircraftType: flight['aircraft_type']?.toString(),
+  //       flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
+  //     );
+
+  //     debugPrint(
+  //         '✅ Converted journey to FlightTrackingModel: ${flightTrackingModel.pnr}');
+  //     return flightTrackingModel;
+  //   } catch (e) {
+  //     debugPrint('❌ Error converting journey to FlightTrackingModel: $e');
+  //     return null;
+  //   }
+  // }
+  // ============================================================================
+  // END OF OLD METHOD
+  // ============================================================================
+
+  // ============================================================================
+  // NEW METHOD - Works with simple_journeys table (all data in one table)
+  // ============================================================================
+  /// Convert database journey data from simple_journeys to FlightTrackingModel
   static Future<FlightTrackingModel?> convertToFlightTrackingModel(
       Map<String, dynamic> journeyData) async {
     try {
-      final flight = journeyData['flight'];
-      if (flight == null) {
-        debugPrint('⚠️ No flight data found for journey: ${journeyData['id']}');
-        debugPrint('🔍 Journey data structure: $journeyData');
+      debugPrint('🔍 Converting simple_journey to FlightTrackingModel: ${journeyData['id']}');
 
-        // Try to create a basic flight model from journey data only
-        return _createBasicFlightModel(journeyData);
-      }
+      // All data is in the journeyData itself (no joins needed)
+      // Determine flight phase based on journey status
+      FlightPhase currentPhase = await _determinePhaseFromSimpleJourney(journeyData);
 
-      debugPrint('🔍 Flight data structure: $flight');
-
-      // Determine flight phase based on journey status or flight data
-      FlightPhase currentPhase =
-          await _determinePhaseFromJourney(journeyData, flight);
-
-      // Parse departure and arrival times
+      // Parse departure and arrival times from simple_journeys
       // CRITICAL: Times from database are stored in UTC, must parse as UTC
       DateTime departureTime;
       DateTime arrivalTime;
 
       try {
-        final departureTimeStr = flight['departure_time'] ?? flight['scheduled_departure'] ?? '';
-        if (departureTimeStr.toString().isEmpty) {
-          departureTime = DateTime.now().toUtc();
+        final departureTimeStr = journeyData['scheduled_departure']?.toString() ?? '';
+        if (departureTimeStr.isEmpty) {
+          // Fallback to flight_date if scheduled_departure is not available
+          final flightDateStr = journeyData['flight_date']?.toString() ?? '';
+          if (flightDateStr.isNotEmpty) {
+            departureTime = DateTime.parse(flightDateStr).toUtc();
+          } else {
+            departureTime = DateTime.now().toUtc();
+          }
         } else {
-          departureTime = _parseDateTimeAsUtc(departureTimeStr.toString());
+          departureTime = _parseDateTimeAsUtc(departureTimeStr);
         }
       } catch (e) {
         debugPrint('❌ Error parsing departure time: $e');
@@ -96,32 +230,34 @@ class JourneyDatabaseService {
       }
 
       try {
-        final arrivalTimeStr = flight['arrival_time'] ?? flight['scheduled_arrival'] ?? '';
-        if (arrivalTimeStr.toString().isEmpty) {
-          arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+        final arrivalTimeStr = journeyData['scheduled_arrival']?.toString() ?? '';
+        if (arrivalTimeStr.isEmpty) {
+          // Estimate arrival time (2 hours after departure)
+          arrivalTime = departureTime.add(const Duration(hours: 2));
         } else {
-          arrivalTime = _parseDateTimeAsUtc(arrivalTimeStr.toString());
+          arrivalTime = _parseDateTimeAsUtc(arrivalTimeStr);
         }
       } catch (e) {
         debugPrint('❌ Error parsing arrival time: $e');
-        arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+        arrivalTime = departureTime.add(const Duration(hours: 2));
       }
 
-      // Extract airport codes - these should be stored as strings in the flights table
-      String departureAirport = flight['departure_airport']?.toString() ?? '';
-      String arrivalAirport = flight['arrival_airport']?.toString() ?? '';
+      // Extract airport codes from simple_journeys
+      String departureAirport = journeyData['departure_airport_code']?.toString() ?? '';
+      String arrivalAirport = journeyData['arrival_airport_code']?.toString() ?? '';
 
-      // Extract airline code - this should be stored as string in the flights table
-      String carrier = flight['carrier_code']?.toString() ??
-          flight['airline']?.toString() ??
-          '';
+      // Extract carrier code from simple_journeys
+      String carrier = journeyData['carrier_code']?.toString() ?? '';
+
+      // Extract flight number
+      String flightNumber = journeyData['flight_number']?.toString() ?? '';
 
       final flightTrackingModel = FlightTrackingModel(
-        flightId: journeyData['id'], // Use journey ID as flight ID
-        journeyId: journeyData['id'], // Store journey ID separately
-        pnr: journeyData['pnr'] ?? '',
+        flightId: journeyData['id']?.toString() ?? '', // Use journey ID as flight ID
+        journeyId: journeyData['id']?.toString(), // Store journey ID separately
+        pnr: journeyData['pnr']?.toString() ?? '',
         carrier: carrier,
-        flightNumber: flight['flight_number']?.toString() ?? '',
+        flightNumber: flightNumber,
         departureTime: departureTime,
         arrivalTime: arrivalTime,
         departureAirport: departureAirport,
@@ -130,26 +266,137 @@ class JourneyDatabaseService {
         phaseStartTime: journeyData['created_at'] != null
             ? DateTime.parse(journeyData['created_at'])
             : DateTime.now(),
-        ciriumData: flight, // Store the full flight data
+        ciriumData: journeyData, // Store the full journey data
         events: _extractEventsFromJourney(journeyData),
         isVerified: true,
         seatNumber: journeyData['seat_number']?.toString(),
-        terminal: journeyData['terminal']?.toString() ?? flight['terminal']?.toString(),
-        gate: journeyData['gate']?.toString() ?? flight['gate']?.toString(),
-        aircraftType: flight['aircraft_type']?.toString(),
+        terminal: journeyData['terminal']?.toString(),
+        gate: journeyData['gate']?.toString(),
+        aircraftType: journeyData['aircraft_type']?.toString(),
         flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
       );
 
       debugPrint(
-          '✅ Converted journey to FlightTrackingModel: ${flightTrackingModel.pnr}');
+          '✅ Converted simple_journey to FlightTrackingModel: ${flightTrackingModel.pnr}');
       return flightTrackingModel;
     } catch (e) {
-      debugPrint('❌ Error converting journey to FlightTrackingModel: $e');
+      debugPrint('❌ Error converting simple_journey to FlightTrackingModel: $e');
       return null;
     }
   }
 
+  /// Determine flight phase from simple_journey data
+  static Future<FlightPhase> _determinePhaseFromSimpleJourney(
+      Map<String, dynamic> journey) async {
+    final journeyId = journey['id']?.toString();
+    
+    // PRIORITY 1: Check for completion event FIRST (most reliable indicator)
+    if (journeyId != null) {
+      try {
+        debugPrint('🔍 Checking for completion event for journey: $journeyId');
+        final completionEvent = await _client
+            .from('journey_events')
+            .select('id')
+            .eq('journey_id', journeyId)
+            .eq('event_type', 'journey_completed')
+            .limit(1)
+            .maybeSingle();
+
+        if (completionEvent != null) {
+          debugPrint('✅ Journey completion detected via event: $journeyId');
+          return FlightPhase.completed;
+        }
+      } catch (eventError) {
+        debugPrint('⚠️ Error checking journey events for completion: $eventError');
+      }
+    }
+
+    // PRIORITY 2: Check visit_status - if it's 'Completed', journey is completed
+    final visitStatus = journey['visit_status']?.toString();
+    if (visitStatus == 'Completed') {
+      debugPrint('✅ Journey completion detected via visit_status: ${journey['id']}');
+      return FlightPhase.completed;
+    }
+
+    // PRIORITY 3: Check journey status
+    final journeyStatus = journey['status']?.toString().toLowerCase();
+    if (journeyStatus == 'completed') {
+      debugPrint('✅ Journey completion detected via status: ${journey['id']}');
+      return FlightPhase.completed;
+    }
+
+    // PRIORITY 4: Check current_phase
+    final currentPhase = journey['current_phase']?.toString().toLowerCase();
+
+    if (currentPhase != null) {
+      switch (currentPhase) {
+        case 'completed':
+          return FlightPhase.completed;
+        case 'landed':
+          return FlightPhase.landed;
+        case 'in_flight':
+        case 'inflight':
+          return FlightPhase.inFlight;
+        case 'departed':
+          return FlightPhase.departed;
+        case 'boarding':
+          return FlightPhase.boarding;
+        case 'check_in_open':
+          return FlightPhase.checkInOpen;
+        case 'pre_check_in':
+          // Continue to fallback time-based check below
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Fallback: determine phase based on current time vs flight times
+    final now = DateTime.now().toUtc();
+    final departureTimeStr = journey['scheduled_departure']?.toString() ?? '';
+    final arrivalTimeStr = journey['scheduled_arrival']?.toString() ?? '';
+    
+    DateTime departureTime = now;
+    DateTime arrivalTime = now.add(const Duration(hours: 2));
+    
+    if (departureTimeStr.isNotEmpty) {
+      try {
+        departureTime = _parseDateTimeAsUtc(departureTimeStr);
+      } catch (e) {
+        debugPrint('⚠️ Error parsing departure time for phase: $e');
+      }
+    }
+    
+    if (arrivalTimeStr.isNotEmpty) {
+      try {
+        arrivalTime = _parseDateTimeAsUtc(arrivalTimeStr);
+      } catch (e) {
+        debugPrint('⚠️ Error parsing arrival time for phase: $e');
+      }
+    }
+
+    // Only use time-based logic for phase detection, NOT for completion
+    if (now.isAfter(arrivalTime)) {
+      return FlightPhase.landed;
+    } else if (now.isAfter(departureTime)) {
+      return FlightPhase.inFlight;
+    } else if (now.isAfter(departureTime.subtract(const Duration(hours: 1)))) {
+      return FlightPhase.boarding;
+    } else if (now.isAfter(departureTime.subtract(const Duration(hours: 24)))) {
+      return FlightPhase.checkInOpen;
+    } else {
+      return FlightPhase.preCheckIn;
+    }
+  }
+  // ============================================================================
+  // END OF NEW METHOD
+  // ============================================================================
+
+  // ============================================================================
+  // OLD METHOD - COMMENTED OUT (Works with old journeys table with flight joins)
+  // ============================================================================
   /// Determine flight phase from journey and flight data
+  /// OLD METHOD - Not used in new simplified flow
   static Future<FlightPhase> _determinePhaseFromJourney(
       Map<String, dynamic> journey, Map<String, dynamic> flight) async {
     final journeyId = journey['id']?.toString();
@@ -284,99 +531,105 @@ class JourneyDatabaseService {
     return events;
   }
 
-  /// Create a basic flight model from journey data only
-  static FlightTrackingModel? _createBasicFlightModel(
-      Map<String, dynamic> journeyData) {
-    try {
-      debugPrint('🔧 Creating basic flight model from journey data');
+  // ============================================================================
+  // OLD METHOD - COMMENTED OUT (Works with old journeys table structure)
+  // ============================================================================
+  // /// Create a basic flight model from journey data only
+  // static FlightTrackingModel? _createBasicFlightModel(
+  //     Map<String, dynamic> journeyData) {
+  //   try {
+  //     debugPrint('🔧 Creating basic flight model from journey data');
 
-      // Extract basic information from journey data
-      final pnr = journeyData['pnr']?.toString() ?? '';
-      final seatNumber = journeyData['seat_number']?.toString();
+  //     // Extract basic information from journey data
+  //     final pnr = journeyData['pnr']?.toString() ?? '';
+  //     final seatNumber = journeyData['seat_number']?.toString();
 
-      // Try to parse times from journey data
-      // CRITICAL: Times from database are stored in UTC, must parse as UTC
-      DateTime departureTime = DateTime.now().toUtc();
-      DateTime arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
+  //     // Try to parse times from journey data
+  //     // CRITICAL: Times from database are stored in UTC, must parse as UTC
+  //     DateTime departureTime = DateTime.now().toUtc();
+  //     DateTime arrivalTime = DateTime.now().toUtc().add(Duration(hours: 2));
 
-      if (journeyData['departure_time'] != null) {
-        try {
-          departureTime = _parseDateTimeAsUtc(journeyData['departure_time'].toString());
-        } catch (e) {
-          debugPrint('⚠️ Could not parse departure_time: $e');
-        }
-      }
+  //     if (journeyData['departure_time'] != null) {
+  //       try {
+  //         departureTime = _parseDateTimeAsUtc(journeyData['departure_time'].toString());
+  //       } catch (e) {
+  //         debugPrint('⚠️ Could not parse departure_time: $e');
+  //       }
+  //     }
 
-      if (journeyData['arrival_time'] != null) {
-        try {
-          arrivalTime = _parseDateTimeAsUtc(journeyData['arrival_time'].toString());
-        } catch (e) {
-          debugPrint('⚠️ Could not parse arrival_time: $e');
-        }
-      }
+  //     if (journeyData['arrival_time'] != null) {
+  //       try {
+  //         arrivalTime = _parseDateTimeAsUtc(journeyData['arrival_time'].toString());
+  //       } catch (e) {
+  //         debugPrint('⚠️ Could not parse arrival_time: $e');
+  //       }
+  //     }
 
-      // Determine phase from journey status
-      FlightPhase currentPhase = FlightPhase.preCheckIn;
-      final status = journeyData['status']?.toString().toLowerCase();
-      final currentPhaseStr =
-          journeyData['current_phase']?.toString().toLowerCase();
+  //     // Determine phase from journey status
+  //     FlightPhase currentPhase = FlightPhase.preCheckIn;
+  //     final status = journeyData['status']?.toString().toLowerCase();
+  //     final currentPhaseStr =
+  //         journeyData['current_phase']?.toString().toLowerCase();
 
-      if (currentPhaseStr != null) {
-        switch (currentPhaseStr) {
-          case 'completed':
-            currentPhase = FlightPhase.completed;
-            break;
-          case 'landed':
-            currentPhase = FlightPhase.landed;
-            break;
-          case 'in_flight':
-          case 'inflight':
-            currentPhase = FlightPhase.inFlight;
-            break;
-          case 'departed':
-            currentPhase = FlightPhase.departed;
-            break;
-          case 'boarding':
-            currentPhase = FlightPhase.boarding;
-            break;
-          case 'check_in_open':
-            currentPhase = FlightPhase.checkInOpen;
-            break;
-          default:
-            currentPhase = FlightPhase.preCheckIn;
-        }
-      }
+  //     if (currentPhaseStr != null) {
+  //       switch (currentPhaseStr) {
+  //         case 'completed':
+  //           currentPhase = FlightPhase.completed;
+  //           break;
+  //         case 'landed':
+  //           currentPhase = FlightPhase.landed;
+  //           break;
+  //         case 'in_flight':
+  //         case 'inflight':
+  //           currentPhase = FlightPhase.inFlight;
+  //           break;
+  //         case 'departed':
+  //           currentPhase = FlightPhase.departed;
+  //           break;
+  //         case 'boarding':
+  //           currentPhase = FlightPhase.boarding;
+  //           break;
+  //         case 'check_in_open':
+  //           currentPhase = FlightPhase.checkInOpen;
+  //           break;
+  //         default:
+  //           currentPhase = FlightPhase.preCheckIn;
+  //       }
+  //     }
 
-      final flightModel = FlightTrackingModel(
-        flightId: journeyData['id']?.toString() ?? '',
-        pnr: pnr,
-        carrier: journeyData['carrier']?.toString() ?? '',
-        flightNumber: journeyData['flight_number']?.toString() ?? '',
-        departureTime: departureTime,
-        arrivalTime: arrivalTime,
-        departureAirport: journeyData['departure_airport']?.toString() ?? '',
-        arrivalAirport: journeyData['arrival_airport']?.toString() ?? '',
-        currentPhase: currentPhase,
-        phaseStartTime: journeyData['created_at'] != null
-            ? DateTime.parse(journeyData['created_at'])
-            : DateTime.now(),
-        ciriumData: journeyData, // Store journey data as cirium data
-        events: _extractEventsFromJourney(journeyData),
-        isVerified: true,
-        seatNumber: seatNumber,
-        terminal: journeyData['terminal']?.toString(),
-        gate: journeyData['gate']?.toString(),
-        aircraftType: journeyData['aircraft_type']?.toString(),
-        flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
-      );
+  //     final flightModel = FlightTrackingModel(
+  //       flightId: journeyData['id']?.toString() ?? '',
+  //       pnr: pnr,
+  //       carrier: journeyData['carrier']?.toString() ?? '',
+  //       flightNumber: journeyData['flight_number']?.toString() ?? '',
+  //       departureTime: departureTime,
+  //       arrivalTime: arrivalTime,
+  //       departureAirport: journeyData['departure_airport']?.toString() ?? '',
+  //       arrivalAirport: journeyData['arrival_airport']?.toString() ?? '',
+  //       currentPhase: currentPhase,
+  //       phaseStartTime: journeyData['created_at'] != null
+  //           ? DateTime.parse(journeyData['created_at'])
+  //           : DateTime.now(),
+  //       ciriumData: journeyData, // Store journey data as cirium data
+  //       events: _extractEventsFromJourney(journeyData),
+  //       isVerified: true,
+  //       seatNumber: seatNumber,
+  //       terminal: journeyData['terminal']?.toString(),
+  //       gate: journeyData['gate']?.toString(),
+  //       aircraftType: journeyData['aircraft_type']?.toString(),
+  //       flightDuration: _calculateFlightDuration(departureTime, arrivalTime),
+  //     );
 
-      debugPrint('✅ Created basic flight model: ${flightModel.pnr}');
-      return flightModel;
-    } catch (e) {
-      debugPrint('❌ Error creating basic flight model: $e');
-      return null;
-    }
-  }
+  //     debugPrint('✅ Created basic flight model: ${flightModel.pnr}');
+  //     return flightModel;
+  //   } catch (e) {
+  //     debugPrint('❌ Error creating basic flight model: $e');
+  //     return null;
+  //   }
+  // }
+  // ============================================================================
+  // END OF OLD METHOD
+  // ============================================================================
 
   /// Parse DateTime string as UTC (handles timezone-aware and timezone-naive strings)
   /// CRITICAL: Database times are stored in UTC. If no timezone info in string,

@@ -441,96 +441,129 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           // Flight Status Card
           FlightStatusCard(flight: flight),
 
-          // Timeline Sections
-          // Show all three sections when flight is NOT landed and NOT completed
-          // (i.e., for phases: preCheckIn, checkInOpen, security, boarding, departed, inFlight)
-          
-          // "At the Airport" section:
-          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed, inFlight
-          // - HIDDEN for: landed, completed
-          if (flight.currentPhase != FlightPhase.landed &&
-              flight.currentPhase != FlightPhase.completed)
-            TimelineSection(
-              title: 'At the Airport',
-              icon: Icons.assignment,
-              events: _getPreFlightEvents(flight),
-              isExpanded: _expandedSections['At the Airport']!,
-              onToggle: () => _toggleSection('At the Airport'),
-              flight: flight,
-            ),
-
-          // "During the Flight" section:
-          // - SHOWN for: preCheckIn, checkInOpen, security, boarding, departed, inFlight
-          // - HIDDEN for: landed, completed
-          if (flight.currentPhase != FlightPhase.landed &&
-              flight.currentPhase != FlightPhase.completed)
-            TimelineSection(
-              title: 'During the Flight',
-              icon: Icons.flight,
-              events: _getInFlightEvents(flight),
-              isExpanded: _expandedSections['During the Flight']!,
-              onToggle: () => _toggleSection('During the Flight'),
-              flight: flight,
-            ),
-
-          // "Overall Experience" section:
-          // - ALWAYS SHOWN for all phases
-          TimelineSection(
-            title: 'Overall Experience',
-            icon: Icons.star,
-            events: _getPostFlightEvents(flight),
-            isExpanded: _expandedSections['Overall Experience']!,
-            onToggle: () => _toggleSection('Overall Experience'),
-            flight: flight,
-          ),
-
           SizedBox(height: 32),
 
-          // Review Journey Button (replaces Complete Journey)
+          // Review Journey Button - Only show when flight has landed (can give comment)
           // Journey will only move to Completed tab after review is submitted
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Builder(
-              builder: (context) {
-                final canReview = _canCompleteJourney(flight);
-                
-                return ElevatedButton(
-                  onPressed: canReview
-                      ? () {
-                          _showReviewFlightModal(flight);
-                        }
-                      : () {
-                          _showCannotCompleteDialog(context, flight);
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: canReview 
-                        ? Colors.black 
-                        : Colors.grey[400],
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          Builder(
+            builder: (context) {
+              final canReview = _canCompleteJourney(flight);
+              
+              // Only show button if flight has landed
+              if (!canReview) {
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                  child: Container(
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[300]!),
                     ),
-                    elevation: 0,
+                    child: Row(
+                      children: [
+                        Icon(Icons.schedule, color: Colors.grey[600], size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Flight Not Landed Yet',
+                                style: AppStyles.textStyle_16_600.copyWith(
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'You can review your journey after the flight lands',
+                                style: AppStyles.textStyle_14_400.copyWith(
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        canReview ? Icons.star : Icons.schedule,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Review Journey',
-                        style: AppStyles.textStyle_16_600
-                            .copyWith(color: Colors.white),
+                );
+              }
+              
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF1A1A1A), Color(0xFF000000)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
-                );
-              },
-            ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        _showReviewFlightModal(flight);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.star_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Review Journey',
+                                    style: AppStyles.textStyle_18_600
+                                        .copyWith(color: Colors.white),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Share your experience',
+                                    style: AppStyles.textStyle_12_400
+                                        .copyWith(color: Colors.white.withOpacity(0.8)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
 
           SizedBox(height: 100), // Space for bottom padding
@@ -2107,13 +2140,8 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
             debugPrint('✅ Feedback status refreshed after submission');
           }
           
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Thank you for your review! Journey completed.'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          // Show beautiful success message
+          _showReviewSuccessDialog(context);
           
           // Refresh the screen to update UI
           if (mounted) {
@@ -2310,6 +2338,130 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
         );
       }
     }
+  }
+
+  /// Show beautiful success dialog after review submission
+  void _showReviewSuccessDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Success Icon with Animation
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF4CAF50),
+                  size: 50,
+                ),
+              ),
+              SizedBox(height: 24),
+              
+              // Success Title
+              Text(
+                'Thank You!',
+                style: AppStyles.textStyle_24_600.copyWith(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(height: 12),
+              
+              // Success Message
+              Text(
+                'Your review has been submitted successfully',
+                textAlign: TextAlign.center,
+                style: AppStyles.textStyle_16_500.copyWith(
+                  color: Colors.white.withOpacity(0.95),
+                  height: 1.5,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Your journey has been completed',
+                textAlign: TextAlign.center,
+                style: AppStyles.textStyle_14_400.copyWith(
+                  color: Colors.white.withOpacity(0.85),
+                ),
+              ),
+              SizedBox(height: 32),
+              
+              // Close Button
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Text(
+                          'Done',
+                          style: AppStyles.textStyle_16_600.copyWith(
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showSyncOptionsModal(BuildContext context) {
