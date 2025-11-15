@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'supabase_service.dart';
+import 'supabase_storage_service.dart';
+import 'dart:io';
 
 class PhaseFeedbackService {
   static final _client = SupabaseService.client;
@@ -14,6 +16,7 @@ class PhaseFeedbackService {
     required int overallRating,
     required Map<String, Set<String>> likes,
     required Map<String, Set<String>> dislikes,
+    List<String>? mediaFiles, // Optional list of media file paths to upload
   }) async {
     try {
       debugPrint('🔍 Processing phase: "$phase" for journey: $journeyId');
@@ -94,6 +97,32 @@ class PhaseFeedbackService {
 
       debugPrint('✅ Using journey ID: $actualJourneyId, flight ID: $actualFlightId');
 
+      // Upload media files if provided
+      List<String> mediaUrls = [];
+      if (mediaFiles != null && mediaFiles.isNotEmpty) {
+        debugPrint('📤 Uploading ${mediaFiles.length} media file(s)...');
+        try {
+          // Normalize phase name for storage path
+          final normalizedPhaseForStorage = phase.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+          
+          final uploadedUrls = await SupabaseStorageService.uploadMediaFiles(
+            filePaths: mediaFiles,
+            userId: userId,
+            journeyId: actualJourneyId,
+            phase: normalizedPhaseForStorage,
+            folder: 'feedback',
+          );
+          
+          mediaUrls = uploadedUrls.values.toList();
+          debugPrint('✅ Uploaded ${mediaUrls.length} media file(s)');
+          debugPrint('   URLs: $mediaUrls');
+        } catch (e) {
+          debugPrint('⚠️ Error uploading media files: $e');
+          debugPrint('   Continuing with feedback submission without media...');
+          // Continue with feedback submission even if media upload fails
+        }
+      }
+
       // Normalize phase names for better matching
       final normalizedPhase = phase.toLowerCase().trim();
 
@@ -112,6 +141,7 @@ class PhaseFeedbackService {
           overallRating: overallRating,
           likes: likes,
           dislikes: dislikes,
+          mediaUrls: mediaUrls,
         );
       } else if (normalizedPhase == 'pre-flight' ||
           normalizedPhase.contains('pre') ||
@@ -127,6 +157,7 @@ class PhaseFeedbackService {
           overallRating: overallRating,
           likes: likes,
           dislikes: dislikes,
+          mediaUrls: mediaUrls,
         );
       } else if (normalizedPhase == 'in-flight' ||
           normalizedPhase.contains('in') ||
@@ -142,6 +173,7 @@ class PhaseFeedbackService {
           overallRating: overallRating,
           likes: likes,
           dislikes: dislikes,
+          mediaUrls: mediaUrls,
         );
       } else {
         debugPrint('❌ Unknown phase: $phase');
@@ -210,28 +242,86 @@ class PhaseFeedbackService {
     required int overallRating,
     required Map<String, Set<String>> likes,
     required Map<String, Set<String>> dislikes,
+    List<String> mediaUrls = const [], // Media URLs from uploaded files
   }) async {
     try {
       debugPrint('🏢 Submitting airport review...');
 
-      // Get airport info from flight using the actual flight ID
-      final flightData = await _client
-          .from('flights')
-          .select('departure_airport_id, arrival_airport_id')
-          .eq('id', flightId)
-          .single();
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses 'flights' table)
+      // ============================================================================
+      // // Get airport info from flight using the actual flight ID
+      // final flightData = await _client
+      //     .from('flights')
+      //     .select('departure_airport_id, arrival_airport_id')
+      //     .eq('id', flightId)
+      //     .single();
 
-      final departureAirportId = flightData['departure_airport_id'];
-      final arrivalAirportId = flightData['arrival_airport_id'];
+      // final departureAirportId = flightData['departure_airport_id'];
+      // final arrivalAirportId = flightData['arrival_airport_id'];
 
-      // For "At the Airport" feedback, we typically want the departure airport
-      final airportId = departureAirportId ?? arrivalAirportId;
-      if (airportId == null) {
-        debugPrint('❌ No airport ID found for flight');
+      // // For "At the Airport" feedback, we typically want the departure airport
+      // final airportId = departureAirportId ?? arrivalAirportId;
+      // if (airportId == null) {
+      //   debugPrint('❌ No airport ID found for flight');
+      //   return false;
+      // }
+
+      // debugPrint('✅ Found airport ID: $airportId');
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Get airport info from simple_journeys table
+      final journeyData = await _client
+          .from('simple_journeys')
+          .select('departure_airport_code')
+          .eq('id', journeyId)
+          .maybeSingle();
+
+      if (journeyData == null) {
+        debugPrint('❌ Journey not found in simple_journeys: $journeyId');
         return false;
       }
 
-      debugPrint('✅ Found airport ID: $airportId');
+      final departureAirportCode = journeyData['departure_airport_code'] as String?;
+      
+      if (departureAirportCode == null || departureAirportCode.isEmpty) {
+        debugPrint('❌ No departure airport code found in simple_journey');
+        // Fallback: Use stage_feedback instead of airport_reviews
+        debugPrint('⚠️ Falling back to stage_feedback table for airport review');
+        return await _submitAirportReviewToStageFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
+      }
+
+      // Look up airport by code
+      final airportData = await _client
+          .from('airports')
+          .select('id')
+          .eq('iata_code', departureAirportCode)
+          .maybeSingle();
+
+      final airportId = airportData?['id'];
+      
+      if (airportId == null) {
+        debugPrint('❌ Airport not found for code: $departureAirportCode');
+        // Fallback: Use stage_feedback instead of airport_reviews
+        debugPrint('⚠️ Falling back to stage_feedback table for airport review');
+        return await _submitAirportReviewToStageFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
+      }
+
+      debugPrint('✅ Found airport ID: $airportId for code: $departureAirportCode');
 
       // Map feedback selections to airport review scores
       final scores = _mapToAirportScores(likes, dislikes, overallRating);
@@ -256,6 +346,7 @@ class PhaseFeedbackService {
           'accessibility': scores['accessibility'],
           'comments': _createCommentFromSelections(likes, dislikes),
           'would_recommend': overallRating >= 4,
+          if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
         }).eq('id', existingReview['id']);
         
         debugPrint('✅ Airport review updated successfully');
@@ -274,6 +365,7 @@ class PhaseFeedbackService {
           'accessibility': scores['accessibility'],
           'comments': _createCommentFromSelections(likes, dislikes),
           'would_recommend': overallRating >= 4,
+          if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
           'created_at': DateTime.now().toIso8601String(),
         });
         
@@ -287,6 +379,38 @@ class PhaseFeedbackService {
     }
   }
 
+  /// Fallback method to submit airport review to stage_feedback table
+  static Future<bool> _submitAirportReviewToStageFeedback({
+    required String userId,
+    required String journeyId,
+    required int overallRating,
+    required Map<String, Set<String>> likes,
+    required Map<String, Set<String>> dislikes,
+    List<String> mediaUrls = const [],
+  }) async {
+    try {
+      debugPrint('📝 Submitting airport review to stage_feedback table...');
+      
+      await _client.from('stage_feedback').upsert({
+        'journey_id': journeyId,
+        'user_id': userId,
+        'stage': 'pre_flight',
+        'positive_selections': _convertLikesToMap(likes),
+        'negative_selections': _convertDislikesToMap(dislikes),
+        'overall_rating': overallRating,
+        'additional_comments': _createCommentFromSelections(likes, dislikes),
+        if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
+        'feedback_timestamp': DateTime.now().toIso8601String(),
+      });
+      
+      debugPrint('✅ Successfully submitted airport review to stage_feedback table');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error submitting to stage_feedback: $e');
+      return false;
+    }
+  }
+
   /// Submit airline review for In-Flight phase
   static Future<bool> _submitAirlineReview({
     required String userId,
@@ -296,32 +420,65 @@ class PhaseFeedbackService {
     required int overallRating,
     required Map<String, Set<String>> likes,
     required Map<String, Set<String>> dislikes,
+    List<String> mediaUrls = const [], // Media URLs from uploaded files
   }) async {
     try {
       debugPrint('✈️ Submitting airline review...');
 
-      // Get airline info from flight using the actual flight ID
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses 'flights' table)
+      // ============================================================================
+      // // Get airline info from flight using the actual flight ID
+      // String? airlineId;
+
+      //         try {
+      //           // Try to get airline_id directly, or get carrier info to find airline
+      //           final flightData = await _client
+      //               .from('flights')
+      //               .select('airline_id, carrier_code, flight_number')
+      //               .eq('id', flightId)
+      //               .maybeSingle();
+
+      //           if (flightData == null) {
+      //             debugPrint('❌ Flight not found: $flightId');
+      //             return false;
+      //           }
+
+      //           // Try airline_id first
+      //           airlineId = flightData['airline_id'];
+
+      //           // If no airline_id, try to find airline by carrier_code
+      //           if (airlineId == null) {
+      //             final carrierCode = flightData['carrier_code'];
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Get airline info from simple_journeys table
       String? airlineId;
+      
+      try {
+        // Get carrier_code and airline_name from simple_journeys
+        final journeyData = await _client
+            .from('simple_journeys')
+            .select('carrier_code, airline_name')
+            .eq('id', journeyId)
+            .maybeSingle();
 
-              try {
-                // Try to get airline_id directly, or get carrier info to find airline
-                final flightData = await _client
-                    .from('flights')
-                    .select('airline_id, carrier_code, flight_number')
-                    .eq('id', flightId)
-                    .maybeSingle();
+        if (journeyData == null) {
+          debugPrint('❌ Journey not found in simple_journeys: $journeyId');
+          return false;
+        }
 
-                if (flightData == null) {
-                  debugPrint('❌ Flight not found: $flightId');
-                  return false;
-                }
-
-                // Try airline_id first
-                airlineId = flightData['airline_id'];
-
-                // If no airline_id, try to find airline by carrier_code
-                if (airlineId == null) {
-                  final carrierCode = flightData['carrier_code'];
+        final carrierCode = journeyData['carrier_code'] as String?;
+        final airlineName = journeyData['airline_name'] as String?;
+        
+        debugPrint('✅ Found journey data - carrier_code: $carrierCode, airline_name: $airlineName');
+        
+        if (carrierCode == null || carrierCode.isEmpty) {
+          debugPrint('❌ No carrier_code found in simple_journey');
+          return false;
+        }
                   
                   // ============================================================================
                   // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
@@ -345,84 +502,95 @@ class PhaseFeedbackService {
                   // END OF OLD CODE
                   // ============================================================================
                   
-                  // NEW CODE - Get boarding pass data from simple_journeys table
-                  Map<String, dynamic>? apiData;
-                  try {
-                    final journeyData = await _client
-                        .from('simple_journeys')
-                        .select('boarding_pass_data')
-                        .eq('id', journeyId)
-                        .maybeSingle();
-                    apiData = journeyData?['boarding_pass_data'] as Map<String, dynamic>?;
-                    if (apiData != null) {
-                      debugPrint('✅ Found boarding pass data in simple_journey');
-                    }
-                  } catch (e) {
-                    debugPrint('⚠️ Could not fetch boarding pass data from simple_journey: $e');
-                  }
-                  
-                  debugPrint('🔍 No airline_id in flight, looking up by carrier_code: $carrierCode');
+        // Look up airline by carrier_code
+        debugPrint('🔍 Looking up airline by carrier_code: $carrierCode');
+        
+        final airlineData = await _client
+            .from('airlines')
+            .select('id')
+            .eq('iata_code', carrierCode)
+            .maybeSingle();
 
-                  if (carrierCode != null && carrierCode.toString().isNotEmpty) {
-                    final airlineData = await _client
-                        .from('airlines')
-                        .select('id')
-                        .eq('iata_code', carrierCode)
-                        .maybeSingle();
+        airlineId = airlineData?['id'];
 
-                    airlineId = airlineData?['id'];
+        // If airline not found, create it with details from simple_journey
+        if (airlineId == null) {
+          debugPrint('🔄 Airline not found for $carrierCode, creating...');
+          try {
+            // Get boarding pass data for additional airline details
+            Map<String, dynamic>? apiData;
+            try {
+              final bpData = await _client
+                  .from('simple_journeys')
+                  .select('boarding_pass_data')
+                  .eq('id', journeyId)
+                  .maybeSingle();
+              apiData = bpData?['boarding_pass_data'] as Map<String, dynamic>?;
+            } catch (e) {
+              debugPrint('⚠️ Could not fetch boarding pass data: $e');
+            }
+            
+            // Get airline details from API data or use airline_name from simple_journey
+            final airlineDetails = _getAirlineDetailsFromApiOrCode(carrierCode, apiData);
+            
+            final newAirline = await _client
+                .from('airlines')
+                .insert({
+                  'iata_code': carrierCode,
+                  'name': airlineName ?? airlineDetails['name'] ?? 'Airline $carrierCode',
+                  'icao_code': airlineDetails['icao_code'],
+                  'country': airlineDetails['country'],
+                  'logo_url': 'https://www.gstatic.com/flights/airline_logos/70px/$carrierCode.png',
+                  'created_at': DateTime.now().toIso8601String(),
+                  'updated_at': DateTime.now().toIso8601String(),
+                })
+                .select('id')
+                .single();
 
-                    // If airline not found, create it with full details
-                    if (airlineId == null) {
-                      debugPrint('🔄 Airline not found for $carrierCode, creating...');
-                      try {
-                        // Get airline details from API data first, then fall back to local
-                        final airlineDetails = _getAirlineDetailsFromApiOrCode(carrierCode, apiData);
-                        
-                        final newAirline = await _client
-                            .from('airlines')
-                            .insert({
-                              'iata_code': carrierCode,
-                              'name': airlineDetails['name'] ?? 'Airline $carrierCode',
-                              'icao_code': airlineDetails['icao_code'],
-                              'country': airlineDetails['country'],
-                              'logo_url': 'https://www.gstatic.com/flights/airline_logos/70px/$carrierCode.png',
-                              'created_at': DateTime.now().toIso8601String(),
-                              'updated_at': DateTime.now().toIso8601String(),
-                            })
-                            .select('id')
-                            .single();
-
-                        airlineId = newAirline['id'];
-                        debugPrint('✅ Created airline: $airlineId for $carrierCode');
-                        if (airlineDetails['icao_code'] != null) {
-                          debugPrint('   ICAO: ${airlineDetails['icao_code']}, Country: ${airlineDetails['country']}');
-                        }
-                        if (apiData != null) {
-                          debugPrint('   ✅ Used API data for airline details');
-                        }
-                      } catch (insertError) {
-                        debugPrint('⚠️ Failed to create airline: $insertError');
-                        // Try to fetch again in case it was created by another request
-                        final retryAirline = await _client
-                            .from('airlines')
-                            .select('id')
-                            .eq('iata_code', carrierCode)
-                            .maybeSingle();
-                        airlineId = retryAirline?['id'];
-                      }
-                    }
-                  }
-                }
+            airlineId = newAirline['id'];
+            debugPrint('✅ Created airline: $airlineId for $carrierCode');
+            if (airlineDetails['icao_code'] != null) {
+              debugPrint('   ICAO: ${airlineDetails['icao_code']}, Country: ${airlineDetails['country']}');
+            }
+            if (airlineName != null) {
+              debugPrint('   ✅ Used airline_name from simple_journey: $airlineName');
+            }
+          } catch (insertError) {
+            debugPrint('⚠️ Failed to create airline: $insertError');
+            // Try to fetch again in case it was created by another request
+            final retryAirline = await _client
+                .from('airlines')
+                .select('id')
+                .eq('iata_code', carrierCode)
+                .maybeSingle();
+            airlineId = retryAirline?['id'];
+          }
+        }
       } catch (e) {
-        debugPrint('❌ Error getting airline info: $e');
-        return false;
+        debugPrint('❌ Error getting airline info from simple_journeys: $e');
+        // Fallback: Use stage_feedback instead of airline_reviews
+        debugPrint('⚠️ Falling back to stage_feedback table for airline review');
+        return await _submitAirlineReviewToStageFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
       }
 
       if (airlineId == null) {
-        debugPrint('❌ No airline ID found for flight $flightId');
-        debugPrint('💡 Flight may not have airline_id or carrier_code set');
-        return false;
+        debugPrint('❌ No airline ID found for journey $journeyId');
+        debugPrint('💡 Journey may not have carrier_code set in simple_journeys');
+        // Fallback: Use stage_feedback instead of airline_reviews
+        debugPrint('⚠️ Falling back to stage_feedback table for airline review');
+        return await _submitAirlineReviewToStageFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
       }
 
       debugPrint('✅ Found airline ID: $airlineId');
@@ -451,6 +619,7 @@ class PhaseFeedbackService {
             'value_for_money': scores['value_for_money'],
             'comments': _createCommentFromSelections(likes, dislikes),
             'would_recommend': overallRating >= 4,
+            if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
           }).eq('id', existingReview['id']);
           
           debugPrint('✅ Airline review updated successfully');
@@ -469,6 +638,7 @@ class PhaseFeedbackService {
             'value_for_money': scores['value_for_money'],
             'comments': _createCommentFromSelections(likes, dislikes),
             'would_recommend': overallRating >= 4,
+            if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
             'created_at': DateTime.now().toIso8601String(),
           });
           
@@ -499,6 +669,50 @@ class PhaseFeedbackService {
       return true;
     } catch (e) {
       debugPrint('❌ Error submitting airline review: $e');
+      // Fallback: Try stage_feedback if airline_reviews fails
+      debugPrint('⚠️ Attempting fallback to stage_feedback table...');
+      try {
+        return await _submitAirlineReviewToStageFeedback(
+          userId: userId,
+          journeyId: journeyId,
+          overallRating: overallRating,
+          likes: likes,
+          dislikes: dislikes,
+        );
+      } catch (fallbackError) {
+        debugPrint('❌ Fallback to stage_feedback also failed: $fallbackError');
+        return false;
+      }
+    }
+  }
+
+  /// Fallback method to submit airline review to stage_feedback table
+  static Future<bool> _submitAirlineReviewToStageFeedback({
+    required String userId,
+    required String journeyId,
+    required int overallRating,
+    required Map<String, Set<String>> likes,
+    required Map<String, Set<String>> dislikes,
+    List<String> mediaUrls = const [],
+  }) async {
+    try {
+      debugPrint('📝 Submitting airline review to stage_feedback table...');
+      
+      await _client.from('stage_feedback').upsert({
+        'journey_id': journeyId,
+        'user_id': userId,
+        'stage': 'in_flight',
+        'positive_selections': _convertLikesToMap(likes),
+        'negative_selections': _convertDislikesToMap(dislikes),
+        'overall_rating': overallRating,
+        'additional_comments': _createCommentFromSelections(likes, dislikes),
+        'feedback_timestamp': DateTime.now().toIso8601String(),
+      });
+      
+      debugPrint('✅ Successfully submitted airline review to stage_feedback table');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error submitting to stage_feedback: $e');
       return false;
     }
   }
@@ -512,6 +726,7 @@ class PhaseFeedbackService {
     required int overallRating,
     required Map<String, Set<String>> likes,
     required Map<String, Set<String>> dislikes,
+    List<String> mediaUrls = const [], // Media URLs from uploaded files
   }) async {
     try {
       debugPrint('📝 Submitting overall feedback...');
@@ -726,6 +941,7 @@ class PhaseFeedbackService {
           'negative_selections': _convertDislikesToMap(dislikes),
           'overall_rating': overallRating,
           'additional_comments': _createCommentFromSelections(likes, dislikes),
+          if (mediaUrls.isNotEmpty) 'media_urls': mediaUrls,
           'feedback_timestamp': DateTime.now().toIso8601String(),
         });
         

@@ -941,6 +941,9 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
         }
 
         try {
+          // Collect all media files (likes + dislikes) for this phase submission
+          final allMediaFiles = [..._likesMediaFiles, ..._dislikesMediaFiles];
+          
           final success = await PhaseFeedbackService.submitPhaseFeedback(
             userId: userId,
             journeyId: journeyId,
@@ -950,6 +953,7 @@ class _ComprehensiveFeedbackModalState extends State<ComprehensiveFeedbackModal>
             overallRating: _overallRating,
             likes: likesWithComments,
             dislikes: dislikesWithComments,
+            mediaFiles: allMediaFiles.isNotEmpty ? allMediaFiles : null,
           );
 
           if (!success) {

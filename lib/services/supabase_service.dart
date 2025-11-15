@@ -1509,9 +1509,34 @@ class SupabaseService {
   static Future<bool> isJourneyCompleted(String journeyId) async {
     if (!isInitialized) return false;
     try {
-      // First, check journey table fields
+      // ============================================================================
+      // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+      // ============================================================================
+      // // First, check journey table fields
+      // final journey = await client
+      //     .from('journeys')
+      //     .select('current_phase, visit_status, status')
+      //     .eq('id', journeyId)
+      //     .maybeSingle();
+
+      // if (journey != null) {
+      //   final phase = journey['current_phase']?.toString().toLowerCase();
+      //   final visitStatus = journey['visit_status']?.toString();
+      //   final status = journey['status']?.toString().toLowerCase();
+
+      //   // Journey is completed ONLY if visit_status is 'Completed' or status is 'completed'
+      //   // NOTE: 'landed' phase does NOT mean completed - user must explicitly complete
+      //   if (visitStatus == 'Completed' || status == 'completed') {
+      //     return true;
+      //   }
+      // }
+      // ============================================================================
+      // END OF OLD CODE
+      // ============================================================================
+      
+      // NEW CODE - Check simple_journeys table
       final journey = await client
-          .from('journeys')
+          .from('simple_journeys')
           .select('current_phase, visit_status, status')
           .eq('id', journeyId)
           .maybeSingle();
@@ -1573,32 +1598,141 @@ class SupabaseService {
     
     debugPrint('📋 Current user: $currentUserId');
     
+    // ============================================================================
+    // OLD CODE - COMMENTED OUT (Uses old 'journeys' table)
+    // ============================================================================
+    // // Check if journey exists and user has access
+    // try {
+    //   final journeyCheck = await client
+    //       .from('journeys')
+    //       .select('id, passenger_id, current_phase, visit_status, status')
+    //       .eq('id', journeyId)
+    //       .maybeSingle();
+    //   
+    //   if (journeyCheck == null) {
+    //     debugPrint('❌ Journey not found: $journeyId');
+    //     return false;
+    //   }
+    //   
+    //   debugPrint('📋 Journey found: $journeyCheck');
+    //   debugPrint('📋 Current phase: ${journeyCheck['current_phase']}');
+    //   debugPrint('📋 Visit status: ${journeyCheck['visit_status']}');
+    //   debugPrint('📋 Status: ${journeyCheck['status']}');
+    //   debugPrint('📋 Passenger ID: ${journeyCheck['passenger_id']}');
+    // } catch (e) {
+    //   debugPrint('⚠️ Error checking journey: $e');
+    // }
+    // 
+    // // Strategy 1: Try updating all fields at once with .select() to verify
+    // try {
+    //   final result = await client.from('journeys').update({
+    //     'current_phase': 'landed',
+    //     'visit_status': 'Completed',
+    //     'status': 'completed',
+    //     'updated_at': DateTime.now().toIso8601String(),
+    //   }).eq('id', journeyId).select();
+    //   
+    //   if (result.isEmpty) {
+    //     throw Exception('Update succeeded but no rows were modified');
+    //   }
+    //   
+    //   debugPrint('✅ Journey marked as completed (all fields): $journeyId');
+    //   debugPrint('📋 Updated data: $result');
+    //   
+    //   // Add journey event
+    //   if (addEvent) {
+    //     await _addJourneyCompletedEvent(journeyId, flightId);
+    //   }
+    //   
+    //   return true;
+    // } catch (e) {
+    //   debugPrint('⚠️ Strategy 1 failed: $e');
+    //   
+    //   // Strategy 2: Try updating only visit_status (often works even if phase update fails)
+    //   try {
+    //     final result = await client.from('journeys').update({
+    //       'visit_status': 'Completed',
+    //       'status': 'completed',
+    //       'updated_at': DateTime.now().toIso8601String(),
+    //     }).eq('id', journeyId).select();
+    //     
+    //     if (result.isEmpty) {
+    //       throw Exception('Update succeeded but no rows were modified');
+    //     }
+    //     
+    //     debugPrint('✅ Journey marked as completed (visit_status only): $journeyId');
+    //     debugPrint('📋 Updated data: $result');
+    //     
+    //     // Add journey event
+    //     if (addEvent) {
+    //       await _addJourneyCompletedEvent(journeyId, flightId);
+    //     }
+    //     
+    //     return true;
+    //   } catch (e2) {
+    //     debugPrint('⚠️ Strategy 2 failed: $e2');
+    //     
+    //     // Strategy 3: Try updating only status field
+    //     try {
+    //       final result = await client.from('journeys').update({
+    //         'status': 'completed',
+    //         'updated_at': DateTime.now().toIso8601String(),
+    //       }).eq('id', journeyId).select();
+    //       
+    //       if (result.isEmpty) {
+    //         throw Exception('Update succeeded but no rows were modified');
+    //       }
+    //       
+    //       debugPrint('✅ Journey marked as completed (status only): $journeyId');
+    //       debugPrint('📋 Updated data: $result');
+    //       
+    //       // Add journey event
+    //       if (addEvent) {
+    //         await _addJourneyCompletedEvent(journeyId, flightId);
+    //       }
+    //       
+    //       return true;
+    //     } catch (e3) {
+    //       debugPrint('⚠️ Strategy 3 failed: $e3');
+    //       
+    //       // Strategy 4: Just add the journey event (this marks completion in the event log)
+    //       if (addEvent) {
+    //         try {
+    //           await _addJourneyCompletedEvent(journeyId, flightId);
+    //           debugPrint('✅ Journey completion tracked via event only: $journeyId');
+    //           // Return true because we've at least tracked it via events
+    //           return true;
+    // ============================================================================
+    // END OF OLD CODE
+    // ============================================================================
+    
+    // NEW CODE - Use simple_journeys table
     // Check if journey exists and user has access
     try {
       final journeyCheck = await client
-          .from('journeys')
+          .from('simple_journeys')
           .select('id, passenger_id, current_phase, visit_status, status')
           .eq('id', journeyId)
           .maybeSingle();
       
       if (journeyCheck == null) {
-        debugPrint('❌ Journey not found: $journeyId');
+        debugPrint('❌ Journey not found in simple_journeys: $journeyId');
         return false;
       }
       
-      debugPrint('📋 Journey found: $journeyCheck');
+      debugPrint('📋 Journey found in simple_journeys: $journeyCheck');
       debugPrint('📋 Current phase: ${journeyCheck['current_phase']}');
       debugPrint('📋 Visit status: ${journeyCheck['visit_status']}');
       debugPrint('📋 Status: ${journeyCheck['status']}');
       debugPrint('📋 Passenger ID: ${journeyCheck['passenger_id']}');
     } catch (e) {
-      debugPrint('⚠️ Error checking journey: $e');
+      debugPrint('⚠️ Error checking journey in simple_journeys: $e');
     }
     
     // Strategy 1: Try updating all fields at once with .select() to verify
     try {
-      final result = await client.from('journeys').update({
-        'current_phase': 'landed',
+      final result = await client.from('simple_journeys').update({
+        'current_phase': 'completed',
         'visit_status': 'Completed',
         'status': 'completed',
         'updated_at': DateTime.now().toIso8601String(),
@@ -1620,9 +1754,9 @@ class SupabaseService {
     } catch (e) {
       debugPrint('⚠️ Strategy 1 failed: $e');
       
-      // Strategy 2: Try updating only visit_status (often works even if phase update fails)
+      // Strategy 2: Try updating only visit_status and status
       try {
-        final result = await client.from('journeys').update({
+        final result = await client.from('simple_journeys').update({
           'visit_status': 'Completed',
           'status': 'completed',
           'updated_at': DateTime.now().toIso8601String(),
@@ -1646,7 +1780,7 @@ class SupabaseService {
         
         // Strategy 3: Try updating only status field
         try {
-          final result = await client.from('journeys').update({
+          final result = await client.from('simple_journeys').update({
             'status': 'completed',
             'updated_at': DateTime.now().toIso8601String(),
           }).eq('id', journeyId).select();
