@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 import '../../models/flight_tracking_model.dart';
 import '../../provider/flight_tracking_provider.dart';
 import '../../services/supabase_service.dart';
@@ -1098,7 +1099,175 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
               ),
             ],
           ],
+          
+          // Media Section
+          if (feedback['media_urls'] != null && (feedback['media_urls'] as List).isNotEmpty) ...[
+            SizedBox(height: 24),
+            Text(
+              'Media',
+              style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+            ),
+            SizedBox(height: 12),
+            _buildMediaGrid(feedback['media_urls'] as List<dynamic>),
+          ],
         ],
+      ),
+    );
+  }
+  
+  /// Build media grid to display images and videos
+  Widget _buildMediaGrid(List<dynamic> mediaUrls) {
+    if (mediaUrls.isEmpty) return SizedBox.shrink();
+    
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: mediaUrls.map((url) {
+        final urlString = url.toString();
+        final isVideo = urlString.toLowerCase().endsWith('.mp4') || 
+                       urlString.toLowerCase().endsWith('.mov') ||
+                       urlString.toLowerCase().endsWith('.avi') ||
+                       urlString.toLowerCase().endsWith('.mkv') ||
+                       urlString.toLowerCase().endsWith('.webm');
+        
+        return GestureDetector(
+          onTap: () {
+            if (isVideo) {
+              _playVideo(urlString);
+            } else {
+              _showImageFullScreen(urlString);
+            }
+          },
+          child: Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!, width: 1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: isVideo
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Video thumbnail placeholder
+                        Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.videocam,
+                            color: Colors.grey[600],
+                            size: 32,
+                          ),
+                        ),
+                        // Play button overlay
+                        Center(
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Image.network(
+                      urlString,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.broken_image,
+                            color: Colors.grey[600],
+                            size: 32,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  /// Show image in full screen
+  void _showImageFullScreen(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      padding: EdgeInsets.all(20),
+                      color: Colors.grey[900],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.broken_image, color: Colors.white, size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'Failed to load image',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: Icon(Icons.close, color: Colors.white, size: 32),
+                onPressed: () => Navigator.pop(context),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// Play video in full screen
+  void _playVideo(String videoUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _VideoPlayerScreen(videoUrl: videoUrl),
       ),
     );
   }
@@ -1916,6 +2085,17 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
                       SizedBox(height: 32),
                     ],
 
+                    // Media Section
+                    if (feedback['media_urls'] != null && (feedback['media_urls'] as List).isNotEmpty) ...[
+                      Text(
+                        'Media',
+                        style: AppStyles.textStyle_16_600.copyWith(color: Colors.black),
+                      ),
+                      SizedBox(height: 16),
+                      _buildMediaGrid(feedback['media_urls'] as List<dynamic>),
+                      SizedBox(height: 24),
+                    ],
+
                     // What can be better? section
                     if (dislikes.isNotEmpty) ...[
                       Row(
@@ -2517,6 +2697,105 @@ class _MyJourneyScreenState extends ConsumerState<MyJourneyScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Video player screen for playing feedback videos
+class _VideoPlayerScreen extends StatefulWidget {
+  final String videoUrl;
+
+  const _VideoPlayerScreen({required this.videoUrl});
+
+  @override
+  State<_VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<_VideoPlayerScreen> {
+  late VideoPlayerController _controller;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+      await _controller.initialize();
+      setState(() {
+        _isLoading = false;
+      });
+      _controller.play();
+    } catch (e) {
+      debugPrint('❌ Error initializing video: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Video',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Center(
+        child: _hasError
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white, size: 48),
+                  SizedBox(height: 16),
+                  Text(
+                    'Failed to load video',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              )
+            : _isLoading
+                ? CircularProgressIndicator(color: Colors.white)
+                : AspectRatio(
+                    aspectRatio: _controller.value.aspectRatio,
+                    child: VideoPlayer(_controller),
+                  ),
+      ),
+      floatingActionButton: _isLoading || _hasError
+          ? null
+          : FloatingActionButton(
+              onPressed: () {
+                setState(() {
+                  if (_controller.value.isPlaying) {
+                    _controller.pause();
+                  } else {
+                    _controller.play();
+                  }
+                });
+              },
+              child: Icon(
+                _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              ),
+            ),
     );
   }
 }
