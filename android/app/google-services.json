@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "663228736035",
+    "project_id": "exampleairline-1d410",
+    "storage_bucket": "exampleairline-1d410.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:663228736035:android:6b3cf4fcac9dcc6a978796",
+        "android_client_info": {
+          "package_name": "com.example.airline_app_12_28"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPlfJCGctWSucvTEhtw7Y9EA_KV7To5rk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
